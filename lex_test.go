@@ -1,8 +1,13 @@
 package toml
 
 import (
+	"log"
 	"testing"
 )
+
+func init() {
+	log.SetFlags(0)
+}
 
 var testSmall = `
 # This is a TOML document. Boom.
@@ -22,7 +27,8 @@ arrs = [
 	"hehe \n\r kewl",
 	[6], [],
 	5.0,
-]
+	# sweetness
+] # more comments
 # hehe
 `
 
@@ -35,5 +41,6 @@ func TestWhoop(t *testing.T) {
 		} else if item.typ == itemError {
 			t.Fatal(item.val)
 		}
+		log.Println(item)
 	}
 }

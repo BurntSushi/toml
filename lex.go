@@ -9,6 +9,7 @@ type itemType int
 
 const (
 	itemError itemType = iota
+	itemNIL
 	itemEOF
 	itemText
 	itemString
@@ -18,13 +19,10 @@ const (
 	itemArray // used internally to the lexer
 	itemDatetime
 	itemKeyGroupStart
-	itemKeyGroupSep
 	itemKeyGroupEnd
 	itemKeyStart
-	itemKeySep
 	itemArrayStart
 	itemArrayEnd
-	itemArrayValTerm
 	itemCommentStart
 )
 
@@ -170,6 +168,10 @@ func lexTop(lx *lexer) stateFn {
 // lexKey slurps up a key name until the first non-whitespace character.
 func lexKey(lx *lexer) stateFn {
 	r := lx.next()
+	if isNL(r) { // XXX: Not part of the spec?
+		return lx.errorf("Key names cannot contain new lines.")
+	}
+
 	if isWhitespace(r) {
 		lx.backup()
 		lx.emit(itemText)
@@ -189,7 +191,6 @@ func lexKeySep(lx *lexer) stateFn {
 		return lexKeySep
 	}
 	if r == keySep {
-		lx.emit(itemKeySep)
 		return lexValueStart
 	}
 	return lx.errorf("Expected key separator '%c' but found '%c'.",
@@ -205,9 +206,10 @@ func lexValueStart(lx *lexer) stateFn {
 }
 
 func lexValue(lx *lexer) stateFn {
+	lx.ignore()
 	r := lx.next()
 	if isWhitespace(r) {
-		lexSkip(lx, lexValue)
+		return lexSkip(lx, lexValue)
 	}
 
 	switch {
@@ -250,7 +252,7 @@ func lexArrayStart(lx *lexer) stateFn {
 
 	// look for any value.
 	lx.backup()
-	return lexValue
+	return lexCommentOrVal
 }
 
 // lexArrayEnd finishes an array. Assumes that ']' has just been consumed.
@@ -484,7 +486,7 @@ func lexKeyGroupText(lx *lexer) stateFn {
 		lx.backup()
 		lx.emit(itemText)
 		lx.accept(keyGroupSep)
-		lx.emit(itemKeyGroupSep)
+		lx.ignore()
 		return lexKeyGroupTextStart
 	case keyGroupEnd:
 		lx.backup()
@@ -503,33 +505,72 @@ func lexValTerm(lx *lexer) stateFn {
 		return lexNewLine(lx, lexTop)
 	}
 
-	// We must now look for an array terminator. Skip whitespace.
+	return lexTermThenVal
+}
+
+// lexCommentOrVal tries to consume the first value of an array while
+// handling comments.
+func lexCommentOrVal(lx *lexer) stateFn {
 	r := lx.next()
-	skipWhitespace := func() {
-		for ; isWhitespace(r) || isNL(r); r = lx.next() {
-		}
+	if isWhitespace(r) || isNL(r) {
+		return lexCommentOrVal
 	}
 
-	skipWhitespace()
+	if r == commentStart {
+		lx.backup()
+		lx.ignore()
+		return lexNewLine(lx, lexCommentOrVal)
+	}
+
+	lx.backup()
+	return lexValue
+}
+
+// lexTermThenVal consumes an array terminator and starts parsing a value.
+// We handle comments too.
+func lexTermThenVal(lx *lexer) stateFn {
+	r := lx.next()
+	if isWhitespace(r) || isNL(r) {
+		return lexTermThenVal
+	}
+
 	switch r {
+	case commentStart:
+		lx.backup()
+		lx.ignore()
+		return lexNewLine(lx, lexTermThenVal) // we still need a terminator
+	case arrayValTerm:
+		// commas are terminators, so now we need a value or a ']'
+		return lexValOrArrayEnd
 	case arrayEnd:
 		return lexArrayEnd
-	case arrayValTerm:
-		r = lx.next()
-
-		// The ',' can precede a ']', since it is a terminator and not a sep.
-		skipWhitespace()
-		if r == arrayEnd {
-			return lexArrayEnd
-		}
-
-		// Nevermind, it's a separator. Backup and lex value.
-		lx.backup()
-		lx.ignore() // trash any garbage we got
-		return lexValue
 	}
 	return lx.errorf("Expected array terminator ('%c' or '%c'), but found "+
 		"'%c' instead.", arrayEnd, arrayValTerm, r)
+}
+
+// lexValOrArrayEnd looks for ']' and finishes the array if it finds one.
+// Otherwise, it looks for a value.
+// We handle comments too.
+func lexValOrArrayEnd(lx *lexer) stateFn {
+	r := lx.next()
+	if isWhitespace(r) || isNL(r) {
+		return lexValOrArrayEnd
+	}
+
+	switch r {
+	case commentStart:
+		lx.backup()
+		lx.ignore()
+		return lexNewLine(lx, lexValOrArrayEnd)
+	case arrayEnd:
+		return lexArrayEnd
+	case eof:
+		return lx.errorf("Expected array terminator '%c', but got EOF.",
+			arrayEnd)
+	}
+	lx.backup()
+	return lexValue
 }
 
 // lexNewLine enforces a new line and moves on to nextState.
@@ -591,43 +632,40 @@ func isNL(r rune) bool {
 	return r == '\n' || r == '\r'
 }
 
-func (item item) String() string {
-	typ := "Unknown"
-	switch item.typ {
+func (itype itemType) String() string {
+	switch itype {
 	case itemError:
-		typ = "Error"
+		return "Error"
 	case itemEOF:
-		typ = "EOF"
+		return "EOF"
 	case itemText:
-		typ = "Text"
+		return "Text"
 	case itemString:
-		typ = "String"
+		return "String"
 	case itemBool:
-		typ = "Bool"
+		return "Bool"
 	case itemInteger:
-		typ = "Integer"
+		return "Integer"
 	case itemFloat:
-		typ = "Float"
+		return "Float"
 	case itemDatetime:
-		typ = "DateTime"
+		return "DateTime"
 	case itemKeyGroupStart:
-		typ = "KeyGroupStart"
-	case itemKeyGroupSep:
-		typ = "KeyGroupSep"
+		return "KeyGroupStart"
 	case itemKeyGroupEnd:
-		typ = "KeyGroupEnd"
+		return "KeyGroupEnd"
 	case itemKeyStart:
-		typ = "KeyStart"
-	case itemKeySep:
-		typ = "KeySep"
+		return "KeyStart"
 	case itemArrayStart:
-		typ = "ArrayStart"
+		return "ArrayStart"
 	case itemArrayEnd:
-		typ = "ArrayEnd"
-	case itemArrayValTerm:
-		typ = "ArrayValTerm"
+		return "ArrayEnd"
 	case itemCommentStart:
-		typ = "CommentStart"
+		return "CommentStart"
 	}
-	return fmt.Sprintf("(%s, %s)", typ, item.val)
+	panic(fmt.Sprintf("BUG: Unknown type '%s'.", itype))
+}
+
+func (item item) String() string {
+	return fmt.Sprintf("(%s, %s)", item.typ.String(), item.val)
 }
