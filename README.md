@@ -17,8 +17,8 @@ go get github.com/BurntSushi/toml
 Try the toml checker:
 
 ```bash
-go get github.com/BurntSushi/toml/tomlcheck
-tomlcheck some-toml-file.toml
+go get github.com/BurntSushi/toml/tomlv
+tomlv some-toml-file.toml
 ```
 
 ## Examples
