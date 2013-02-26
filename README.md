@@ -14,7 +14,7 @@ Installation:
 go get github.com/BurntSushi/toml
 ```
 
-Try the toml checker:
+Try the toml validator:
 
 ```bash
 go get github.com/BurntSushi/toml/tomlv
