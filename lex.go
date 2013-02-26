@@ -45,7 +45,7 @@ type lexer struct {
 	start int
 	pos   int
 	width int
-	line int
+	line  int
 	state stateFn
 	items chan item
 
@@ -53,8 +53,8 @@ type lexer struct {
 }
 
 type item struct {
-	typ itemType
-	val string
+	typ  itemType
+	val  string
 	line int
 }
 
@@ -74,7 +74,7 @@ func lex(input string) *lexer {
 	lx := &lexer{
 		input: input,
 		state: lexTop,
-		line: 1,
+		line:  1,
 		items: make(chan item, 10),
 	}
 	return lx

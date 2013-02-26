@@ -13,7 +13,7 @@ var e = fmt.Errorf
 // Decode will decode the contents of `data` in TOML format into a pointer
 // `v`.
 //
-// TOML hashes correspond to Go structs or maps. (Dealer's choice. They can be 
+// TOML hashes correspond to Go structs or maps. (Dealer's choice. They can be
 // used interchangeably.)
 //
 // TOML datetimes correspond to Go `time.Time` values.
