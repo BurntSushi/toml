@@ -35,7 +35,7 @@ Perfection = [ 6, 28, 496, 8128 ]
 DOB = 1987-07-05T05:45:00Z
 ```
 
-Which could defined in Go as:
+Which could be defined in Go as:
 
 ```go
 type Config struct {
