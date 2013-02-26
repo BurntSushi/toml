@@ -124,7 +124,7 @@ func parse(data string) (ms map[string]interface{}, err error) {
 func (p *parser) next() item {
 	it := p.lx.nextItem()
 	if it.typ == itemError {
-		p.errorf("%s", it.val)
+		p.errorf("Near line %d: %s", it.line, it.val)
 	}
 	return it
 }

@@ -39,11 +39,10 @@ arrs = [ # hmm
 `
 
 func TestParse(t *testing.T) {
-	mappings, err := parse(testSmall2)
+	_, err := parse(testSmall2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	printMap(mappings, 0)
 }
 
 func printMap(m map[string]interface{}, depth int) {

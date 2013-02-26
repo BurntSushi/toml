@@ -41,6 +41,5 @@ func TestWhoop(t *testing.T) {
 		} else if item.typ == itemError {
 			t.Fatal(item.val)
 		}
-		log.Println(item)
 	}
 }

@@ -45,6 +45,7 @@ type lexer struct {
 	start int
 	pos   int
 	width int
+	line int
 	state stateFn
 	items chan item
 
@@ -54,6 +55,7 @@ type lexer struct {
 type item struct {
 	typ itemType
 	val string
+	line int
 }
 
 func (lx *lexer) nextItem() item {
@@ -72,13 +74,14 @@ func lex(input string) *lexer {
 	lx := &lexer{
 		input: input,
 		state: lexTop,
+		line: 1,
 		items: make(chan item, 10),
 	}
 	return lx
 }
 
 func (lx *lexer) emit(typ itemType) {
-	lx.items <- item{typ, lx.input[lx.start:lx.pos]}
+	lx.items <- item{typ, lx.input[lx.start:lx.pos], lx.line}
 	lx.start = lx.pos
 }
 
@@ -88,6 +91,9 @@ func (lx *lexer) next() (r rune) {
 		return eof
 	}
 
+	if lx.input[lx.pos] == '\n' {
+		lx.line++
+	}
 	r, lx.width = utf8.DecodeRuneInString(lx.input[lx.pos:])
 	lx.pos += lx.width
 	return r
@@ -101,6 +107,9 @@ func (lx *lexer) ignore() {
 // backup steps back one rune. Can be called only once per call of next.
 func (lx *lexer) backup() {
 	lx.pos -= lx.width
+	if lx.pos < len(lx.input) && lx.input[lx.pos] == '\n' {
+		lx.line--
+	}
 }
 
 // accept consumes the next rune if it's equal to `valid`.
@@ -132,6 +141,7 @@ func (lx *lexer) errorf(format string, v ...interface{}) stateFn {
 	lx.items <- item{
 		itemError,
 		fmt.Sprintf(format, v...),
+		lx.line,
 	}
 	return nil
 }
@@ -657,7 +667,7 @@ func (itype itemType) String() string {
 	case itemKeyStart:
 		return "KeyStart"
 	case itemArrayStart:
-		return "ArrayStart"
+		return "Array"
 	case itemArrayEnd:
 		return "ArrayEnd"
 	case itemCommentStart:
