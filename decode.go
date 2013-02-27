@@ -25,6 +25,8 @@ var e = fmt.Errorf
 // TOML keys can map to either keys in a Go map or field names in a Go
 // struct. The special `toml` struct tag may be used to map TOML keys to
 // struct fields that don't match the key name exactly. (See the example.)
+// A case insensitive match to struct names will be tried if an exact match
+// can't be found.
 //
 // The mapping between TOML values and Go values is loose. That is, there
 // may exist TOML values that cannot be placed into your representation, and
