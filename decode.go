@@ -100,7 +100,9 @@ func unify(data interface{}, rv reflect.Value) error {
 	return e("Unsupported type '%s'.", rv.Kind())
 }
 
-func insensitiveGet(tmap map[string]interface{}, kname string) (datum interface{}, ok bool) {
+func insensitiveGet(
+	tmap map[string]interface{}, kname string) (datum interface{}, ok bool) {
+
 	datum, ok = tmap[kname]
 	if ok {
 		return

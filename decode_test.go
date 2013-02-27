@@ -118,7 +118,9 @@ func TestCase(t *testing.T) {
 		Field:     "neat", // encoding/json would store "messy" here
 		Once:      "just once",
 		OncE:      "just once", // wait, what?
-		Nest:      InsensitiveNest{Ed: InsensitiveEd{NestedString: "another string"}},
+		Nest: InsensitiveNest{
+			Ed: InsensitiveEd{NestedString: "another string"},
+		},
 	}
 	var got Insensitive
 	err = Decode(caseToml, &got)
