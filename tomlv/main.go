@@ -20,6 +20,8 @@ func usage() {
 	log.Printf("Usage: %s toml-file [ toml-file ... ]\n",
 		path.Base(os.Args[0]))
 	flag.PrintDefaults()
+
+	os.Exit(1)
 }
 
 func main() {
