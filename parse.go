@@ -179,7 +179,7 @@ func (p *parser) topLevel(item item) {
 func (p *parser) value(it item) interface{} {
 	switch it.typ {
 	case itemString:
-		return it.val
+		return replaceEscapes(it.val)
 	case itemBool:
 		switch it.val {
 		case "true":
@@ -244,6 +244,17 @@ func (p *parser) value(it item) interface{} {
 	}
 	p.bug("Unexpected value type: %s", it.typ)
 	panic("unreachable")
+}
+
+func replaceEscapes(s string) string {
+	return strings.NewReplacer(
+		"\\0", string(byte(0)),
+		"\\t", "\t",
+		"\\n", "\n",
+		"\\r", "\r",
+		"\\\"", "\"",
+		"\\\\", "\\",
+	).Replace(s)
 }
 
 type mappingsNice []*mapping
