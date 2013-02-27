@@ -480,7 +480,7 @@ func lexFalse(lx *lexer) stateFn {
 func lexKeyGroupTextStart(lx *lexer) stateFn {
 	r := lx.next()
 	if r == '.' || r == ']' {
-		lx.errorf("Key group names cannot be empty.")
+		return lx.errorf("Key group names cannot be empty.")
 	}
 	return lexKeyGroupText(lx)
 }
