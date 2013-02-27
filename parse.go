@@ -80,9 +80,12 @@ func toMap(ms []*mapping) (map[string]interface{}, error) {
 		base := m.key[len(m.key)-1]
 
 		// At this point, maps have been created explicitly.
-		// But if this is just a key group create an empty map and move on.
+		// But if this is just a key group create an empty map if
+		// one doesn't exist and move on.
 		if m.value == nil {
-			submap[base] = make(map[string]interface{}, 5)
+			if _, ok := submap[base]; !ok {
+				submap[base] = make(map[string]interface{}, 5)
+			}
 			continue
 		}
 
