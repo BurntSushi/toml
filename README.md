@@ -117,37 +117,40 @@ And the corresponding Go types are:
 
 ```go
 type tomlConfig struct {
-	Title string `toml:"title"`
-	Owner ownerInfo `toml:"owner"`
+	Title string
+	Owner ownerInfo
 	DB database `toml:"database"`
-	Servers map[string]server `toml:"servers"`
-	Clients clients `toml:"clients"`
+	Servers map[string]server
+	Clients clients
 }
 
 type ownerInfo struct {
-	Name string `toml:"name"`
+	Name string
 	Org string `toml:"organization"`
-	Bio string `toml:"bio"`
-	DOB time.Time `toml:"dob"`
+	Bio string
+	DOB time.Time
 }
 
 type database struct {
-	Server string `toml:"server"`
-	Ports []int `toml:"ports"`
+	Server string
+	Ports []int
 	ConnMax int `toml:"connection_max"`
-	Enabled bool `toml:"enabled"`
+	Enabled bool
 }
 
 type server struct {
-	IP string `toml:"ip"`
-	DC string `toml:"dc"`
+	IP string
+	DC string
 }
 
 type clients struct {
-	Data [][]interface{} `toml:"data"`
-	Hosts []string `toml:"hosts"`
+	Data [][]interface{}
+	Hosts []string
 }
 ```
+
+Note that a case insensitive match will be tried if an exact match can't be
+found.
 
 A working example of the above can be found in `_examples/example.{go,toml}`.
 
