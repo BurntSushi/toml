@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -24,6 +25,8 @@ var e = fmt.Errorf
 // TOML keys can map to either keys in a Go map or field names in a Go
 // struct. The special `toml` struct tag may be used to map TOML keys to
 // struct fields that don't match the key name exactly. (See the example.)
+// A case insensitive match to struct names will be tried if an exact match
+// can't be found.
 //
 // The mapping between TOML values and Go values is loose. That is, there
 // may exist TOML values that cannot be placed into your representation, and
@@ -97,6 +100,21 @@ func unify(data interface{}, rv reflect.Value) error {
 	return e("Unsupported type '%s'.", rv.Kind())
 }
 
+func insensitiveGet(tmap map[string]interface{}, kname string) (datum interface{}, ok bool) {
+	datum, ok = tmap[kname]
+	if ok {
+		return
+	}
+	for k, v := range tmap {
+		if strings.EqualFold(kname, k) {
+			datum = v
+			ok = true
+			return
+		}
+	}
+	return nil, false
+}
+
 func unifyStruct(mapping interface{}, rv reflect.Value) error {
 	rt := rv.Type()
 	tmap, ok := mapping.(map[string]interface{})
@@ -112,7 +130,7 @@ func unifyStruct(mapping interface{}, rv reflect.Value) error {
 		if len(kname) == 0 {
 			kname = sft.Name
 		}
-		if datum, ok := tmap[kname]; ok {
+		if datum, ok := insensitiveGet(tmap, kname); ok {
 			sf := indirect(rv.Field(i))
 
 			// Don't try to mess with unexported types and other such things.

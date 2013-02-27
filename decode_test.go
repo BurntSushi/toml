@@ -3,6 +3,7 @@ package toml
 import (
 	"fmt"
 	"log"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -56,6 +57,77 @@ type simple struct {
 	Andrew  string
 	Kait    string
 	Cats    kitties
+}
+
+// Case insensitive matching tests.
+// A bit more comprehensive than needed given the current implementation,
+// but implementations change.
+// Probably still missing demonstrations of some ugly corner cases regarding
+// case insensitive matching and multiple fields.
+var caseToml = `
+tOpString = "string"
+tOpInt = 1
+tOpFloat = 1.1
+tOpBool = true
+tOpdate = 2006-01-02T15:04:05Z
+tOparray = [ "array" ]
+Match = "i should be in Match only"
+MatcH = "i should be in MatcH only"
+Field = "neat"
+FielD = "messy"
+once = "just once"
+[nEst.eD]
+nEstedString = "another string"
+`
+
+type Insensitive struct {
+	TopString string
+	TopInt    int
+	TopFloat  float64
+	TopBool   bool
+	TopDate   time.Time
+	TopArray  []string
+	Match     string
+	MatcH     string
+	Field     string
+	Once      string
+	OncE      string
+	Nest      InsensitiveNest
+}
+type InsensitiveNest struct {
+	Ed InsensitiveEd
+}
+type InsensitiveEd struct {
+	NestedString string
+}
+
+func TestCase(t *testing.T) {
+	tme, err := time.Parse(time.RFC3339, time.RFC3339[:len(time.RFC3339)-5])
+	if err != nil {
+		panic(err)
+	}
+	expected := Insensitive{
+		TopString: "string",
+		TopInt:    1,
+		TopFloat:  1.1,
+		TopBool:   true,
+		TopDate:   tme,
+		TopArray:  []string{"array"},
+		MatcH:     "i should be in MatcH only",
+		Match:     "i should be in Match only",
+		Field:     "neat", // encoding/json would store "messy" here
+		Once:      "just once",
+		OncE:      "just once", // wait, what?
+		Nest:      InsensitiveNest{Ed: InsensitiveEd{NestedString: "another string"}},
+	}
+	var got Insensitive
+	err = Decode(caseToml, &got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(expected, got) {
+		t.Fatalf("\n%#v\n!=\n%#v\n", expected, got)
+	}
 }
 
 func TestDecode(t *testing.T) {
