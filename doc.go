@@ -4,7 +4,7 @@ via reflection.
 
 Specification: https://github.com/mojombo/toml
 
-Use github.com/BurntSushi/toml/tomlcheck to check whether a file is valid
+Use github.com/BurntSushi/toml/tomlv to check whether a file is valid
 TOML or not, with helpful error messages.
 */
 package toml
