@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -97,6 +98,21 @@ func unify(data interface{}, rv reflect.Value) error {
 	return e("Unsupported type '%s'.", rv.Kind())
 }
 
+func insensitiveGet(tmap map[string]interface{}, kname string) (datum interface{}, ok bool) {
+	datum, ok = tmap[kname]
+	if ok {
+		return
+	}
+	for k, v := range tmap {
+		if strings.EqualFold(kname, k) {
+			datum = v
+			ok = true
+			return
+		}
+	}
+	return nil, false
+}
+
 func unifyStruct(mapping interface{}, rv reflect.Value) error {
 	rt := rv.Type()
 	tmap, ok := mapping.(map[string]interface{})
@@ -112,7 +128,7 @@ func unifyStruct(mapping interface{}, rv reflect.Value) error {
 		if len(kname) == 0 {
 			kname = sft.Name
 		}
-		if datum, ok := tmap[kname]; ok {
+		if datum, ok := insensitiveGet(tmap, kname); ok {
 			sf := indirect(rv.Field(i))
 
 			// Don't try to mess with unexported types and other such things.
