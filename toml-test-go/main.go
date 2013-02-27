@@ -77,7 +77,7 @@ func translate(tomlData interface{}) interface{} {
 
 func tag(typeName string, data interface{}) map[string]interface{} {
 	return map[string]interface{}{
-		"type": typeName,
+		"type":  typeName,
 		"value": data,
 	}
 }

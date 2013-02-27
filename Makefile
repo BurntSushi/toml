@@ -2,7 +2,7 @@ install:
 	go install
 
 fmt:
-	gofmt -w *.go
+	gofmt -w *.go */*.go
 	colcheck *.go */*.go
 
 tags:
