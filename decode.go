@@ -194,7 +194,7 @@ func unifyFloat64(data interface{}, rv reflect.Value) error {
 }
 
 func unifyInt(data interface{}, rv reflect.Value) error {
-	if num, ok := data.(int); ok {
+	if num, ok := data.(int64); ok {
 		rv.SetInt(int64(num))
 		return nil
 	}

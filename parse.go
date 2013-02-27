@@ -189,15 +189,29 @@ func (p *parser) value(it item) interface{} {
 		}
 		p.bug("Expected boolean value, but got '%s'.", it.val)
 	case itemInteger:
-		num, err := strconv.Atoi(it.val)
+		num, err := strconv.ParseInt(it.val, 10, 64)
 		if err != nil {
-			p.bug("Expected integer value, but got '%s'.", it.val)
+			if e, ok := err.(*strconv.NumError); ok &&
+				e.Err == strconv.ErrRange {
+
+				p.errorf("Integer '%s' is out of the range of 64-bit "+
+					"signed integers.", it.val)
+			} else {
+				p.bug("Expected integer value, but got '%s'.", it.val)
+			}
 		}
 		return num
 	case itemFloat:
 		num, err := strconv.ParseFloat(it.val, 64)
 		if err != nil {
-			p.bug("Expected float value, but got '%s'.", it.val)
+			if e, ok := err.(*strconv.NumError); ok &&
+				e.Err == strconv.ErrRange {
+
+				p.errorf("Float '%s' is out of the range of 64-bit "+
+					"IEEE-754 floating-point numbers.", it.val)
+			} else {
+				p.bug("Expected float value, but got '%s'.", it.val)
+			}
 		}
 		return num
 	case itemDatetime:
