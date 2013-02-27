@@ -4,7 +4,8 @@ TOML stands for Tom's Obvious, Minimal Language.
 
 Spec: https://github.com/mojombo/toml
 
-Compatible with [f68d014bfd](https://github.com/mojombo/toml/commit/f68d014bfd4a84a64fb5f6a7c1a83a4162415d4b).
+Compatible with TOML commit
+[3f4224ecdc](https://github.com/mojombo/toml/commit/3f4224ecdc4a65fdd28b4fb70d46f4c0bd3700aa).
 
 Documentation: http://godoc.org/github.com/BurntSushi/toml
 
