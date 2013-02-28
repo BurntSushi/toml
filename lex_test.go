@@ -32,8 +32,13 @@ arrs = [
 # hehe
 `
 
-func TestWhoop(t *testing.T) {
-	lx := lex(testSmall)
+var testSmaller = `
+andrew = "gallant"
+kait = "brady"
+`
+
+func TestLexer(t *testing.T) {
+	lx := lex(testSmaller)
 	for {
 		item := lx.nextItem()
 		if item.typ == itemEOF {
@@ -41,5 +46,6 @@ func TestWhoop(t *testing.T) {
 		} else if item.typ == itemError {
 			t.Fatal(item.val)
 		}
+		// log.Println(item)
 	}
 }
