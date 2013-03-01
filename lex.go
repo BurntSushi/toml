@@ -9,14 +9,13 @@ type itemType int
 
 const (
 	itemError itemType = iota
-	itemNIL
+	itemNIL            // used in the parser to indicate no type
 	itemEOF
 	itemText
 	itemString
 	itemBool
 	itemInteger
 	itemFloat
-	itemArray // used internally to the lexer
 	itemDatetime
 	itemKeyGroupStart
 	itemKeyGroupEnd
@@ -36,6 +35,8 @@ const (
 	arrayEnd      = ']'
 	arrayValTerm  = ','
 	commentStart  = '#'
+	stringStart   = '"'
+	stringEnd     = '"'
 )
 
 type stateFn func(lx *lexer) stateFn
@@ -49,7 +50,12 @@ type lexer struct {
 	state stateFn
 	items chan item
 
-	arrayDepth int
+	// A stack of state functions used to maintain context.
+	// The idea is to reuse parts of the state machine in various places.
+	// For example, values can appear at the top level or within arbitrarily
+	// nested arrays. The last state on the stack is used after a value has
+	// been lexed. Similarly for comments.
+	stack []stateFn
 }
 
 type item struct {
@@ -76,8 +82,22 @@ func lex(input string) *lexer {
 		state: lexTop,
 		line:  1,
 		items: make(chan item, 10),
+		stack: make([]stateFn, 0, 10),
 	}
 	return lx
+}
+
+func (lx *lexer) push(state stateFn) {
+	lx.stack = append(lx.stack, state)
+}
+
+func (lx *lexer) pop() stateFn {
+	if len(lx.stack) == 0 {
+		return lx.errorf("BUG in lexer: no states to pop.")
+	}
+	last := lx.stack[len(lx.stack)-1]
+	lx.stack = lx.stack[0 : len(lx.stack)-1]
+	return last
 }
 
 func (lx *lexer) emit(typ itemType) {
@@ -128,275 +148,267 @@ func (lx *lexer) peek() rune {
 	return r
 }
 
-// isValTerm returns true if the given character is a value terminator.
-// Value terminators depend on whether we're parsing an array.
-func (lx *lexer) isValTerm(r rune) bool {
-	if lx.arrayDepth == 0 {
-		return isWhitespace(r) || isNL(r)
+// errorf stops all lexing by emitting an error and returning `nil`.
+// Note that any value that is a character is escaped if it's a special
+// character (new lines, tabs, etc.).
+func (lx *lexer) errorf(format string, values ...interface{}) stateFn {
+	for i, value := range values {
+		if v, ok := value.(rune); ok {
+			values[i] = escapeSpecial(v)
+		}
 	}
-	return isWhitespace(r) || isNL(r) || r == arrayEnd || r == arrayValTerm
-}
-
-func (lx *lexer) errorf(format string, v ...interface{}) stateFn {
 	lx.items <- item{
 		itemError,
-		fmt.Sprintf(format, v...),
+		fmt.Sprintf(format, values...),
 		lx.line,
 	}
 	return nil
 }
 
-// lexTop parses any valid top-level declaration.
-// In TOML, everything except for values and comments are always at the
-// top level.
+// lexTop consumes elements at the top level of TOML data.
 func lexTop(lx *lexer) stateFn {
 	r := lx.next()
-	if r == eof {
-		lx.emit(itemEOF)
-		return nil
-	}
 	if isWhitespace(r) || isNL(r) {
 		return lexSkip(lx, lexTop)
 	}
 
 	switch r {
 	case commentStart:
-		lx.backup()
-		return lexNewLine(lx, lexTop)
+		lx.push(lexTop)
+		return lexCommentStart
 	case keyGroupStart:
 		lx.emit(itemKeyGroupStart)
-		return lexKeyGroupTextStart
+		return lexKeyGroupStart
+	case eof:
+		if lx.pos > lx.start {
+			return lx.errorf("Unexpected EOF.")
+		}
+		lx.emit(itemEOF)
+		return nil
 	}
 
-	// All top-level declarations are comments, key groups or key-value
-	// pairs. We must now expect a key-value pair.
+	// At this point, the only valid item can be a key, so we back up
+	// and let the key lexer do the rest.
 	lx.backup()
-	lx.emit(itemKeyStart)
-	return lexKey
+	lx.push(lexTopValueEnd)
+	return lexKeyStart
 }
 
-// lexKey slurps up a key name until the first non-whitespace character.
-func lexKey(lx *lexer) stateFn {
+// lexTopValueEnd is entered whenever a top-level value has been consumed.
+// It must see only whitespace, and will turn back to lexTop upon a new line.
+// If it sees EOF, it will quit the lexer successfully.
+func lexTopValueEnd(lx *lexer) stateFn {
 	r := lx.next()
-	if isNL(r) { // XXX: Not part of the spec?
-		return lx.errorf("Key names cannot contain new lines.")
-	}
-
-	if isWhitespace(r) {
-		lx.backup()
-		lx.emit(itemText)
-		return lexKeySep
-	}
-	return lexKey
-}
-
-// lexKeySep slurps up whitespace up until the key separator '='.
-// Assumes that at least one whitespace character was seen after the key name.
-// (But not necessarily consumed.)
-func lexKeySep(lx *lexer) stateFn {
-	r := lx.next()
-
-	if isWhitespace(r) {
+	switch {
+	case r == commentStart:
+		// a comment will read to a new line for us.
+		lx.push(lexTop)
+		return lexCommentStart
+	case isWhitespace(r):
+		return lexTopValueEnd
+	case isNL(r):
 		lx.ignore()
-		return lexKeySep
+		return lexTop
+	case r == eof:
+		lx.ignore()
+		return lexTop
 	}
-	if r == keySep {
-		return lexValueStart
+	return lx.errorf("Expected a top-level value to end with a new line, "+
+		"comment or EOF, but got '%s' instead.", r)
+}
+
+// lexKeyGroup lexes the beginning of a key group. Namely, it makes sure that
+// it starts with a character other than '.' and ']'.
+// It assumes that '[' has already been consumed.
+func lexKeyGroupStart(lx *lexer) stateFn {
+	switch lx.next() {
+	case keyGroupEnd:
+		return lx.errorf("Unexpected end of key group. (Key groups cannot " +
+			"be empty.)")
+	case keyGroupSep:
+		return lx.errorf("Unexpected key group separator. (Key groups cannot " +
+			"be empty.)")
 	}
-	return lx.errorf("Expected key separator '%c' but found '%c'.",
+	return lexKeyGroup
+}
+
+// lexKeyGroup lexes the name of a key group. It assumes that at least one
+// valid character for the key group has already been read.
+func lexKeyGroup(lx *lexer) stateFn {
+	switch lx.peek() {
+	case keyGroupEnd:
+		lx.emit(itemText)
+		lx.next()
+		lx.emit(itemKeyGroupEnd)
+		return lexTop
+	case keyGroupSep:
+		lx.emit(itemText)
+		lx.next()
+		lx.ignore()
+		return lexKeyGroupStart
+	}
+
+	lx.next()
+	return lexKeyGroup
+}
+
+// lexKeyStart consumes a key name up until the first non-whitespace character.
+// lexKeyStart will ignore whitespace.
+func lexKeyStart(lx *lexer) stateFn {
+	r := lx.peek()
+	switch {
+	case r == keySep:
+		return lx.errorf("Unexpected key separator '%s'.", keySep)
+	case isWhitespace(r) || isNL(r):
+		lx.next()
+		return lexSkip(lx, lexKeyStart)
+	}
+
+	lx.ignore()
+	lx.emit(itemKeyStart)
+	lx.next()
+	return lexKey
+}
+
+// lexKey consumes the text of a key. Assumes that the first character (which
+// is not whitespace) has already been consumed.
+func lexKey(lx *lexer) stateFn {
+	r := lx.peek()
+
+	// XXX: Possible divergence from spec?
+	// "Keys start with the first non-whitespace character and end with the
+	// last non-whitespace character before the equals sign."
+	// Note here that whitespace is either a tab or a space.
+	// But we'll call it quits if we see a new line too.
+	if isWhitespace(r) || isNL(r) {
+		lx.emit(itemText)
+		return lexKeyEnd
+	}
+
+	lx.next()
+	return lexKey
+}
+
+// lexKeyEnd consumes the end of a key (up to the key separator).
+// Assumes that the first whitespace character after a key has NOT been
+// consumed.
+func lexKeyEnd(lx *lexer) stateFn {
+	r := lx.next()
+	switch {
+	case isWhitespace(r) || isNL(r):
+		return lexSkip(lx, lexKeyEnd)
+	case r == keySep:
+		return lexValue
+	}
+	return lx.errorf("Expected key separator '%s', but got '%s' instead.",
 		keySep, r)
 }
 
-func lexValueStart(lx *lexer) stateFn {
-	if isWhitespace(lx.next()) {
-		return lexSkip(lx, lexValueStart)
-	}
-	lx.backup()
-	return lexValue
-}
-
+// lexValue starts the consumption of a value anywhere a value is expected.
+// lexValue will ignore whitespace.
+// After a value is lexed, the last state on the next is popped and returned.
 func lexValue(lx *lexer) stateFn {
-	lx.ignore()
+	// We allow whitespace to precede a value, but NOT new lines.
+	// In array syntax, the array states are responsible for ignoring new lines.
 	r := lx.next()
 	if isWhitespace(r) {
 		return lexSkip(lx, lexValue)
 	}
 
 	switch {
-	case r == '\r':
-		fallthrough
-	case r == '\n':
-		return lx.errorf("Expected TOML value, but found nil instead.")
-	case r == '"': // strings
-		lx.ignore()
-		return lexString
-	case r == 't': // bool true
-		return lexTr
-	case r == 'f': // bool false
-		return lexFa
-	case r == '-': // negative number
-		return lexNegative
-	case r >= '0' && r <= '9': // any number or date
-		return lexNumber
-	case r == '.': // special case error message
-		return lx.errorf("TOML float values must be of the form '0.x'.")
 	case r == arrayStart:
+		lx.ignore()
 		lx.emit(itemArrayStart)
-		return lexArrayStart
+		return lexArrayValue
+	case r == stringStart:
+		lx.ignore() // ignore the '"'
+		return lexString
+	case r == 't':
+		return lexTrue
+	case r == 'f':
+		return lexFalse
+	case r == '-':
+		return lexNumberStart
+	case isDigit(r):
+		lx.backup() // avoid an extra state and use the same as above
+		return lexNumberOrDateStart
+	case r == '.': // special error case, be kind to users
+		return lx.errorf("Floats must start with a digit, not '.'.")
 	}
-	return lx.errorf("Expected TOML value but found '%c' instead.", r)
+	return lx.errorf("Expected value but found '%s' instead.", r)
 }
 
-// lexArrayStart consumes an array, assuming that '[' has just been consumed.
-func lexArrayStart(lx *lexer) stateFn {
+// lexArrayValue consumes one value in an array. It assumes that '[' or ','
+// have already been consumed. All whitespace and new lines are ignored.
+func lexArrayValue(lx *lexer) stateFn {
 	r := lx.next()
-	if isWhitespace(r) || isNL(r) {
-		return lexSkip(lx, lexArrayStart)
-	}
-	lx.arrayDepth++
-
-	// Handle empty arrays.
-	if r == arrayEnd {
+	switch {
+	case isWhitespace(r) || isNL(r):
+		return lexSkip(lx, lexArrayValue)
+	case r == commentStart:
+		lx.push(lexArrayValue)
+		return lexCommentStart
+	case r == arrayValTerm:
+		return lx.errorf("Unexpected array value terminator '%s'.",
+			arrayValTerm)
+	case r == arrayEnd:
 		return lexArrayEnd
 	}
 
-	// look for any value.
 	lx.backup()
-	return lexCommentOrVal
+	lx.push(lexArrayValueEnd)
+	return lexValue
 }
 
-// lexArrayEnd finishes an array. Assumes that ']' has just been consumed.
-func lexArrayEnd(lx *lexer) stateFn {
-	lx.backup()
-	lx.ignore()
-	lx.accept(arrayEnd)
-
-	lx.arrayDepth--
-	lx.emit(itemArrayEnd)
-	return lexValTerm
-}
-
-// lexNegative consumes a negative number (could be float or int).
-func lexNegative(lx *lexer) stateFn {
+// lexArrayValueEnd consumes the cruft between values of an array. Namely,
+// it ignores whitespace and expects either a ',' or a ']'.
+func lexArrayValueEnd(lx *lexer) stateFn {
 	r := lx.next()
-	if r == '.' {
-		return lx.errorf("TOML float values must be of the form '-0.x'.")
-	}
-	if r >= '0' && r <= '9' {
-		return lexNumber
-	}
-	return lx.errorf("Expected a digit after negative sign, but found '%c'.", r)
-}
-
-// lexNumber consumes a number. It will consume an entire integer, or
-// diverge to a float state if a '.' is found. Or it will diverge to a date
-// state if a '-' is found.
-// It is assumed that the first digit has already been consumed.
-func lexNumber(lx *lexer) stateFn {
-	r := lx.next()
-	if lx.isValTerm(r) {
-		lx.backup()
-		lx.emit(itemInteger)
-		return lexValTerm
-	}
-
 	switch {
-	case r >= '0' && r <= '9':
-		return lexNumber
-	case r == '.':
-		return lexFloatFirstAfterDot
-	case r == '-':
-		if lx.pos-lx.start != 5 {
-			return lx.errorf("All ISO8601 dates must be in full Zulu form.")
-		}
-		return lexZuluDatetimeAfterYear
+	case isWhitespace(r) || isNL(r):
+		return lexSkip(lx, lexArrayValueEnd)
+	case r == commentStart:
+		lx.push(lexArrayValueEnd)
+		return lexCommentStart
+	case r == arrayValTerm:
+		return lexArrayValue // move on to the next value
+	case r == arrayEnd:
+		return lexArrayEnd
 	}
-	return lx.errorf("Expected either a digit or a decimal point, but "+
-		"found '%c' instead.", r)
+	return lx.errorf("Expected an array value terminator '%s' or an array "+
+		"terminator '%s', but got '%s' instead.", arrayValTerm, arrayEnd, r)
 }
 
-// lexZuluDatetimeAfterYear consumes the rest of an ISO8601 datetime in
-// full Zulu form. Assumes that "YYYY-" has already been consumed.
-func lexZuluDatetimeAfterYear(lx *lexer) stateFn {
-	formats := []rune{
-		// digits are '0'.
-		// everything else is direct equality.
-		'0', '0', '-', '0', '0',
-		'T',
-		'0', '0', ':', '0', '0', ':', '0', '0',
-		'Z',
-	}
-	for _, f := range formats {
-		r := lx.next()
-		if f == '0' {
-			if r < '0' || r > '9' {
-				return lx.errorf("Expected digit in ISO8601 datetime, "+
-					"but found '%c' instead.", r)
-			}
-		} else if f != r {
-			return lx.errorf("Expected '%c' in ISO8601 datetime, "+
-				"but found '%c' instead.", f, r)
-		}
-	}
-	lx.emit(itemDatetime)
-	return lexValTerm
+// lexArrayEnd finishes the lexing of an array. It assumes that a ']' has
+// just been consumed.
+func lexArrayEnd(lx *lexer) stateFn {
+	lx.ignore()
+	lx.emit(itemArrayEnd)
+	return lx.pop()
 }
 
-// lexFloatFirstAfterDot starts the consumption of a floating pointer number
-// starting with the first digit after the '.'. Namely, there MUST be digit.
-func lexFloatFirstAfterDot(lx *lexer) stateFn {
-	r := lx.next()
-	if r >= '0' && r <= '9' {
-		return lexFloat
-	}
-	if isNL(r) {
-		return lx.errorf("Expected a digit after the decimal point, " +
-			"but found a new line instead.")
-	}
-	return lx.errorf("Expected a digit after the decimal point, but "+
-		"found '%c' instead.", r)
-}
-
-// lexFloat consumes numbers after the decimal point.
-// Assuming the first such number has already been consumed.
-func lexFloat(lx *lexer) stateFn {
-	r := lx.next()
-	if lx.isValTerm(r) {
-		lx.backup()
-		lx.emit(itemFloat)
-		return lexValTerm
-	}
-	if r >= '0' && r <= '9' {
-		return lexFloat
-	}
-	return lx.errorf("Expected a digit but found '%c' instead.", r)
-}
-
-// lexString consumes text inside "...". Assumes that the first '"' has
-// already been consumed (and ignored).
+// lexString consumes the inner contents of a string. It assumes that the
+// beginning '"' has already been consumed and ignored.
 func lexString(lx *lexer) stateFn {
-	switch lx.next() {
-	case eof:
-		return lx.errorf("Missing closing '\"' for string.")
-	case '\r':
-		fallthrough
-	case '\n':
-		return lx.errorf("Strings cannot contain unescaped new lines.")
-	case '\\':
-		return lexStringEsc
-	case '"':
+	r := lx.next()
+	switch {
+	case isNL(r):
+		return lx.errorf("Strings cannot contain new lines.")
+	case r == '\\':
+		return lexStringEscape
+	case r == stringEnd:
 		lx.backup()
 		lx.emit(itemString)
-		lx.accept('"')
-		return lexValTerm
+		lx.next()
+		lx.ignore()
+		return lx.pop()
 	}
 	return lexString
 }
 
-// lexStringEsc consumes the first character after an escape sequence.
-// By the spec, only the following escape sequences are allowed:
-// \0, \t, \n, \r, \" and \\.
-func lexStringEsc(lx *lexer) stateFn {
+// lexStringEscape consumes an escaped character. It assumes that the preceding
+// '\\' has already been consumed.
+func lexStringEscape(lx *lexer) stateFn {
 	r := lx.next()
 	switch r {
 	case '0':
@@ -412,224 +424,188 @@ func lexStringEsc(lx *lexer) stateFn {
 	case '\\':
 		return lexString
 	}
-	return lx.errorf("Invalid escape sequence '\\%c'.", r)
+	return lx.errorf("Invalid escape character '%s'. Only the following "+
+		"escape characters are allowed: \\0, \\t, \\n, \\r, \\\", \\\\.", r)
 }
 
-func lexTr(lx *lexer) stateFn {
+// lexNumberOrDateStart consumes either a (positive) integer, float or datetime.
+// It assumes that NO negative sign has been consumed.
+func lexNumberOrDateStart(lx *lexer) stateFn {
 	r := lx.next()
-	if r == 'r' {
-		return lexTru
+	if !isDigit(r) {
+		if r == '.' {
+			return lx.errorf("Floats must start with a digit, not '.'.")
+		} else {
+			return lx.errorf("Expected a digit but got '%s'.", r)
+		}
 	}
-	return lx.errorf("Expected 'true' but found 't%c' instead.", r)
+	return lexNumberOrDate
 }
 
-func lexTru(lx *lexer) stateFn {
+// lexNumberOrDate consumes either a (positive) integer, float or datetime.
+func lexNumberOrDate(lx *lexer) stateFn {
 	r := lx.next()
-	if r == 'u' {
-		return lexTrue
+	switch {
+	case r == '-':
+		if lx.pos-lx.start != 5 {
+			return lx.errorf("All ISO8601 dates must be in full Zulu form.")
+		}
+		return lexDateAfterYear
+	case isDigit(r):
+		return lexNumberOrDate
+	case r == '.':
+		return lexFloatStart
 	}
-	return lx.errorf("Expected 'true' but found 'tr%c' instead.", r)
+
+	lx.backup()
+	lx.emit(itemInteger)
+	return lx.pop()
 }
 
+// lexDateAfterYear consumes a full Zulu Datetime in ISO8601 format.
+// It assumes that "YYYY-" has already been consumed.
+func lexDateAfterYear(lx *lexer) stateFn {
+	formats := []rune{
+		// digits are '0'.
+		// everything else is direct equality.
+		'0', '0', '-', '0', '0',
+		'T',
+		'0', '0', ':', '0', '0', ':', '0', '0',
+		'Z',
+	}
+	for _, f := range formats {
+		r := lx.next()
+		if f == '0' {
+			if !isDigit(r) {
+				return lx.errorf("Expected digit in ISO8601 datetime, "+
+					"but found '%s' instead.", r)
+			}
+		} else if f != r {
+			return lx.errorf("Expected '%s' in ISO8601 datetime, "+
+				"but found '%s' instead.", f, r)
+		}
+	}
+	lx.emit(itemDatetime)
+	return lx.pop()
+}
+
+// lexNumberStart consumes either an integer or a float. It assumes that a
+// negative sign has already been read, but that *no* digits have been consumed.
+// lexNumberStart will move to the appropriate integer or float states.
+func lexNumberStart(lx *lexer) stateFn {
+	// we MUST see a digit. Even floats have to start with a digit.
+	r := lx.next()
+	if !isDigit(r) {
+		if r == '.' {
+			return lx.errorf("Floats must start with a digit, not '.'.")
+		} else {
+			return lx.errorf("Expected a digit but got '%s'.", r)
+		}
+	}
+	return lexNumber
+}
+
+// lexNumber consumes an integer or a float after seeing the first digit.
+func lexNumber(lx *lexer) stateFn {
+	r := lx.next()
+	switch {
+	case isDigit(r):
+		return lexNumber
+	case r == '.':
+		return lexFloatStart
+	}
+
+	lx.backup()
+	lx.emit(itemInteger)
+	return lx.pop()
+}
+
+// lexFloatStart starts the consumption of digits of a float after a '.'.
+// Namely, at least one digit is required.
+func lexFloatStart(lx *lexer) stateFn {
+	r := lx.next()
+	if !isDigit(r) {
+		return lx.errorf("Floats must have a digit after the '.', but got "+
+			"'%s' instead.", r)
+	}
+	return lexFloat
+}
+
+// lexFloat consumes the digits of a float after a '.'.
+// Assumes that one digit has been consumed after a '.' already.
+func lexFloat(lx *lexer) stateFn {
+	r := lx.next()
+	if isDigit(r) {
+		return lexFloat
+	}
+
+	lx.backup()
+	lx.emit(itemFloat)
+	return lx.pop()
+}
+
+// lexTrue consumes the "rue" in "true". It assumes that 't' has already
+// been consumed.
 func lexTrue(lx *lexer) stateFn {
-	r := lx.next()
-	if r == 'e' {
-		lx.emit(itemBool)
-		return lexValTerm
+	if r := lx.next(); r != 'r' {
+		return lx.errorf("Expected 'tr', but found 't%s' instead.", r)
 	}
-	return lx.errorf("Expected 'true' but found 'tru%c' instead.", r)
+	if r := lx.next(); r != 'u' {
+		return lx.errorf("Expected 'tru', but found 'tr%s' instead.", r)
+	}
+	if r := lx.next(); r != 'e' {
+		return lx.errorf("Expected 'true', but found 'tru%s' instead.", r)
+	}
+	lx.emit(itemBool)
+	return lx.pop()
 }
 
-func lexFa(lx *lexer) stateFn {
-	r := lx.next()
-	if r == 'a' {
-		return lexFal
-	}
-	return lx.errorf("Exepcted 'false' but found 'f%c' instead.", r)
-}
-
-func lexFal(lx *lexer) stateFn {
-	r := lx.next()
-	if r == 'l' {
-		return lexFals
-	}
-	return lx.errorf("Exepcted 'false' but found 'fa%c' instead.", r)
-}
-
-func lexFals(lx *lexer) stateFn {
-	r := lx.next()
-	if r == 's' {
-		return lexFalse
-	}
-	return lx.errorf("Exepcted 'false' but found 'fal%c' instead.", r)
-}
-
+// lexFalse consumes the "alse" in "false". It assumes that 'f' has already
+// been consumed.
 func lexFalse(lx *lexer) stateFn {
-	r := lx.next()
-	if r == 'e' {
-		lx.emit(itemBool)
-		return lexValTerm
+	if r := lx.next(); r != 'a' {
+		return lx.errorf("Expected 'fa', but found 'f%s' instead.", r)
 	}
-	return lx.errorf("Exepcted 'false' but found 'fals%c' instead.", r)
+	if r := lx.next(); r != 'l' {
+		return lx.errorf("Expected 'fal', but found 'fa%s' instead.", r)
+	}
+	if r := lx.next(); r != 's' {
+		return lx.errorf("Expected 'fals', but found 'fal%s' instead.", r)
+	}
+	if r := lx.next(); r != 'e' {
+		return lx.errorf("Expected 'false', but found 'fals%s' instead.", r)
+	}
+	lx.emit(itemBool)
+	return lx.pop()
 }
 
-// lexKeyGroupTextStart parses the beginning character of "[...]" key groups,
-// and any sub-groups inside of the same brackets (separated by '.').
-// It makes sure the first character of each sub-group is not ']' or '.', to
-// prevent empty group names.
-func lexKeyGroupTextStart(lx *lexer) stateFn {
-	r := lx.next()
-	if r == '.' || r == ']' {
-		return lx.errorf("Key group names cannot be empty.")
-	}
-	return lexKeyGroupText(lx)
+// lexCommentStart begins the lexing of a comment. It will emit
+// itemCommentStart and consume no characters, passing control to lexComment.
+func lexCommentStart(lx *lexer) stateFn {
+	lx.ignore()
+	lx.emit(itemCommentStart)
+	return lexComment
 }
 
-// lexKeyGroupText parses text inside "[...]". Assumes that "[" and the
-// first character has been slurped. Stops at first "]".
-// TODO: No effort is made to prevent or deny characters other than '.' and
-// ']' in key group names. See issue #56.
-func lexKeyGroupText(lx *lexer) stateFn {
-	r := lx.next()
-	switch r {
-	case keyGroupSep:
-		lx.backup()
+// lexComment lexes an entire comment. It assumes that '#' has been consumed.
+// It will consume *up to* the first new line character, and pass control
+// back to the last state on the stack.
+func lexComment(lx *lexer) stateFn {
+	r := lx.peek()
+	if isNL(r) || r == eof {
 		lx.emit(itemText)
-		lx.accept(keyGroupSep)
-		lx.ignore()
-		return lexKeyGroupTextStart
-	case keyGroupEnd:
-		lx.backup()
-		lx.emit(itemText)
-		lx.accept(keyGroupEnd)
-		lx.emit(itemKeyGroupEnd)
-		return lexNewLine(lx, lexTop)
+		return lx.pop()
 	}
-	return lexKeyGroupText(lx)
-}
-
-// lexValTerm enforces that a value is properly terminated.
-// It cheats by checking if we're in an array.
-func lexValTerm(lx *lexer) stateFn {
-	if lx.arrayDepth == 0 { // at top level, so just look for a new line
-		return lexNewLine(lx, lexTop)
-	}
-
-	return lexTermThenVal
-}
-
-// lexCommentOrVal tries to consume the first value of an array while
-// handling comments.
-func lexCommentOrVal(lx *lexer) stateFn {
-	r := lx.next()
-	if isWhitespace(r) || isNL(r) {
-		return lexCommentOrVal
-	}
-
-	if r == commentStart {
-		lx.backup()
-		lx.ignore()
-		return lexNewLine(lx, lexCommentOrVal)
-	}
-
-	lx.backup()
-	return lexValue
-}
-
-// lexTermThenVal consumes an array terminator and starts parsing a value.
-// We handle comments too.
-func lexTermThenVal(lx *lexer) stateFn {
-	r := lx.next()
-	if isWhitespace(r) || isNL(r) {
-		return lexTermThenVal
-	}
-
-	switch r {
-	case commentStart:
-		lx.backup()
-		lx.ignore()
-		return lexNewLine(lx, lexTermThenVal) // we still need a terminator
-	case arrayValTerm:
-		// commas are terminators, so now we need a value or a ']'
-		return lexValOrArrayEnd
-	case arrayEnd:
-		return lexArrayEnd
-	}
-	return lx.errorf("Expected array terminator ('%c' or '%c'), but found "+
-		"'%c' instead.", arrayEnd, arrayValTerm, r)
-}
-
-// lexValOrArrayEnd looks for ']' and finishes the array if it finds one.
-// Otherwise, it looks for a value.
-// We handle comments too.
-func lexValOrArrayEnd(lx *lexer) stateFn {
-	r := lx.next()
-	if isWhitespace(r) || isNL(r) {
-		return lexValOrArrayEnd
-	}
-
-	switch r {
-	case commentStart:
-		lx.backup()
-		lx.ignore()
-		return lexNewLine(lx, lexValOrArrayEnd)
-	case arrayEnd:
-		return lexArrayEnd
-	case eof:
-		return lx.errorf("Expected array terminator '%c', but got EOF.",
-			arrayEnd)
-	}
-	lx.backup()
-	return lexValue
-}
-
-// lexNewLine enforces a new line and moves on to nextState.
-// Also allows for comment.
-func lexNewLine(lx *lexer, nextState stateFn) stateFn {
-	r := lx.next()
-	if isWhitespace(r) {
-		lx.ignore()
-		return lexNewLine(lx, nextState)
-	}
-	switch r {
-	case commentStart:
-		lx.emit(itemCommentStart)
-		return lexComment(lx, nextState)
-	case '\r':
-		fallthrough
-	case '\n':
-		lx.accept('\r')
-		lx.accept('\n')
-		lx.ignore()
-		return nextState
-	case eof:
-		return nil
-	}
-	return lx.errorf("Expected new line but found '%c' instead.", r)
-}
-
-// lexComment slurps up everything until the next line and emits it as
-// text for a comment. Assumes that '#' has already been consumed.
-func lexComment(lx *lexer, nextState stateFn) stateFn {
-	switch lx.next() {
-	case '\r':
-		fallthrough
-	case '\n':
-		lx.backup()
-		lx.emit(itemText)
-		return lexNewLine(lx, nextState)
-	case eof:
-		lx.emit(itemText)
-		lx.emit(itemEOF)
-		return nil
-	}
-	return lexComment(lx, nextState)
+	lx.next()
+	return lexComment
 }
 
 // lexSkip ignores all slurped input and moves on to the next state.
 func lexSkip(lx *lexer, nextState stateFn) stateFn {
-	lx.ignore()
-	return nextState
+	return func(lx *lexer) stateFn {
+		lx.ignore()
+		return nextState
+	}
 }
 
 // isWhitespace returns true if `r` is a whitespace character according
@@ -642,10 +618,16 @@ func isNL(r rune) bool {
 	return r == '\n' || r == '\r'
 }
 
+func isDigit(r rune) bool {
+	return r >= '0' && r <= '9'
+}
+
 func (itype itemType) String() string {
 	switch itype {
 	case itemError:
 		return "Error"
+	case itemNIL:
+		return "NIL"
 	case itemEOF:
 		return "EOF"
 	case itemText:
@@ -678,4 +660,12 @@ func (itype itemType) String() string {
 
 func (item item) String() string {
 	return fmt.Sprintf("(%s, %s)", item.typ.String(), item.val)
+}
+
+func escapeSpecial(c rune) string {
+	switch c {
+	case '\n':
+		return "\\n"
+	}
+	return string(c)
 }
