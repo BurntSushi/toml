@@ -1,15 +1,9 @@
 package toml
 
 import (
-	"fmt"
-	"log"
 	"strings"
 	"testing"
 )
-
-func init() {
-	log.SetFlags(0)
-}
 
 var testParseSmall = `
 # This is a TOML document. Boom.
@@ -47,21 +41,21 @@ answer = 42
 `
 
 func TestParse(t *testing.T) {
-	_, err := parse(testParseSmall)
+	m, _, err := parse(testParseSmall)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// printMap(m, 0)
+	printMap(m, 0)
 }
 
 func printMap(m map[string]interface{}, depth int) {
 	for k, v := range m {
-		fmt.Printf("%s%s\n", strings.Repeat("  ", depth), k)
+		testf("%s%s\n", strings.Repeat("  ", depth), k)
 		switch subm := v.(type) {
 		case map[string]interface{}:
 			printMap(subm, depth+1)
 		default:
-			fmt.Printf("%s%v\n", strings.Repeat("  ", depth+1), v)
+			testf("%s%v\n", strings.Repeat("  ", depth+1), v)
 		}
 	}
 }

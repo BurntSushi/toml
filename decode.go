@@ -35,30 +35,30 @@ var e = fmt.Errorf
 //
 // This decoder will not handle cyclic types. If a cyclic type is passed,
 // `Decode` will not terminate.
-func Decode(data string, v interface{}) error {
-	mapping, err := parse(data)
+func Decode(data string, v interface{}) (MetaData, error) {
+	mapping, types, err := parse(data)
 	if err != nil {
-		return err
+		return MetaData{}, err
 	}
-	return unify(mapping, rvalue(v))
+	return MetaData{mapping, types}, unify(mapping, rvalue(v))
 }
 
 // DecodeFile is just like Decode, except it will automatically read the
 // contents of the file at `fpath` and decode it for you.
-func DecodeFile(fpath string, v interface{}) error {
+func DecodeFile(fpath string, v interface{}) (MetaData, error) {
 	bs, err := ioutil.ReadFile(fpath)
 	if err != nil {
-		return err
+		return MetaData{}, err
 	}
 	return Decode(string(bs), v)
 }
 
 // DecodeReader is just like Decode, except it will consume all bytes
 // from the reader and decode it for you.
-func DecodeReader(r io.Reader, v interface{}) error {
+func DecodeReader(r io.Reader, v interface{}) (MetaData, error) {
 	bs, err := ioutil.ReadAll(r)
 	if err != nil {
-		return err
+		return MetaData{}, err
 	}
 	return Decode(string(bs), v)
 }
@@ -98,23 +98,6 @@ func unify(data interface{}, rv reflect.Value) error {
 		return unifyAnything(data, rv)
 	}
 	return e("Unsupported type '%s'.", rv.Kind())
-}
-
-func insensitiveGet(
-	tmap map[string]interface{}, kname string) (datum interface{}, ok bool) {
-
-	datum, ok = tmap[kname]
-	if ok {
-		return
-	}
-	for k, v := range tmap {
-		if strings.EqualFold(kname, k) {
-			datum = v
-			ok = true
-			return
-		}
-	}
-	return nil, false
 }
 
 func unifyStruct(mapping interface{}, rv reflect.Value) error {
@@ -264,4 +247,68 @@ func badtype(expected string, data interface{}) error {
 func mismatch(user reflect.Value, expected string, data interface{}) error {
 	return e("Type mismatch for %s. Expected %s but found '%T'.",
 		tstring(user), expected, data)
+}
+
+func insensitiveGet(
+	tmap map[string]interface{}, kname string) (interface{}, bool) {
+
+	if datum, ok := tmap[kname]; ok {
+		return datum, true
+	}
+	for k, v := range tmap {
+		if strings.EqualFold(kname, k) {
+			return v, true
+		}
+	}
+	return nil, false
+}
+
+// MetaData allows access to meta information about TOML data that may not
+// be inferrable via reflection. In particular, whether a key has been defined
+// and the TOML type of a key.
+//
+// (XXX: If TOML gets NULL values, that information will be added here too.)
+type MetaData struct {
+	mapping map[string]interface{}
+	types   map[string]tomlType
+}
+
+// IsDefined returns true if the key given exists in the TOML data. The key
+// should be specified hierarchially. e.g.,
+//
+//	// access the TOML key 'a.b.c'
+//	IsDefined("a", "b", "c")
+//
+// IsDefined will return false if an empty key given. Keys are case sensitive.
+func (md MetaData) IsDefined(key ...string) bool {
+	var hashOrVal interface{}
+	var hash map[string]interface{}
+	var ok bool
+
+	if len(key) == 0 {
+		return false
+	}
+
+	hashOrVal = md.mapping
+	for _, k := range key {
+		if hash, ok = hashOrVal.(map[string]interface{}); !ok {
+			return false
+		}
+		if hashOrVal, ok = hash[k]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// Type returns a string representation of the type of the key specified.
+//
+// Type will return the empty string if given an empty key or a key that
+// does not exist. Keys are case sensitive.
+func (md MetaData) Type(key ...string) string {
+	fullkey := strings.Join(key, ".")
+	if typ, ok := md.types[fullkey]; ok {
+		return typ.typeString()
+	}
+	return ""
 }

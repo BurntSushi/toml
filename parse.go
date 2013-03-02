@@ -38,7 +38,9 @@ func (pe parseError) Error() string {
 	return string(pe)
 }
 
-func parse(data string) (mapping map[string]interface{}, err error) {
+func parse(data string) (
+	mapping map[string]interface{}, types map[string]tomlType, err error) {
+
 	defer func() {
 		if r := recover(); r != nil {
 			var ok bool
@@ -63,7 +65,7 @@ func parse(data string) (mapping map[string]interface{}, err error) {
 		p.topLevel(item)
 	}
 
-	return p.mapping, nil
+	return p.mapping, p.types, nil
 }
 
 func (p *parser) panic(format string, v ...interface{}) {

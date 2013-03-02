@@ -30,8 +30,8 @@ Cauchy = "stupido"
 `
 
 var testMaps = `
-#poop = "awesome"
-#pee = "sweetness"
+#tricksy = "awesome"
+#eh? = "sweetness"
 
 [Schools]
 	[Schools.UMass]
@@ -57,6 +57,24 @@ type simple struct {
 	Andrew  string
 	Kait    string
 	Cats    kitties
+}
+
+func TestDecode(t *testing.T) {
+	var val simple
+
+	md, err := Decode(testSimple, &val)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testf("Is 'Cats.Plato' defined? %v\n", md.IsDefined("Cats", "Plato"))
+	testf("Is 'Cats.Stinky' defined? %v\n", md.IsDefined("Cats", "Stinky"))
+	testf("Type of 'colors'? %s\n", md.Type("colors"))
+
+	var schools map[string]map[string]map[string]int
+	if _, err := Decode(testMaps, &schools); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // Case insensitive matching tests.
@@ -94,9 +112,11 @@ type Insensitive struct {
 	OncE      string
 	Nest      InsensitiveNest
 }
+
 type InsensitiveNest struct {
 	Ed InsensitiveEd
 }
+
 type InsensitiveEd struct {
 	NestedString string
 }
@@ -123,30 +143,12 @@ func TestCase(t *testing.T) {
 		},
 	}
 	var got Insensitive
-	err = Decode(caseToml, &got)
+	_, err = Decode(caseToml, &got)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(expected, got) {
 		t.Fatalf("\n%#v\n!=\n%#v\n", expected, got)
-	}
-}
-
-func TestDecode(t *testing.T) {
-	// var val = simple{
-	// Andrew: "",
-	// Kait: new(string),
-	// }
-	var val simple
-
-	if err := Decode(testSimple, &val); err != nil {
-		t.Fatal(err)
-	}
-
-	var schools map[string]map[string]map[string]int
-	// var schools map[string]string
-	if err := Decode(testMaps, &schools); err != nil {
-		t.Fatal(err)
 	}
 }
 
@@ -184,7 +186,7 @@ ip = "10.0.0.2"
 	type servers map[string]server
 
 	var config servers
-	if err := Decode(tomlBlob, &config); err != nil {
+	if _, err := Decode(tomlBlob, &config); err != nil {
 		log.Fatal(err)
 	}
 

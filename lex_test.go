@@ -54,6 +54,6 @@ func TestLexer(t *testing.T) {
 		} else if item.typ == itemError {
 			t.Fatal(item.val)
 		}
-		// log.Println(item)
+		testf("%s\n", item)
 	}
 }
