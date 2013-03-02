@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/BurntSushi/toml"
@@ -52,7 +53,9 @@ func main() {
 func printTypes(md toml.MetaData) {
 	tabw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	for _, key := range md.Keys() {
-		fmt.Fprintf(tabw, "%s\t%s\n", key, md.Type(key...))
+		fmt.Fprintf(tabw, "%s%s\t%s\n",
+			strings.Repeat("    ", len(key)-1),
+			key[len(key)-1], md.Type(key...))
 	}
 	tabw.Flush()
 }
