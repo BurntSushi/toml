@@ -13,35 +13,22 @@ func init() {
 }
 
 var testSimple = `
-Andrew = "gallant"
-Kait = "brady"
-Now = 1987-07-05T05:45:00Z 
-YesOrNo = true
-Pi = 3.14
+age = 250
+
+andrew = "gallant"
+kait = "brady"
+now = 1987-07-05T05:45:00Z 
+yesOrNo = true
+pi = 3.14
 colors = [
 	["red", "green", "blue"],
 	["cyan", "magenta", "yellow", "black"],
 ]
 
-[Cats]
-Plato = "smelly"
-Cauchy = "stupido"
+[Annoying.Cats]
+plato = "smelly"
+cauchy = "stupido"
 
-`
-
-var testMaps = `
-#tricksy = "awesome"
-#eh? = "sweetness"
-
-[Schools]
-	[Schools.UMass]
-	spent = 1
-
-	[Schools.Worcester]
-	spent = 3
-
-	[Schools.Tufts]
-	spent = 3
 `
 
 type kitties struct {
@@ -50,13 +37,14 @@ type kitties struct {
 }
 
 type simple struct {
-	Colors  [][]string `toml:"colors"`
-	Pi      float64
-	YesOrNo bool
-	Now     time.Time
-	Andrew  string
-	Kait    string
-	Cats    kitties
+	Age      int
+	Colors   [][]string
+	Pi       float64
+	YesOrNo  bool
+	Now      time.Time
+	Andrew   string
+	Kait     string
+	Annoying map[string]kitties
 }
 
 func TestDecode(t *testing.T) {
@@ -67,14 +55,12 @@ func TestDecode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testf("Is 'Cats.Plato' defined? %v\n", md.IsDefined("Cats", "Plato"))
+	testf("Is 'Annoying.Cats.plato' defined? %v\n",
+		md.IsDefined("Annoying", "Cats", "plato"))
 	testf("Is 'Cats.Stinky' defined? %v\n", md.IsDefined("Cats", "Stinky"))
-	testf("Type of 'colors'? %s\n", md.Type("colors"))
+	testf("Type of 'colors'? %s\n\n", md.Type("colors"))
 
-	var schools map[string]map[string]map[string]int
-	if _, err := Decode(testMaps, &schools); err != nil {
-		t.Fatal(err)
-	}
+	testf("%v\n", val)
 }
 
 // Case insensitive matching tests.

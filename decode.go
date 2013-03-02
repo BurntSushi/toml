@@ -75,7 +75,13 @@ func unify(data interface{}, rv reflect.Value) error {
 		return unifyDatetime(data, rv)
 	}
 
-	switch rv.Kind() {
+	k := rv.Kind()
+
+	// laziness
+	if k >= reflect.Int && k <= reflect.Uint64 {
+		return unifyInt(data, rv)
+	}
+	switch k {
 	case reflect.Struct:
 		return unifyStruct(data, rv)
 	case reflect.Map:
@@ -84,10 +90,6 @@ func unify(data interface{}, rv reflect.Value) error {
 		return unifySlice(data, rv)
 	case reflect.String:
 		return unifyString(data, rv)
-	case reflect.Float64:
-		return unifyFloat64(data, rv)
-	case reflect.Int:
-		return unifyInt(data, rv)
 	case reflect.Bool:
 		return unifyBool(data, rv)
 	case reflect.Interface:
@@ -96,6 +98,10 @@ func unify(data interface{}, rv reflect.Value) error {
 			e("Unsupported type '%s'.", rv.Kind())
 		}
 		return unifyAnything(data, rv)
+	case reflect.Float32:
+		fallthrough
+	case reflect.Float64:
+		return unifyFloat64(data, rv)
 	}
 	return e("Unsupported type '%s'.", rv.Kind())
 }
@@ -190,7 +196,14 @@ func unifyString(data interface{}, rv reflect.Value) error {
 
 func unifyFloat64(data interface{}, rv reflect.Value) error {
 	if num, ok := data.(float64); ok {
-		rv.SetFloat(num)
+		switch rv.Kind() {
+		case reflect.Float32:
+			fallthrough
+		case reflect.Float64:
+			rv.SetFloat(num)
+		default:
+			panic("bug")
+		}
 		return nil
 	}
 	return badtype("float", data)
@@ -198,7 +211,30 @@ func unifyFloat64(data interface{}, rv reflect.Value) error {
 
 func unifyInt(data interface{}, rv reflect.Value) error {
 	if num, ok := data.(int64); ok {
-		rv.SetInt(int64(num))
+		switch rv.Kind() {
+		case reflect.Int:
+			fallthrough
+		case reflect.Int8:
+			fallthrough
+		case reflect.Int16:
+			fallthrough
+		case reflect.Int32:
+			fallthrough
+		case reflect.Int64:
+			rv.SetInt(int64(num))
+		case reflect.Uint:
+			fallthrough
+		case reflect.Uint8:
+			fallthrough
+		case reflect.Uint16:
+			fallthrough
+		case reflect.Uint32:
+			fallthrough
+		case reflect.Uint64:
+			rv.SetUint(uint64(num))
+		default:
+			panic("bug")
+		}
 		return nil
 	}
 	return badtype("integer", data)
