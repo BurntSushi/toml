@@ -1,7 +1,6 @@
 package toml
 
 import (
-	"bytes"
 	"fmt"
 	"log"
 	"strconv"
@@ -9,109 +8,52 @@ import (
 	"time"
 )
 
+type tomlKey []string
+
+func (k tomlKey) String() string {
+	return strings.Join(k, ".")
+}
+
 type parser struct {
-	mappings []*mapping
-	lx       *lexer
-	context  []string // the.current.key.group
+	mapping map[string]interface{}
+	types   map[string]tomlType
+	lx      *lexer
+
+	// the full key for the current hash in scope
+	context tomlKey
+
+	// the base key name for everything except hashes
+	currentKey string
+
+	// rough approximation of line number
+	approxLine int
+
+	// A map of 'key.group.names' to whether they were created implicitly.
+	implicits map[string]bool
 }
 
-type mapping struct {
-	key   []string
-	value interface{}
+type parseError string
+
+func (pe parseError) Error() string {
+	return string(pe)
 }
 
-func newMapping() *mapping {
-	return &mapping{
-		key:   make([]string, 0, 1),
-		value: nil,
-	}
-}
-
-func toMap(ms []*mapping) (map[string]interface{}, error) {
-	themap := make(map[string]interface{}, 5)
-	implicits := make(map[string]bool)
-	getMap := func(key []string) (map[string]interface{}, error) {
-		// This is where we make sure that duplicate keys cannot be created.
-		// Note that something like:
-		//
-		//	[x.y.z]
-		//	[x]
-		//
-		// Is allowed, but this is not:
-		//
-		//	[x]
-		//	[x.y.z]
-		//	[x]
-		//
-		// In the former case, `x` is created implicitly by `[x.y.z]` while
-		// in the latter, it is created explicitly and therefore should not
-		// be allowed to be duplicated.
-		var ok bool
-
-		m := themap
-		accum := make([]string, 0)
-		for _, name := range key[0 : len(key)-1] {
-			accum = append(accum, name)
-			if _, ok = m[name]; !ok {
-				implicits[strings.Join(accum, ".")] = true
-				m[name] = make(map[string]interface{}, 5)
-			}
-			m, ok = m[name].(map[string]interface{})
-			if !ok {
-				return nil, fmt.Errorf("The key group '%s' is duplicated "+
-					"elsewhere as a regular key.", strings.Join(accum, "."))
-			}
-		}
-
-		// If the last part of the key already exists and wasn't created
-		// implicitly, we've got a dupe.
-		last := key[len(key)-1]
-		implicitKey := strings.Join(append(accum, last), ".")
-		if _, ok := m[last]; ok && !implicits[implicitKey] {
-			return nil, fmt.Errorf("Key '%s' is a duplicate.", implicitKey)
-		}
-		return m, nil
-	}
-	for _, m := range ms {
-		submap, err := getMap(m.key)
-		if err != nil {
-			return nil, err
-		}
-		base := m.key[len(m.key)-1]
-
-		// At this point, maps have been created explicitly.
-		// But if this is just a key group create an empty map if
-		// one doesn't exist and move on.
-		if m.value == nil {
-			if _, ok := submap[base]; !ok {
-				submap[base] = make(map[string]interface{}, 5)
-			}
-			continue
-		}
-
-		// We now expect that `submap[base]` is empty. Otherwise, we've
-		// got a duplicate on our hands.
-		if _, ok := submap[base]; ok {
-			return nil, fmt.Errorf("Key '%s' is a duplicate.",
-				strings.Join(m.key, "."))
-		}
-		submap[base] = m.value
-	}
-
-	return themap, nil
-}
-
-func parse(data string) (ms map[string]interface{}, err error) {
+func parse(data string) (mapping map[string]interface{}, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err, _ = r.(error)
-			return
+			var ok bool
+			if err, ok = r.(parseError); ok {
+				return
+			}
+			panic(r)
 		}
 	}()
 
 	p := &parser{
-		mappings: make([]*mapping, 0, 50),
-		lx:       lex(data),
+		mapping:   make(map[string]interface{}),
+		types:     make(map[string]tomlType),
+		lx:        lex(data),
+		implicits: make(map[string]bool),
 	}
 	for {
 		item := p.next()
@@ -121,19 +63,21 @@ func parse(data string) (ms map[string]interface{}, err error) {
 		p.topLevel(item)
 	}
 
-	return toMap(p.mappings)
+	return p.mapping, nil
+}
+
+func (p *parser) panic(format string, v ...interface{}) {
+	msg := fmt.Sprintf("Near line %d, key '%s': %s",
+		p.approxLine, p.current(), fmt.Sprintf(format, v...))
+	panic(parseError(msg))
 }
 
 func (p *parser) next() item {
 	it := p.lx.nextItem()
 	if it.typ == itemError {
-		p.errorf("Near line %d: %s", it.line, it.val)
+		p.panic("Near line %d: %s", it.line, it.val)
 	}
 	return it
-}
-
-func (p *parser) errorf(format string, v ...interface{}) {
-	panic(fmt.Errorf(format, v...))
 }
 
 func (p *parser) bug(format string, v ...interface{}) {
@@ -155,40 +99,46 @@ func (p *parser) assertEqual(expected, got itemType) {
 func (p *parser) topLevel(item item) {
 	switch item.typ {
 	case itemCommentStart:
+		p.approxLine = item.line
 		p.expect(itemText)
 	case itemKeyGroupStart:
-		m := newMapping()
 		kg := p.expect(itemText)
+		p.approxLine = kg.line
+
+		key := make(tomlKey, 0)
 		for ; kg.typ == itemText; kg = p.next() {
-			m.key = append(m.key, kg.val)
+			key = append(key, kg.val)
 		}
 		p.assertEqual(itemKeyGroupEnd, kg.typ)
-		p.mappings = append(p.mappings, m)
-		p.context = m.key
+
+		p.establishContext(key)
 	case itemKeyStart:
 		kname := p.expect(itemText)
-		m := newMapping()
-		for _, k := range p.context {
-			m.key = append(m.key, k)
-		}
-		m.key = append(m.key, kname.val)
-		m.value = p.value(p.next())
-		p.mappings = append(p.mappings, m)
+		p.currentKey = kname.val
+		p.approxLine = kname.line
+
+		val, typ := p.value(p.next())
+		p.setValue(p.currentKey, val)
+		p.setType(p.currentKey, typ)
+
+		p.currentKey = ""
 	default:
 		p.bug("Unexpected type at top level: %s", item.typ)
 	}
 }
 
-func (p *parser) value(it item) interface{} {
+// value translates an expected value from the lexer into a Go value wrapped
+// as an empty interface.
+func (p *parser) value(it item) (interface{}, tomlType) {
 	switch it.typ {
 	case itemString:
-		return replaceEscapes(it.val)
+		return replaceEscapes(it.val), p.typeOfPrimitive(it)
 	case itemBool:
 		switch it.val {
 		case "true":
-			return true
+			return true, p.typeOfPrimitive(it)
 		case "false":
-			return false
+			return false, p.typeOfPrimitive(it)
 		}
 		p.bug("Expected boolean value, but got '%s'.", it.val)
 	case itemInteger:
@@ -197,56 +147,163 @@ func (p *parser) value(it item) interface{} {
 			if e, ok := err.(*strconv.NumError); ok &&
 				e.Err == strconv.ErrRange {
 
-				p.errorf("Integer '%s' is out of the range of 64-bit "+
+				p.panic("Integer '%s' is out of the range of 64-bit "+
 					"signed integers.", it.val)
 			} else {
 				p.bug("Expected integer value, but got '%s'.", it.val)
 			}
 		}
-		return num
+		return num, p.typeOfPrimitive(it)
 	case itemFloat:
 		num, err := strconv.ParseFloat(it.val, 64)
 		if err != nil {
 			if e, ok := err.(*strconv.NumError); ok &&
 				e.Err == strconv.ErrRange {
 
-				p.errorf("Float '%s' is out of the range of 64-bit "+
+				p.panic("Float '%s' is out of the range of 64-bit "+
 					"IEEE-754 floating-point numbers.", it.val)
 			} else {
 				p.bug("Expected float value, but got '%s'.", it.val)
 			}
 		}
-		return num
+		return num, p.typeOfPrimitive(it)
 	case itemDatetime:
 		t, err := time.Parse("2006-01-02T15:04:05Z", it.val)
 		if err != nil {
 			p.bug("Expected Zulu formatted DateTime, but got '%s'.", it.val)
 		}
-		return t
-	case itemArrayStart:
-		theType := itemNIL
+		return t, p.typeOfPrimitive(it)
+	case itemArray:
 		array := make([]interface{}, 0)
+		types := make([]tomlType, 0)
+
 		for it = p.next(); it.typ != itemArrayEnd; it = p.next() {
 			if it.typ == itemCommentStart {
 				p.expect(itemText)
 				continue
 			}
 
-			if theType == itemNIL {
-				theType = it.typ
-				array = append(array, p.value(it))
-				continue
-			}
-			if theType != it.typ {
-				p.errorf("Array has values of type '%s' and '%s'.",
-					theType, it.typ)
-			}
-			array = append(array, p.value(it))
+			val, typ := p.value(it)
+			array = append(array, val)
+			types = append(types, typ)
 		}
-		return array
+		return array, p.typeOfArray(types)
 	}
 	p.bug("Unexpected value type: %s", it.typ)
 	panic("unreachable")
+}
+
+// establishContext sets the current context of the parser, where the context
+// is the hash currently in scope.
+//
+// Establishing the context also makes sure that the key isn't a duplicate, and
+// will create implicit hashes automatically.
+func (p *parser) establishContext(key tomlKey) {
+	var ok bool
+
+	// Always start at the top level and drill down for our context.
+	hashContext := p.mapping
+	keyContext := make(tomlKey, 0)
+
+	// We only need implicit hashes for key[0:-1]
+	for _, k := range key[0 : len(key)-1] {
+		_, ok = hashContext[k]
+		keyContext = append(keyContext, k)
+
+		// No key? Make an implicit hash and move on.
+		if !ok {
+			p.addImplicit(keyContext)
+			hashContext[k] = make(map[string]interface{})
+		}
+
+		// It better be a hash, since this MUST be a key group (by virtue of
+		// it not being the last element in a key).
+		if hashContext, ok = hashContext[k].(map[string]interface{}); !ok {
+			p.panic("Key '%s' was already created as a hash.", keyContext)
+		}
+	}
+
+	p.context = keyContext
+	p.setValue(key[len(key)-1], make(map[string]interface{}))
+	p.context = append(p.context, key[len(key)-1])
+}
+
+// setValue sets the given key to the given value in the current context.
+// It will make sure that the key hasn't already been defined, account for
+// implicit key groups.
+func (p *parser) setValue(key string, value interface{}) {
+	var tmpHash interface{}
+	var ok bool
+
+	hash := p.mapping
+	keyContext := make(tomlKey, 0)
+	for _, k := range p.context {
+		keyContext = append(keyContext, k)
+		if tmpHash, ok = hash[k]; !ok {
+			p.bug("Context for key '%s' has not been established.", keyContext)
+		}
+		if hash, ok = tmpHash.(map[string]interface{}); !ok {
+			p.bug("Expected hash to have type 'map[string]interface{}', but "+
+				"it has '%T' instead.", tmpHash)
+		}
+	}
+	keyContext = append(keyContext, key)
+
+	if _, ok := hash[key]; ok {
+		// We need to do some fancy footwork here. If `hash[key]` was implcitly
+		// created AND `value` is a hash, then let this go through and stop
+		// tagging this keygroup as implicit.
+		if p.isImplicit(keyContext) {
+			p.removeImplicit(keyContext)
+			return
+		}
+
+		// Otherwise, we have a concrete key trying to override a previous
+		// key, which is *always* wrong.
+		p.panic("Key '%s' has already been defined.", keyContext)
+	}
+	hash[key] = value
+}
+
+// setType sets the type of a particular value at a given key.
+// It should be called immediately AFTER setValue.
+func (p *parser) setType(key string, typ tomlType) {
+	keyContext := make(tomlKey, 0, len(p.context)+1)
+	for _, k := range p.context {
+		keyContext = append(keyContext, k)
+	}
+	keyContext = append(keyContext, key)
+
+	fullkey := keyContext.String()
+	if _, ok := p.types[fullkey]; ok {
+		p.bug("Type for key '%s' has already been set, but it wasn't "+
+			"detected as a duplicate in setValue.", fullkey)
+	}
+	p.types[fullkey] = typ
+}
+
+// addImplicit sets the given tomlKey as having been created implicitly.
+func (p *parser) addImplicit(key tomlKey) {
+	p.implicits[key.String()] = true
+}
+
+// removeImplicit stops tagging the given key as having been implicitly created.
+func (p *parser) removeImplicit(key tomlKey) {
+	p.implicits[key.String()] = false
+}
+
+// isImplicit returns true if the key group pointed to by the key was created
+// implicitly.
+func (p *parser) isImplicit(key tomlKey) bool {
+	return p.implicits[key.String()]
+}
+
+// current returns the full key name of the current context.
+func (p *parser) current() string {
+	if len(p.currentKey) > 0 {
+		return fmt.Sprintf("%s.%s", p.context, p.currentKey)
+	}
+	return p.context.String()
 }
 
 func replaceEscapes(s string) string {
@@ -258,16 +315,4 @@ func replaceEscapes(s string) string {
 		"\\\"", "\"",
 		"\\\\", "\\",
 	).Replace(s)
-}
-
-type mappingsNice []*mapping
-
-func (ms mappingsNice) String() string {
-	buf := new(bytes.Buffer)
-	for _, m := range ms {
-		fmt.Fprintln(buf, strings.Join(m.key, "."))
-		fmt.Fprintln(buf, m.value)
-		fmt.Fprintln(buf, strings.Repeat("-", 45))
-	}
-	return buf.String()
 }

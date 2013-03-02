@@ -17,11 +17,11 @@ const (
 	itemInteger
 	itemFloat
 	itemDatetime
+	itemArray // the start of an array
+	itemArrayEnd
 	itemKeyGroupStart
 	itemKeyGroupEnd
 	itemKeyStart
-	itemArrayStart
-	itemArrayEnd
 	itemCommentStart
 )
 
@@ -318,7 +318,7 @@ func lexValue(lx *lexer) stateFn {
 	switch {
 	case r == arrayStart:
 		lx.ignore()
-		lx.emit(itemArrayStart)
+		lx.emit(itemArray)
 		return lexArrayValue
 	case r == stringStart:
 		lx.ignore() // ignore the '"'
@@ -648,7 +648,7 @@ func (itype itemType) String() string {
 		return "KeyGroupEnd"
 	case itemKeyStart:
 		return "KeyStart"
-	case itemArrayStart:
+	case itemArray:
 		return "Array"
 	case itemArrayEnd:
 		return "ArrayEnd"

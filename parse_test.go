@@ -11,7 +11,7 @@ func init() {
 	log.SetFlags(0)
 }
 
-var testSmall2 = `
+var testParseSmall = `
 # This is a TOML document. Boom.
 
 wat = "chipper"
@@ -38,11 +38,20 @@ arrs = [ # hmm
 # hehe
 `
 
+var testParseSmall2 = `
+[a]
+better = 43
+
+[a.b.c]
+answer = 42
+`
+
 func TestParse(t *testing.T) {
-	_, err := parse(testSmall2)
+	_, err := parse(testParseSmall)
 	if err != nil {
 		t.Fatal(err)
 	}
+	// printMap(m, 0)
 }
 
 func printMap(m map[string]interface{}, depth int) {
