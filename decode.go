@@ -348,3 +348,37 @@ func (md MetaData) Type(key ...string) string {
 	}
 	return ""
 }
+
+// Key is the type of any TOML key, including key groups. Use (MetaData).Keys
+// to get values of this type.
+type Key []string
+
+func (k Key) String() string {
+	return strings.Join(k, ".")
+}
+
+func (k Key) add(piece string) Key {
+	newKey := make(Key, len(k))
+	copy(newKey, k)
+	return append(newKey, piece)
+}
+
+// Keys returns a slice of every key in the TOML data, including key groups.
+// Each key is itself a slice, where the first element is the top of the
+// hierarchy and the last is the most specific.
+//
+// All keys returned are non-empty.
+func (md MetaData) Keys() []Key {
+	return allKeys(md.mapping, nil)
+}
+
+func allKeys(m map[string]interface{}, context Key) []Key {
+	keys := make([]Key, 0, len(m))
+	for k, v := range m {
+		keys = append(keys, context.add(k))
+		if t, ok := v.(map[string]interface{}); ok {
+			keys = append(keys, allKeys(t, context.add(k))...)
+		}
+	}
+	return keys
+}

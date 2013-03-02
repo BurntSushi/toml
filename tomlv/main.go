@@ -2,15 +2,24 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"path"
+	"text/tabwriter"
 
 	"github.com/BurntSushi/toml"
 )
 
+var (
+	flagTypes = false
+)
+
 func init() {
 	log.SetFlags(0)
+
+	flag.BoolVar(&flagTypes, "types", flagTypes,
+		"When set, the types of every defined key will be shown.")
 
 	flag.Usage = usage
 	flag.Parse()
@@ -30,8 +39,20 @@ func main() {
 	}
 	for _, f := range flag.Args() {
 		var tmp interface{}
-		if _, err := toml.DecodeFile(f, &tmp); err != nil {
+		md, err := toml.DecodeFile(f, &tmp)
+		if err != nil {
 			log.Fatalf("Error in '%s': %s", f, err)
 		}
+		if flagTypes {
+			printTypes(md)
+		}
 	}
+}
+
+func printTypes(md toml.MetaData) {
+	tabw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	for _, key := range md.Keys() {
+		fmt.Fprintf(tabw, "%s\t%s\n", key, md.Type(key...))
+	}
+	tabw.Flush()
 }

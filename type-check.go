@@ -30,6 +30,7 @@ var (
 	tomlString   tomlBaseType = "String"
 	tomlBool     tomlBaseType = "Bool"
 	tomlArray    tomlBaseType = "Array"
+	tomlHash     tomlBaseType = "Hash"
 )
 
 // typeOfPrimitive returns a tomlType of any primitive value in TOML.

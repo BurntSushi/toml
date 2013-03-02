@@ -114,6 +114,7 @@ func (p *parser) topLevel(item item) {
 		p.assertEqual(itemKeyGroupEnd, kg.typ)
 
 		p.establishContext(key)
+		p.setType("", tomlHash)
 	case itemKeyStart:
 		kname := p.expect(itemText)
 		p.currentKey = kname.val
@@ -274,7 +275,9 @@ func (p *parser) setType(key string, typ tomlType) {
 	for _, k := range p.context {
 		keyContext = append(keyContext, k)
 	}
-	keyContext = append(keyContext, key)
+	if len(key) > 0 { // allow type setting for hashes
+		keyContext = append(keyContext, key)
+	}
 
 	fullkey := keyContext.String()
 	if _, ok := p.types[fullkey]; ok {
