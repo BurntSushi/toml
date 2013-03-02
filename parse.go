@@ -302,10 +302,13 @@ func (p *parser) isImplicit(key tomlKey) bool {
 
 // current returns the full key name of the current context.
 func (p *parser) current() string {
-	if len(p.currentKey) > 0 {
-		return fmt.Sprintf("%s.%s", p.context, p.currentKey)
+	if len(p.currentKey) == 0 {
+		return p.context.String()
 	}
-	return p.context.String()
+	if len(p.context) == 0 {
+		return p.currentKey
+	}
+	return fmt.Sprintf("%s.%s", p.context, p.currentKey)
 }
 
 func replaceEscapes(s string) string {
