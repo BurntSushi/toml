@@ -135,7 +135,7 @@ func (p *parser) topLevel(item item) {
 func (p *parser) value(it item) (interface{}, tomlType) {
 	switch it.typ {
 	case itemString:
-		return replaceEscapes(it.val), p.typeOfPrimitive(it)
+		return p.replaceBinary(replaceEscapes(it.val)), p.typeOfPrimitive(it)
 	case itemBool:
 		switch it.val {
 		case "true":
@@ -316,11 +316,26 @@ func (p *parser) current() string {
 
 func replaceEscapes(s string) string {
 	return strings.NewReplacer(
-		"\\0", string(byte(0)),
 		"\\t", "\t",
 		"\\n", "\n",
 		"\\r", "\r",
 		"\\\"", "\"",
 		"\\\\", "\\",
 	).Replace(s)
+}
+
+func (p *parser) replaceBinary(s string) string {
+	indexEsc := func() int {
+		return strings.Index(s, "\\x")
+	}
+	for i := indexEsc(); i != -1; i = indexEsc() {
+		asciiBytes := s[i+2 : i+4]
+		num, err := strconv.ParseUint(strings.ToLower(asciiBytes), 16, 8)
+		if err != nil {
+			p.bug("Could not parse '%s' as a hexadecimal byte, but the "+
+				"lexer claims it's OK: %s", asciiBytes, err)
+		}
+		s = strings.Replace(s, s[i:i+4], string(uint(num)), -1)
+	}
+	return s
 }

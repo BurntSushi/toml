@@ -411,8 +411,8 @@ func lexString(lx *lexer) stateFn {
 func lexStringEscape(lx *lexer) stateFn {
 	r := lx.next()
 	switch r {
-	case '0':
-		fallthrough
+	case 'x':
+		return lexStringBinary
 	case 't':
 		fallthrough
 	case 'n':
@@ -425,7 +425,24 @@ func lexStringEscape(lx *lexer) stateFn {
 		return lexString
 	}
 	return lx.errorf("Invalid escape character '%s'. Only the following "+
-		"escape characters are allowed: \\0, \\t, \\n, \\r, \\\", \\\\.", r)
+		"escape characters are allowed: \\xXX, \\t, \\n, \\r, \\\", \\\\.", r)
+}
+
+// lexStringBinary consumes two hexadecimal digits following '\x'. It assumes
+// that the '\x' has already been consumed.
+func lexStringBinary(lx *lexer) stateFn {
+	r := lx.next()
+	if !isHexadecimal(r) {
+		return lx.errorf("Expected two hexadecimal digits after '\\x', but "+
+			"got '%s' instead.", r)
+	}
+
+	r = lx.next()
+	if !isHexadecimal(r) {
+		return lx.errorf("Expected two hexadecimal digits after '\\x', but "+
+			"got '%s' instead.", r)
+	}
+	return lexString
 }
 
 // lexNumberOrDateStart consumes either a (positive) integer, float or datetime.
@@ -620,6 +637,12 @@ func isNL(r rune) bool {
 
 func isDigit(r rune) bool {
 	return r >= '0' && r <= '9'
+}
+
+func isHexadecimal(r rune) bool {
+	return (r >= '0' && r <= '9') ||
+		(r >= 'a' && r <= 'f') ||
+		(r >= 'A' && r <= 'F')
 }
 
 func (itype itemType) String() string {

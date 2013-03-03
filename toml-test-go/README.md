@@ -5,9 +5,10 @@ This is an implementation of the interface expected by
 [toml parser written in Go](https://github.com/BurntSushi/toml).
 In particular, it maps TOML data on `stdin` to a JSON format on `stdout`.
 
+
 Compatible with TOML commit
-[3f4224ecdc](https://github.com/mojombo/toml/commit/3f4224ecdc4a65fdd28b4fb70d46f4c0bd3700aa).
+[00682c6](https://github.com/mojombo/toml/commit/00682c6877466d4031b4f01c5a2182b557227690)
 
 Compatible with `toml-test` commit
-[bba544f4fc](https://github.com/BurntSushi/toml-test/commit/bba544f4fc9fcb9af2a1c7abf4bce17e4ea426a0)
+[7f83b06](https://github.com/BurntSushi/toml-test/commit/7f83b065a165e77696b949985f6cc923e87d3e38)
 
