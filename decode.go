@@ -107,11 +107,12 @@ func unify(data interface{}, rv reflect.Value) error {
 }
 
 func unifyStruct(mapping interface{}, rv reflect.Value) error {
-	rt := rv.Type()
 	tmap, ok := mapping.(map[string]interface{})
 	if !ok {
 		return mismatch(rv, "map", mapping)
 	}
+
+	rt := rv.Type()
 	for i := 0; i < rt.NumField(); i++ {
 		// A little tricky. We want to use the special `toml` name in the
 		// struct tag if it exists. In particular, we need to make sure that

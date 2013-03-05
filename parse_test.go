@@ -41,11 +41,11 @@ answer = 42
 `
 
 func TestParse(t *testing.T) {
-	m, _, err := parse(testParseSmall)
+	m, err := parse(testParseSmall)
 	if err != nil {
 		t.Fatal(err)
 	}
-	printMap(m, 0)
+	printMap(m.mapping, 0)
 }
 
 func printMap(m map[string]interface{}, depth int) {
