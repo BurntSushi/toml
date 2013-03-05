@@ -285,13 +285,19 @@ func lexKey(lx *lexer) stateFn {
 		return lexKeyEnd
 	}
 
+	// Let's also call it quits if we see an equals sign.
+	if r == keySep {
+		lx.emit(itemText)
+		return lexKeyEnd
+	}
+
 	lx.next()
 	return lexKey
 }
 
 // lexKeyEnd consumes the end of a key (up to the key separator).
-// Assumes that the first whitespace character after a key has NOT been
-// consumed.
+// Assumes that the first whitespace character after a key (or the '='
+// separator) has NOT been consumed.
 func lexKeyEnd(lx *lexer) stateFn {
 	r := lx.next()
 	switch {
