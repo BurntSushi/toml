@@ -8,19 +8,16 @@ import (
 	"time"
 )
 
-type tomlKey []string
-
-func (k tomlKey) String() string {
-	return strings.Join(k, ".")
-}
-
 type parser struct {
 	mapping map[string]interface{}
 	types   map[string]tomlType
 	lx      *lexer
 
+	// A list of keys in the order that they appear in the TOML data.
+	ordered []Key
+
 	// the full key for the current hash in scope
-	context tomlKey
+	context Key
 
 	// the base key name for everything except hashes
 	currentKey string
@@ -38,9 +35,7 @@ func (pe parseError) Error() string {
 	return string(pe)
 }
 
-func parse(data string) (
-	mapping map[string]interface{}, types map[string]tomlType, err error) {
-
+func parse(data string) (p *parser, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			var ok bool
@@ -51,10 +46,11 @@ func parse(data string) (
 		}
 	}()
 
-	p := &parser{
+	p = &parser{
 		mapping:   make(map[string]interface{}),
 		types:     make(map[string]tomlType),
 		lx:        lex(data),
+		ordered:   make([]Key, 0),
 		implicits: make(map[string]bool),
 	}
 	for {
@@ -65,7 +61,7 @@ func parse(data string) (
 		p.topLevel(item)
 	}
 
-	return p.mapping, p.types, nil
+	return p, nil
 }
 
 func (p *parser) panic(format string, v ...interface{}) {
@@ -107,7 +103,7 @@ func (p *parser) topLevel(item item) {
 		kg := p.expect(itemText)
 		p.approxLine = kg.line
 
-		key := make(tomlKey, 0)
+		key := make(Key, 0)
 		for ; kg.typ == itemText; kg = p.next() {
 			key = append(key, kg.val)
 		}
@@ -115,6 +111,7 @@ func (p *parser) topLevel(item item) {
 
 		p.establishContext(key)
 		p.setType("", tomlHash)
+		p.ordered = append(p.ordered, key)
 	case itemKeyStart:
 		kname := p.expect(itemText)
 		p.currentKey = kname.val
@@ -123,6 +120,7 @@ func (p *parser) topLevel(item item) {
 		val, typ := p.value(p.next())
 		p.setValue(p.currentKey, val)
 		p.setType(p.currentKey, typ)
+		p.ordered = append(p.ordered, p.context.add(p.currentKey))
 
 		p.currentKey = ""
 	default:
@@ -201,12 +199,12 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 //
 // Establishing the context also makes sure that the key isn't a duplicate, and
 // will create implicit hashes automatically.
-func (p *parser) establishContext(key tomlKey) {
+func (p *parser) establishContext(key Key) {
 	var ok bool
 
 	// Always start at the top level and drill down for our context.
 	hashContext := p.mapping
-	keyContext := make(tomlKey, 0)
+	keyContext := make(Key, 0)
 
 	// We only need implicit hashes for key[0:-1]
 	for _, k := range key[0 : len(key)-1] {
@@ -239,7 +237,7 @@ func (p *parser) setValue(key string, value interface{}) {
 	var ok bool
 
 	hash := p.mapping
-	keyContext := make(tomlKey, 0)
+	keyContext := make(Key, 0)
 	for _, k := range p.context {
 		keyContext = append(keyContext, k)
 		if tmpHash, ok = hash[k]; !ok {
@@ -271,7 +269,7 @@ func (p *parser) setValue(key string, value interface{}) {
 // setType sets the type of a particular value at a given key.
 // It should be called immediately AFTER setValue.
 func (p *parser) setType(key string, typ tomlType) {
-	keyContext := make(tomlKey, 0, len(p.context)+1)
+	keyContext := make(Key, 0, len(p.context)+1)
 	for _, k := range p.context {
 		keyContext = append(keyContext, k)
 	}
@@ -287,19 +285,19 @@ func (p *parser) setType(key string, typ tomlType) {
 	p.types[fullkey] = typ
 }
 
-// addImplicit sets the given tomlKey as having been created implicitly.
-func (p *parser) addImplicit(key tomlKey) {
+// addImplicit sets the given Key as having been created implicitly.
+func (p *parser) addImplicit(key Key) {
 	p.implicits[key.String()] = true
 }
 
 // removeImplicit stops tagging the given key as having been implicitly created.
-func (p *parser) removeImplicit(key tomlKey) {
+func (p *parser) removeImplicit(key Key) {
 	p.implicits[key.String()] = false
 }
 
 // isImplicit returns true if the key group pointed to by the key was created
 // implicitly.
-func (p *parser) isImplicit(key tomlKey) bool {
+func (p *parser) isImplicit(key Key) bool {
 	return p.implicits[key.String()]
 }
 

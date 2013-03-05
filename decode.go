@@ -36,11 +36,11 @@ var e = fmt.Errorf
 // This decoder will not handle cyclic types. If a cyclic type is passed,
 // `Decode` will not terminate.
 func Decode(data string, v interface{}) (MetaData, error) {
-	mapping, types, err := parse(data)
+	p, err := parse(data)
 	if err != nil {
 		return MetaData{}, err
 	}
-	return MetaData{mapping, types}, unify(mapping, rvalue(v))
+	return MetaData{p.mapping, p.types, p.ordered}, unify(p.mapping, rvalue(v))
 }
 
 // DecodeFile is just like Decode, except it will automatically read the
@@ -307,6 +307,7 @@ func insensitiveGet(
 type MetaData struct {
 	mapping map[string]interface{}
 	types   map[string]tomlType
+	keys    []Key
 }
 
 // IsDefined returns true if the key given exists in the TOML data. The key
@@ -367,9 +368,11 @@ func (k Key) add(piece string) Key {
 // Each key is itself a slice, where the first element is the top of the
 // hierarchy and the last is the most specific.
 //
+// The list will have the same order as the keys appeared in the TOML data.
+//
 // All keys returned are non-empty.
 func (md MetaData) Keys() []Key {
-	return allKeys(md.mapping, nil)
+	return md.keys
 }
 
 func allKeys(m map[string]interface{}, context Key) []Key {
