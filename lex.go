@@ -100,8 +100,12 @@ func (lx *lexer) pop() stateFn {
 	return last
 }
 
+func (lx *lexer) current() string {
+	return lx.input[lx.start:lx.pos]
+}
+
 func (lx *lexer) emit(typ itemType) {
-	lx.items <- item{typ, lx.input[lx.start:lx.pos], lx.line}
+	lx.items <- item{typ, lx.current(), lx.line}
 	lx.start = lx.pos
 }
 
@@ -190,14 +194,14 @@ func lexTop(lx *lexer) stateFn {
 	// At this point, the only valid item can be a key, so we back up
 	// and let the key lexer do the rest.
 	lx.backup()
-	lx.push(lexTopValueEnd)
+	lx.push(lexTopEnd)
 	return lexKeyStart
 }
 
-// lexTopValueEnd is entered whenever a top-level value has been consumed.
-// It must see only whitespace, and will turn back to lexTop upon a new line.
-// If it sees EOF, it will quit the lexer successfully.
-func lexTopValueEnd(lx *lexer) stateFn {
+// lexTopEnd is entered whenever a top-level item has been consumed. (A value
+// or a keygroup.) It must see only whitespace, and will turn back to lexTop
+// upon a new line. If it sees EOF, it will quit the lexer successfully.
+func lexTopEnd(lx *lexer) stateFn {
 	r := lx.next()
 	switch {
 	case r == commentStart:
@@ -205,7 +209,7 @@ func lexTopValueEnd(lx *lexer) stateFn {
 		lx.push(lexTop)
 		return lexCommentStart
 	case isWhitespace(r):
-		return lexTopValueEnd
+		return lexTopEnd
 	case isNL(r):
 		lx.ignore()
 		return lexTop
@@ -213,7 +217,7 @@ func lexTopValueEnd(lx *lexer) stateFn {
 		lx.ignore()
 		return lexTop
 	}
-	return lx.errorf("Expected a top-level value to end with a new line, "+
+	return lx.errorf("Expected a top-level item to end with a new line, "+
 		"comment or EOF, but got '%s' instead.", r)
 }
 
@@ -236,11 +240,14 @@ func lexKeyGroupStart(lx *lexer) stateFn {
 // valid character for the key group has already been read.
 func lexKeyGroup(lx *lexer) stateFn {
 	switch lx.peek() {
+	case keyGroupStart:
+		return lx.errorf("Key group names cannot contain '%s' or '%s'.",
+			keyGroupStart, keyGroupEnd)
 	case keyGroupEnd:
 		lx.emit(itemText)
 		lx.next()
 		lx.emit(itemKeyGroupEnd)
-		return lexTop
+		return lexTopEnd
 	case keyGroupSep:
 		lx.emit(itemText)
 		lx.next()
@@ -304,7 +311,7 @@ func lexKeyEnd(lx *lexer) stateFn {
 	case isWhitespace(r) || isNL(r):
 		return lexSkip(lx, lexKeyEnd)
 	case r == keySep:
-		return lexValue
+		return lexSkip(lx, lexValue)
 	}
 	return lx.errorf("Expected key separator '%s', but got '%s' instead.",
 		keySep, r)
