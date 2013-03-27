@@ -32,7 +32,7 @@ type Primitive interface{}
 // values.)
 //
 // Meta data for primitive values is included in the meta data returned by
-// the `Deocode*` functions.
+// the `Decode*` functions.
 func PrimitiveDecode(primValue Primitive, v interface{}) error {
 	return unify(primValue, rvalue(v))
 }
