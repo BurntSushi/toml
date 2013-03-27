@@ -11,6 +11,32 @@ import (
 
 var e = fmt.Errorf
 
+// Primitive is a TOML value that hasn't been decoded into a Go value.
+// When using the various `Decode*` functions, the type `Primitive` may
+// be given to any value, and its decoding will be delayed.
+//
+// A `Primitive` value can be decoded using the `PrimitiveDecode` function.
+//
+// The underlying representation of a `Primitive` value is subject to change.
+// Do not rely on it.
+//
+// N.B. Primitive values are still parsed, so using them will only avoid
+// the overhead of reflection. They can be useful when you don't know the
+// exact type of TOML data until run time.
+type Primitive interface{}
+
+// PrimitiveDecode is just like the other `Decode*` functions, except it
+// decodes a TOML value that has already been parsed. Valid primitive values
+// can *only* be obtained from values filled by the decoder functions,
+// including `PrimitiveDecode`. (i.e., `v` may contain more `Primitive`
+// values.)
+//
+// Meta data for primitive values is included in the meta data returned by
+// the `Deocode*` functions.
+func PrimitiveDecode(primValue Primitive, v interface{}) error {
+	return unify(primValue, rvalue(v))
+}
+
 // Decode will decode the contents of `data` in TOML format into a pointer
 // `v`.
 //
@@ -69,6 +95,11 @@ func DecodeReader(r io.Reader, v interface{}) (MetaData, error) {
 // Any type mismatch produces an error. Finding a type that we don't know
 // how to handle produces an unsupported type error.
 func unify(data interface{}, rv reflect.Value) error {
+	// Special case. Look for a `Primitive` value.
+	if rv.Type() == reflect.TypeOf((*Primitive)(nil)).Elem() {
+		return unifyAnything(data, rv)
+	}
+
 	// Special case. Go's `time.Time` is a struct, which we don't want
 	// to confuse with a user struct.
 	if rv.Type().AssignableTo(rvalue(time.Time{}).Type()) {

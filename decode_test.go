@@ -138,6 +138,61 @@ func TestCase(t *testing.T) {
 	}
 }
 
+func ExamplePrimitiveDecode() {
+	var md MetaData
+	var err error
+
+	var tomlBlob = `
+ranking = ["Springsteen", "J Geils"]
+
+[bands.Springsteen]
+started = 1973
+albums = ["Greetings", "WIESS", "Born to Run", "Darkness"]
+
+[bands.J Geils]
+started = 1970
+albums = ["The J. Geils Band", "Full House", "Blow Your Face Out"]
+`
+
+	type band struct {
+		Started int
+		Albums  []string
+	}
+
+	type classics struct {
+		Ranking []string
+		Bands   map[string]Primitive
+	}
+
+	// Do the initial decode. Reflection is delayed on Primitive values.
+	var music classics
+	if md, err = Decode(tomlBlob, &music); err != nil {
+		log.Fatal(err)
+	}
+
+	// MetaData still includes information on Primitive values.
+	fmt.Printf("Is `bands.Springsteen` defined? %v\n",
+		md.IsDefined("bands", "Springsteen"))
+
+	// Decode primitive data into Go values.
+	for _, artist := range music.Ranking {
+		// A band is a primitive value, so we need to decode it to get a
+		// real `band` value.
+		primValue := music.Bands[artist]
+
+		var aBand band
+		if err = PrimitiveDecode(primValue, &aBand); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("%s started in %d.\n", artist, aBand.Started)
+	}
+
+	// Output:
+	// Is `bands.Springsteen` defined? true
+	// Springsteen started in 1973.
+	// J Geils started in 1970.
+}
+
 func ExampleDecode() {
 	var tomlBlob = `
 # Some comments.
@@ -184,7 +239,7 @@ ip = "10.0.0.2"
 		fmt.Printf("Ports: %v\n", s.Config.Ports)
 	}
 
-	// Output:
+	// // Output:
 	// Server: alpha (ip: 10.0.0.1) in Toronto created on 1987-07-05
 	// Ports: [8001 8002]
 	// Server: beta (ip: 10.0.0.2) in New Jersey created on 1887-01-05
