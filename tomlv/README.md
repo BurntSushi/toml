@@ -17,6 +17,6 @@ At the moment, only one error message is reported at a time. Error messages
 include line numbers. No output means that the files given are valid TOML, or 
 there is a bug in `tomlv`.
 
-Compatible with TOML commit
-[00682c6](https://github.com/mojombo/toml/commit/00682c6877466d4031b4f01c5a2182b557227690)
+Compatible with TOML version
+[v0.1.0](https://github.com/mojombo/toml/blob/master/versions/toml-v0.1.0.md)
 

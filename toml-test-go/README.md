@@ -6,9 +6,9 @@ This is an implementation of the interface expected by
 In particular, it maps TOML data on `stdin` to a JSON format on `stdout`.
 
 
-Compatible with TOML commit
-[00682c6](https://github.com/mojombo/toml/commit/00682c6877466d4031b4f01c5a2182b557227690)
+Compatible with TOML version
+[v0.1.0](https://github.com/mojombo/toml/blob/master/versions/toml-v0.1.0.md)
 
-Compatible with `toml-test` commit
-[277dd02](https://github.com/BurntSushi/toml-test/commit/277dd02e2e0d9158706a07d16c048c1008a5cb5f)
+Compatible with `toml-test` version
+[v0.1.0](https://github.com/BurntSushi/toml-test/tree/v0.1.0)
 
