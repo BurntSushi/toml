@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 type parser struct {
@@ -133,7 +134,7 @@ func (p *parser) topLevel(item item) {
 func (p *parser) value(it item) (interface{}, tomlType) {
 	switch it.typ {
 	case itemString:
-		return p.replaceBinary(replaceEscapes(it.val)), p.typeOfPrimitive(it)
+		return p.replaceUnicode(replaceEscapes(it.val)), p.typeOfPrimitive(it)
 	case itemBool:
 		switch it.val {
 		case "true":
@@ -314,26 +315,41 @@ func (p *parser) current() string {
 
 func replaceEscapes(s string) string {
 	return strings.NewReplacer(
-		"\\t", "\t",
-		"\\n", "\n",
-		"\\r", "\r",
-		"\\\"", "\"",
-		"\\\\", "\\",
+		"\\b", "\u0008",
+		"\\t", "\u0009",
+		"\\n", "\u000A",
+		"\\f", "\u000C",
+		"\\r", "\u000D",
+		"\\\"", "\u0022",
+		"\\/", "\u002F",
+		"\\\\", "\u005C",
 	).Replace(s)
 }
 
-func (p *parser) replaceBinary(s string) string {
+func (p *parser) replaceUnicode(s string) string {
 	indexEsc := func() int {
-		return strings.Index(s, "\\x")
+		return strings.Index(s, "\\u")
 	}
 	for i := indexEsc(); i != -1; i = indexEsc() {
-		asciiBytes := s[i+2 : i+4]
-		num, err := strconv.ParseUint(strings.ToLower(asciiBytes), 16, 8)
-		if err != nil {
-			p.bug("Could not parse '%s' as a hexadecimal byte, but the "+
-				"lexer claims it's OK: %s", asciiBytes, err)
-		}
-		s = strings.Replace(s, s[i:i+4], string(uint(num)), -1)
+		asciiBytes := s[i+2 : i+6]
+		s = strings.Replace(s, s[i:i+6], p.asciiEscapeToUnicode(asciiBytes), -1)
 	}
 	return s
+}
+
+func (p *parser) asciiEscapeToUnicode(s string) string {
+	hex, err := strconv.ParseUint(strings.ToLower(s), 16, 32)
+	if err != nil {
+		p.bug("Could not parse '%s' as a hexadecimal number, but the "+
+			"lexer claims it's OK: %s", s, err)
+	}
+
+	// I honestly don't understand how this works. I can't seem to find
+	// a way to make this fail. I figured this would fail on invalid UTF-8
+	// characters like U+DCFF, but it doesn't.
+	r := string(rune(hex))
+	if !utf8.ValidString(r) {
+		p.panic("Escaped character '\\u%s' is not valid UTF-8.", s)
+	}
+	return string(r)
 }

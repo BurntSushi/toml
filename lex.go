@@ -424,36 +424,41 @@ func lexString(lx *lexer) stateFn {
 func lexStringEscape(lx *lexer) stateFn {
 	r := lx.next()
 	switch r {
-	case 'x':
-		return lexStringBinary
+	case 'b':
+		fallthrough
 	case 't':
 		fallthrough
 	case 'n':
+		fallthrough
+	case 'f':
 		fallthrough
 	case 'r':
 		fallthrough
 	case '"':
 		fallthrough
+	case '/':
+		fallthrough
 	case '\\':
 		return lexString
+	case 'u':
+		return lexStringUnicode
 	}
 	return lx.errorf("Invalid escape character '%s'. Only the following "+
-		"escape characters are allowed: \\xXX, \\t, \\n, \\r, \\\", \\\\.", r)
+		"escape characters are allowed: "+
+		"\\b, \\t, \\n, \\f, \\r, \\\", \\/, \\\\, and \\uXXXX.", r)
 }
 
 // lexStringBinary consumes two hexadecimal digits following '\x'. It assumes
 // that the '\x' has already been consumed.
-func lexStringBinary(lx *lexer) stateFn {
-	r := lx.next()
-	if !isHexadecimal(r) {
-		return lx.errorf("Expected two hexadecimal digits after '\\x', but "+
-			"got '%s' instead.", r)
-	}
+func lexStringUnicode(lx *lexer) stateFn {
+	var r rune
 
-	r = lx.next()
-	if !isHexadecimal(r) {
-		return lx.errorf("Expected two hexadecimal digits after '\\x', but "+
-			"got '%s' instead.", r)
+	for i := 0; i < 4; i++ {
+		r = lx.next()
+		if !isHexadecimal(r) {
+			return lx.errorf("Expected four hexadecimal digits after '\\x', "+
+				"but got '%s' instead.", lx.current())
+		}
 	}
 	return lexString
 }
