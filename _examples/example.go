@@ -41,7 +41,7 @@ type clients struct {
 
 func main() {
 	var config tomlConfig
-	if err := toml.DecodeFile("example.toml", &config); err != nil {
+	if _, err := toml.DecodeFile("example.toml", &config); err != nil {
 		fmt.Println(err)
 		return
 	}
