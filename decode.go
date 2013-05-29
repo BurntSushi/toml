@@ -126,7 +126,7 @@ func unify(data interface{}, rv reflect.Value) error {
 	case reflect.Interface:
 		// we only support empty interfaces.
 		if rv.NumMethod() > 0 {
-			e("Unsupported type '%s'.", rv.Kind())
+			return e("Unsupported type '%s'.", rv.Kind())
 		}
 		return unifyAnything(data, rv)
 	case reflect.Float32:
