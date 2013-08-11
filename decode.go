@@ -113,6 +113,13 @@ func unify(data interface{}, rv reflect.Value) error {
 		return unifyInt(data, rv)
 	}
 	switch k {
+	case reflect.Ptr:
+		elem := reflect.New(rv.Type().Elem())
+		err := unify(data, reflect.Indirect(elem))
+		if err == nil {
+			rv.Set(elem)
+		}
+		return err
 	case reflect.Struct:
 		return unifyStruct(data, rv)
 	case reflect.Map:
@@ -182,7 +189,7 @@ func unifyMap(mapping interface{}, rv reflect.Value) error {
 	}
 	for k, v := range tmap {
 		rvkey := indirect(reflect.New(rv.Type().Key()))
-		rvval := indirect(reflect.New(rv.Type().Elem()))
+		rvval := reflect.Indirect(reflect.New(rv.Type().Elem()))
 		if err := unify(v, rvval); err != nil {
 			return err
 		}
