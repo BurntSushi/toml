@@ -138,6 +138,77 @@ func TestCase(t *testing.T) {
 	}
 }
 
+func TestPointers(t *testing.T) {
+	type Object struct {
+		Type        string
+		Description string
+	}
+
+	type Dict struct {
+		NamedObject map[string]*Object
+		BaseObject  *Object
+		Strptr      *string
+		Strptrs     []*string
+	}
+
+	ex1 := `
+Strptr = "blah"
+Strptrs = ["abc", "def"]
+
+[NamedObject.foo]
+Type = "FOO"
+Description = "fooooo!!!"
+
+[NamedObject.bar]
+Type = "BAR"
+Description = "ba-ba-ba-ba-barrrr!!!"
+
+[BaseObject]
+Type = "BASE"
+Description = "da base"
+`
+	dict := new(Dict)
+	_, err := Decode(ex1, dict)
+	if err != nil {
+		t.Errorf("Decode error: %v", err)
+	} else {
+		if dict.NamedObject == nil {
+			t.Errorf("nil NamedObject")
+		} else {
+			foo, ok := dict.NamedObject["foo"]
+			if !ok {
+				t.Errorf("missing foo")
+			} else if foo == nil {
+				t.Errorf("nil foo")
+			} else {
+				if foo.Type != "FOO" {
+					t.Errorf("unexpected NamedObject.foo.Type: %v", foo.Type)
+				}
+			}
+		}
+
+		if dict.BaseObject == nil {
+			t.Errorf("nil BaseObject")
+		} else if dict.BaseObject.Type != "BASE" {
+			t.Errorf("unexpected BaseObject.Type: %v", dict.BaseObject.Type)
+		}
+
+		if dict.Strptr == nil {
+			t.Errorf("nil Strptr")
+		} else if *dict.Strptr != "blah" {
+			t.Errorf("unexpected Strptr: %q", *dict.Strptr)
+		}
+
+		if len(dict.Strptrs) != 2 {
+			t.Errorf("unexpected of dict.Strptrs: %d %v", len(dict.Strptrs), dict.Strptrs)
+		} else if *dict.Strptrs[0] != "abc" {
+			t.Errorf("unexpected *dict.Strptrs[0]: %v", *dict.Strptrs[0])
+		} else if *dict.Strptrs[1] != "def" {
+			t.Errorf("unexpected *dict.Strptrs[1]: %v", *dict.Strptrs[1])
+		}
+	}
+}
+
 func ExamplePrimitiveDecode() {
 	var md MetaData
 	var err error
