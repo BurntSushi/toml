@@ -150,6 +150,16 @@ func TestPointers(t *testing.T) {
 		Strptr      *string
 		Strptrs     []*string
 	}
+	s1, s2, s3 := "blah", "abc", "def"
+	expected := &Dict{
+		Strptr:  &s1,
+		Strptrs: []*string{&s2, &s3},
+		NamedObject: map[string]*Object{
+			"foo": {"FOO", "fooooo!!!"},
+			"bar": {"BAR", "ba-ba-ba-ba-barrrr!!!"},
+		},
+		BaseObject: &Object{"BASE", "da base"},
+	}
 
 	ex1 := `
 Strptr = "blah"
@@ -171,41 +181,9 @@ Description = "da base"
 	_, err := Decode(ex1, dict)
 	if err != nil {
 		t.Errorf("Decode error: %v", err)
-	} else {
-		if dict.NamedObject == nil {
-			t.Errorf("nil NamedObject")
-		} else {
-			foo, ok := dict.NamedObject["foo"]
-			if !ok {
-				t.Errorf("missing foo")
-			} else if foo == nil {
-				t.Errorf("nil foo")
-			} else {
-				if foo.Type != "FOO" {
-					t.Errorf("unexpected NamedObject.foo.Type: %v", foo.Type)
-				}
-			}
-		}
-
-		if dict.BaseObject == nil {
-			t.Errorf("nil BaseObject")
-		} else if dict.BaseObject.Type != "BASE" {
-			t.Errorf("unexpected BaseObject.Type: %v", dict.BaseObject.Type)
-		}
-
-		if dict.Strptr == nil {
-			t.Errorf("nil Strptr")
-		} else if *dict.Strptr != "blah" {
-			t.Errorf("unexpected Strptr: %q", *dict.Strptr)
-		}
-
-		if len(dict.Strptrs) != 2 {
-			t.Errorf("unexpected of dict.Strptrs: %d %v", len(dict.Strptrs), dict.Strptrs)
-		} else if *dict.Strptrs[0] != "abc" {
-			t.Errorf("unexpected *dict.Strptrs[0]: %v", *dict.Strptrs[0])
-		} else if *dict.Strptrs[1] != "def" {
-			t.Errorf("unexpected *dict.Strptrs[1]: %v", *dict.Strptrs[1])
-		}
+	}
+	if !reflect.DeepEqual(expected, dict) {
+		t.Fatalf("\n%#v\n!=\n%#v\n", expected, dict)
 	}
 }
 
