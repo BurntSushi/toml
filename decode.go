@@ -116,10 +116,11 @@ func unify(data interface{}, rv reflect.Value) error {
 	case reflect.Ptr:
 		elem := reflect.New(rv.Type().Elem())
 		err := unify(data, reflect.Indirect(elem))
-		if err == nil {
-			rv.Set(elem)
+		if err != nil {
+			return err
 		}
-		return err
+		rv.Set(elem)
+		return nil
 	case reflect.Struct:
 		return unifyStruct(data, rv)
 	case reflect.Map:
