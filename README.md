@@ -22,6 +22,12 @@ go get github.com/BurntSushi/toml/tomlv
 tomlv some-toml-file.toml
 ```
 
+
+## Testing
+
+This package passes all tests in
+[toml-test](https://github.com/BurntSushi/toml-test).
+
 ## Examples
 
 This package works similarly to how the Go standard library handles `XML`
