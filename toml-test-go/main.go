@@ -51,6 +51,12 @@ func translate(tomlData interface{}) interface{} {
 			typed[k] = translate(v)
 		}
 		return typed
+	case []map[string]interface{}:
+		typed := make([]map[string]interface{}, len(orig))
+		for i, v := range orig {
+			typed[i] = translate(v).(map[string]interface{})
+		}
+		return typed
 	case []interface{}:
 		typed := make([]interface{}, len(orig))
 		for i, v := range orig {

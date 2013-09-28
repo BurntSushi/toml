@@ -21,22 +21,26 @@ const (
 	itemArrayEnd
 	itemTableStart
 	itemTableEnd
+	itemArrayTableStart
+	itemArrayTableEnd
 	itemKeyStart
 	itemCommentStart
 )
 
 const (
-	eof          = 0
-	tableStart   = '['
-	tableEnd     = ']'
-	tableSep     = '.'
-	keySep       = '='
-	arrayStart   = '['
-	arrayEnd     = ']'
-	arrayValTerm = ','
-	commentStart = '#'
-	stringStart  = '"'
-	stringEnd    = '"'
+	eof             = 0
+	tableStart      = '['
+	tableEnd        = ']'
+	arrayTableStart = '['
+	arrayTableEnd   = ']'
+	tableSep        = '.'
+	keySep          = '='
+	arrayStart      = '['
+	arrayEnd        = ']'
+	arrayValTerm    = ','
+	commentStart    = '#'
+	stringStart     = '"'
+	stringEnd       = '"'
 )
 
 type stateFn func(lx *lexer) stateFn
@@ -181,7 +185,6 @@ func lexTop(lx *lexer) stateFn {
 		lx.push(lexTop)
 		return lexCommentStart
 	case tableStart:
-		lx.emit(itemTableStart)
 		return lexTableStart
 	case eof:
 		if lx.pos > lx.start {
@@ -221,42 +224,68 @@ func lexTopEnd(lx *lexer) stateFn {
 		"comment or EOF, but got '%s' instead.", r)
 }
 
-// lexTable lexes the beginning of a key group. Namely, it makes sure that
+// lexTable lexes the beginning of a table. Namely, it makes sure that
 // it starts with a character other than '.' and ']'.
 // It assumes that '[' has already been consumed.
+// It also handles the case that this is an item in an array of tables.
+// e.g., '[[name]]'.
 func lexTableStart(lx *lexer) stateFn {
-	switch lx.next() {
-	case tableEnd:
-		return lx.errorf("Unexpected end of key group. (Key groups cannot " +
-			"be empty.)")
-	case tableSep:
-		return lx.errorf("Unexpected key group separator. (Key groups cannot " +
-			"be empty.)")
+	if lx.peek() == arrayTableStart {
+		lx.next()
+		lx.emit(itemArrayTableStart)
+		lx.push(lexArrayTableEnd)
+	} else {
+		lx.emit(itemTableStart)
+		lx.push(lexTableEnd)
 	}
-	return lexTable
+	return lexTableNameStart
 }
 
-// lexTable lexes the name of a key group. It assumes that at least one
-// valid character for the key group has already been read.
-func lexTable(lx *lexer) stateFn {
+func lexTableEnd(lx *lexer) stateFn {
+	lx.emit(itemTableEnd)
+	return lexTopEnd
+}
+
+func lexArrayTableEnd(lx *lexer) stateFn {
+	if r := lx.next(); r != arrayTableEnd {
+		return lx.errorf("Expected end of table array name delimiter '%s', "+
+			"but got '%s' instead.", arrayTableEnd, r)
+	}
+	lx.emit(itemArrayTableEnd)
+	return lexTopEnd
+}
+
+func lexTableNameStart(lx *lexer) stateFn {
+	switch lx.next() {
+	case tableEnd:
+		return lx.errorf("Unexpected end of table. (Tables cannot " +
+			"be empty.)")
+	case tableSep:
+		return lx.errorf("Unexpected table separator. (Tables cannot " +
+			"be empty.)")
+	}
+	return lexTableName
+}
+
+// lexTableName lexes the name of a table. It assumes that at least one
+// valid character for the table has already been read.
+func lexTableName(lx *lexer) stateFn {
 	switch lx.peek() {
 	case tableStart:
-		return lx.errorf("Key group names cannot contain '%s' or '%s'.",
+		return lx.errorf("Table names cannot contain '%s' or '%s'.",
 			tableStart, tableEnd)
 	case tableEnd:
 		lx.emit(itemText)
 		lx.next()
-		lx.emit(itemTableEnd)
-		return lexTopEnd
+		return lx.pop()
 	case tableSep:
 		lx.emit(itemText)
 		lx.next()
 		lx.ignore()
-		return lexTableStart
+		return lexTableNameStart
 	}
-
 	lx.next()
-	return lexTable
+	return lexTableName
 }
 
 // lexKeyStart consumes a key name up until the first non-whitespace character.

@@ -110,8 +110,21 @@ func (p *parser) topLevel(item item) {
 		}
 		p.assertEqual(itemTableEnd, kg.typ)
 
-		p.establishContext(key)
+		p.establishContext(key, false)
 		p.setType("", tomlHash)
+		p.ordered = append(p.ordered, key)
+	case itemArrayTableStart:
+		kg := p.expect(itemText)
+		p.approxLine = kg.line
+
+		key := make(Key, 0)
+		for ; kg.typ == itemText; kg = p.next() {
+			key = append(key, kg.val)
+		}
+		p.assertEqual(itemArrayTableEnd, kg.typ)
+
+		p.establishContext(key, true)
+		p.setType("", tomlArrayHash)
 		p.ordered = append(p.ordered, key)
 	case itemKeyStart:
 		kname := p.expect(itemText)
@@ -195,12 +208,12 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 	panic("unreachable")
 }
 
-// establishContext sets the current context of the parser, where the context
-// is the hash currently in scope.
+// establishContext sets the current context of the parser,
+// where the context is the hash currently in scope.
 //
 // Establishing the context also makes sure that the key isn't a duplicate, and
 // will create implicit hashes automatically.
-func (p *parser) establishContext(key Key) {
+func (p *parser) establishContext(key Key, array bool) {
 	var ok bool
 
 	// Always start at the top level and drill down for our context.
@@ -218,15 +231,36 @@ func (p *parser) establishContext(key Key) {
 			hashContext[k] = make(map[string]interface{})
 		}
 
-		// It better be a hash, since this MUST be a key group (by virtue of
-		// it not being the last element in a key).
-		if hashContext, ok = hashContext[k].(map[string]interface{}); !ok {
+		// If the hash context is actually an array of tables, then set
+		// the hash context to the last element in that array.
+		//
+		// Otherwise, it better be a table, since this MUST be a key group (by
+		// virtue of it not being the last element in a key).
+		switch t := hashContext[k].(type) {
+		case []map[string]interface{}:
+			hashContext = t[len(t)-1]
+		case map[string]interface{}:
+			hashContext = t
+		default:
 			p.panic("Key '%s' was already created as a hash.", keyContext)
 		}
 	}
 
 	p.context = keyContext
-	p.setValue(key[len(key)-1], make(map[string]interface{}))
+	if array {
+		k := key[len(key)-1]
+		if _, ok := hashContext[k]; !ok {
+			hashContext[k] = make([]map[string]interface{}, 0, 5)
+		}
+		if hash, ok := hashContext[k].([]map[string]interface{}); ok {
+			hashContext[k] = append(hash, make(map[string]interface{}))
+		} else {
+			p.panic("Key '%s' was already created and cannot be used as "+
+				"an array.", keyContext)
+		}
+	} else {
+		p.setValue(key[len(key)-1], make(map[string]interface{}))
+	}
 	p.context = append(p.context, key[len(key)-1])
 }
 
@@ -244,7 +278,12 @@ func (p *parser) setValue(key string, value interface{}) {
 		if tmpHash, ok = hash[k]; !ok {
 			p.bug("Context for key '%s' has not been established.", keyContext)
 		}
-		if hash, ok = tmpHash.(map[string]interface{}); !ok {
+		switch t := tmpHash.(type) {
+		case []map[string]interface{}:
+			hash = t[len(t)-1]
+		case map[string]interface{}:
+			hash = t
+		default:
 			p.bug("Expected hash to have type 'map[string]interface{}', but "+
 				"it has '%T' instead.", tmpHash)
 		}
@@ -277,13 +316,7 @@ func (p *parser) setType(key string, typ tomlType) {
 	if len(key) > 0 { // allow type setting for hashes
 		keyContext = append(keyContext, key)
 	}
-
-	fullkey := keyContext.String()
-	if _, ok := p.types[fullkey]; ok {
-		p.bug("Type for key '%s' has already been set, but it wasn't "+
-			"detected as a duplicate in setValue.", fullkey)
-	}
-	p.types[fullkey] = typ
+	p.types[keyContext.String()] = typ
 }
 
 // addImplicit sets the given Key as having been created implicitly.

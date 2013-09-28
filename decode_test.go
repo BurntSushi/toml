@@ -63,6 +63,53 @@ func TestDecode(t *testing.T) {
 	testf("%v\n", val)
 }
 
+var tomlTableArrays = `
+[[albums]]
+name = "Born to Run"
+
+  [[albums.songs]]
+  name = "Jungleland"
+
+  [[albums.songs]]
+  name = "Meeting Across the River"
+
+[[albums]]
+name = "Born in the USA"
+  
+  [[albums.songs]]
+  name = "Glory Days"
+
+  [[albums.songs]]
+  name = "Dancing in the Dark"
+`
+
+type Music struct {
+	Albums []Album
+}
+
+type Album struct {
+	Name  string
+	Songs []Song
+}
+
+type Song struct {
+	Name string
+}
+
+func TestTableArrays(t *testing.T) {
+	expected := Music{[]Album{
+		{"Born to Run", []Song{{"Jungleland"}, {"Meeting Across the River"}}},
+		{"Born in the USA", []Song{{"Glory Days"}, {"Dancing in the Dark"}}},
+	}}
+	var got Music
+	if _, err := Decode(tomlTableArrays, &got); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(expected, got) {
+		t.Fatalf("\n%#v\n!=\n%#v\n", expected, got)
+	}
+}
+
 // Case insensitive matching tests.
 // A bit more comprehensive than needed given the current implementation,
 // but implementations change.

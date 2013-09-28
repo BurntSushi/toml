@@ -202,14 +202,16 @@ func unifyMap(mapping interface{}, rv reflect.Value) error {
 }
 
 func unifySlice(data interface{}, rv reflect.Value) error {
-	slice, ok := data.([]interface{})
-	if !ok {
+	datav := reflect.ValueOf(data)
+	if datav.Kind() != reflect.Slice {
 		return badtype("slice", data)
 	}
+	sliceLen := datav.Len()
 	if rv.IsNil() {
-		rv.Set(reflect.MakeSlice(rv.Type(), len(slice), len(slice)))
+		rv.Set(reflect.MakeSlice(rv.Type(), sliceLen, sliceLen))
 	}
-	for i, v := range slice {
+	for i := 0; i < sliceLen; i++ {
+		v := datav.Index(i).Interface()
 		sliceval := indirect(rv.Index(i))
 		if err := unify(v, sliceval); err != nil {
 			return err

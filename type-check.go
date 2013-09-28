@@ -24,13 +24,14 @@ func (btype tomlBaseType) String() string {
 }
 
 var (
-	tomlInteger  tomlBaseType = "Integer"
-	tomlFloat    tomlBaseType = "Float"
-	tomlDatetime tomlBaseType = "Datetime"
-	tomlString   tomlBaseType = "String"
-	tomlBool     tomlBaseType = "Bool"
-	tomlArray    tomlBaseType = "Array"
-	tomlHash     tomlBaseType = "Hash"
+	tomlInteger   tomlBaseType = "Integer"
+	tomlFloat     tomlBaseType = "Float"
+	tomlDatetime  tomlBaseType = "Datetime"
+	tomlString    tomlBaseType = "String"
+	tomlBool      tomlBaseType = "Bool"
+	tomlArray     tomlBaseType = "Array"
+	tomlHash      tomlBaseType = "Hash"
+	tomlArrayHash tomlBaseType = "ArrayHash"
 )
 
 // typeOfPrimitive returns a tomlType of any primitive value in TOML.
