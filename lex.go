@@ -19,24 +19,24 @@ const (
 	itemDatetime
 	itemArray // the start of an array
 	itemArrayEnd
-	itemKeyGroupStart
-	itemKeyGroupEnd
+	itemTableStart
+	itemTableEnd
 	itemKeyStart
 	itemCommentStart
 )
 
 const (
-	eof           = 0
-	keyGroupStart = '['
-	keyGroupEnd   = ']'
-	keyGroupSep   = '.'
-	keySep        = '='
-	arrayStart    = '['
-	arrayEnd      = ']'
-	arrayValTerm  = ','
-	commentStart  = '#'
-	stringStart   = '"'
-	stringEnd     = '"'
+	eof          = 0
+	tableStart   = '['
+	tableEnd     = ']'
+	tableSep     = '.'
+	keySep       = '='
+	arrayStart   = '['
+	arrayEnd     = ']'
+	arrayValTerm = ','
+	commentStart = '#'
+	stringStart  = '"'
+	stringEnd    = '"'
 )
 
 type stateFn func(lx *lexer) stateFn
@@ -180,9 +180,9 @@ func lexTop(lx *lexer) stateFn {
 	case commentStart:
 		lx.push(lexTop)
 		return lexCommentStart
-	case keyGroupStart:
-		lx.emit(itemKeyGroupStart)
-		return lexKeyGroupStart
+	case tableStart:
+		lx.emit(itemTableStart)
+		return lexTableStart
 	case eof:
 		if lx.pos > lx.start {
 			return lx.errorf("Unexpected EOF.")
@@ -199,7 +199,7 @@ func lexTop(lx *lexer) stateFn {
 }
 
 // lexTopEnd is entered whenever a top-level item has been consumed. (A value
-// or a keygroup.) It must see only whitespace, and will turn back to lexTop
+// or a table.) It must see only whitespace, and will turn back to lexTop
 // upon a new line. If it sees EOF, it will quit the lexer successfully.
 func lexTopEnd(lx *lexer) stateFn {
 	r := lx.next()
@@ -221,42 +221,42 @@ func lexTopEnd(lx *lexer) stateFn {
 		"comment or EOF, but got '%s' instead.", r)
 }
 
-// lexKeyGroup lexes the beginning of a key group. Namely, it makes sure that
+// lexTable lexes the beginning of a key group. Namely, it makes sure that
 // it starts with a character other than '.' and ']'.
 // It assumes that '[' has already been consumed.
-func lexKeyGroupStart(lx *lexer) stateFn {
+func lexTableStart(lx *lexer) stateFn {
 	switch lx.next() {
-	case keyGroupEnd:
+	case tableEnd:
 		return lx.errorf("Unexpected end of key group. (Key groups cannot " +
 			"be empty.)")
-	case keyGroupSep:
+	case tableSep:
 		return lx.errorf("Unexpected key group separator. (Key groups cannot " +
 			"be empty.)")
 	}
-	return lexKeyGroup
+	return lexTable
 }
 
-// lexKeyGroup lexes the name of a key group. It assumes that at least one
+// lexTable lexes the name of a key group. It assumes that at least one
 // valid character for the key group has already been read.
-func lexKeyGroup(lx *lexer) stateFn {
+func lexTable(lx *lexer) stateFn {
 	switch lx.peek() {
-	case keyGroupStart:
+	case tableStart:
 		return lx.errorf("Key group names cannot contain '%s' or '%s'.",
-			keyGroupStart, keyGroupEnd)
-	case keyGroupEnd:
+			tableStart, tableEnd)
+	case tableEnd:
 		lx.emit(itemText)
 		lx.next()
-		lx.emit(itemKeyGroupEnd)
+		lx.emit(itemTableEnd)
 		return lexTopEnd
-	case keyGroupSep:
+	case tableSep:
 		lx.emit(itemText)
 		lx.next()
 		lx.ignore()
-		return lexKeyGroupStart
+		return lexTableStart
 	}
 
 	lx.next()
-	return lexKeyGroup
+	return lexTable
 }
 
 // lexKeyStart consumes a key name up until the first non-whitespace character.
@@ -683,10 +683,10 @@ func (itype itemType) String() string {
 		return "Float"
 	case itemDatetime:
 		return "DateTime"
-	case itemKeyGroupStart:
-		return "KeyGroupStart"
-	case itemKeyGroupEnd:
-		return "KeyGroupEnd"
+	case itemTableStart:
+		return "TableStart"
+	case itemTableEnd:
+		return "TableEnd"
 	case itemKeyStart:
 		return "KeyStart"
 	case itemArray:

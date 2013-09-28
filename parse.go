@@ -100,7 +100,7 @@ func (p *parser) topLevel(item item) {
 	case itemCommentStart:
 		p.approxLine = item.line
 		p.expect(itemText)
-	case itemKeyGroupStart:
+	case itemTableStart:
 		kg := p.expect(itemText)
 		p.approxLine = kg.line
 
@@ -108,7 +108,7 @@ func (p *parser) topLevel(item item) {
 		for ; kg.typ == itemText; kg = p.next() {
 			key = append(key, kg.val)
 		}
-		p.assertEqual(itemKeyGroupEnd, kg.typ)
+		p.assertEqual(itemTableEnd, kg.typ)
 
 		p.establishContext(key)
 		p.setType("", tomlHash)
@@ -254,7 +254,7 @@ func (p *parser) setValue(key string, value interface{}) {
 	if _, ok := hash[key]; ok {
 		// We need to do some fancy footwork here. If `hash[key]` was implcitly
 		// created AND `value` is a hash, then let this go through and stop
-		// tagging this keygroup as implicit.
+		// tagging this table as implicit.
 		if p.isImplicit(keyContext) {
 			p.removeImplicit(keyContext)
 			return
