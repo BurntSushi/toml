@@ -60,7 +60,7 @@ And then decoded with:
 
 ```go
 var conf Config
-if err := toml.Decode(tomlData, &conf); err != nil {
+if _, err := toml.Decode(tomlData, &conf); err != nil {
   // handle error
 }
 ```
