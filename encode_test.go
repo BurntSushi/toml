@@ -182,6 +182,16 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 			},
 			wantOutput: "_bool = true\n\n[_struct]\n  _int = 1",
 		},
+		"embedded struct": {
+			input:      struct{ Embedded }{Embedded{1}},
+			wantOutput: "_int = 1",
+		},
+		"nested embedded struct": {
+			input: struct {
+				Struct struct{ Embedded } `toml:"_struct"`
+			}{struct{ Embedded }{Embedded{1}}},
+			wantOutput: "[_struct]\n  _int = 1",
+		},
 	}
 	for label, test := range tests {
 		var buf bytes.Buffer
@@ -201,4 +211,8 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 			t.Errorf("%s: want %q, got %q", label, test.wantOutput, got)
 		}
 	}
+}
+
+type Embedded struct {
+	Int int `toml:"_int"`
 }

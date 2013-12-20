@@ -256,20 +256,27 @@ func (enc *encoder) eStruct(key Key, rv reflect.Value) error {
 	// a field that creates a new table, then all keys under it will be in that
 	// table (not the one we're writing here).
 	rt := rv.Type()
-	var fieldsDirect, fieldsSub []int
-	for i := 0; i < rt.NumField(); i++ {
-		frv := rv.Field(i)
-		if isStructOrMap(frv) {
-			fieldsSub = append(fieldsSub, i)
-		} else {
-			fieldsDirect = append(fieldsDirect, i)
+	var fieldsDirect, fieldsSub [][]int
+	var addFields func(rt reflect.Type, rv reflect.Value, startingIndex []int)
+	addFields = func(rt reflect.Type, rv reflect.Value, startingIndex []int) {
+		for i := 0; i < rt.NumField(); i++ {
+			f := rt.Field(i)
+			frv := rv.Field(i)
+			if f.Anonymous {
+				addFields(frv.Type(), frv, f.Index)
+			} else if isStructOrMap(frv) {
+				fieldsSub = append(fieldsSub, append(startingIndex, f.Index...))
+			} else {
+				fieldsDirect = append(fieldsDirect, append(startingIndex, f.Index...))
+			}
 		}
 	}
+	addFields(rt, rv, nil)
 
-	var writeFields = func(fields []int) error {
-		for _, fieldIndex := range fields {
-			sft := rt.Field(fieldIndex)
-			sf := rv.Field(fieldIndex)
+	var writeFields = func(fields [][]int) error {
+		for i, fieldIndex := range fields {
+			sft := rt.FieldByIndex(fieldIndex)
+			sf := rv.FieldByIndex(fieldIndex)
 			if isNil(sf) {
 				// Don't write anything for nil fields.
 				continue
@@ -284,7 +291,7 @@ func (enc *encoder) eStruct(key Key, rv reflect.Value) error {
 				return err
 			}
 
-			if fieldIndex != len(fields)-1 {
+			if i != len(fields)-1 {
 				if _, err := enc.w.Write([]byte{'\n'}); err != nil {
 					return err
 				}
@@ -297,6 +304,12 @@ func (enc *encoder) eStruct(key Key, rv reflect.Value) error {
 	err := writeFields(fieldsDirect)
 	if err != nil {
 		return err
+	}
+	if len(fieldsDirect) > 0 && len(fieldsSub) > 0 {
+		_, err = enc.w.Write([]byte{'\n'})
+		if err != nil {
+			return err
+		}
 	}
 	err = writeFields(fieldsSub)
 	if err != nil {
