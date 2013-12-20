@@ -195,7 +195,7 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 	}
 	for label, test := range tests {
 		var buf bytes.Buffer
-		e := newEncoder(&buf)
+		e := NewEncoder(&buf)
 		err := e.Encode(test.input)
 		if err != test.wantError {
 			if test.wantError != nil {

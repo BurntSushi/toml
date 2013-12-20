@@ -29,7 +29,7 @@ var (
 	ErrArrayNilElement        = errors.New("can't encode array with nil element")
 )
 
-type encoder struct {
+type Encoder struct {
 	// A single indentation level. By default it is two spaces.
 	Indent string
 
@@ -39,14 +39,14 @@ type encoder struct {
 	hasWritten bool
 }
 
-func newEncoder(w io.Writer) *encoder {
-	return &encoder{
+func NewEncoder(w io.Writer) *Encoder {
+	return &Encoder{
 		w:      bufio.NewWriter(w),
 		Indent: "  ",
 	}
 }
 
-func (enc *encoder) Encode(v interface{}) error {
+func (enc *Encoder) Encode(v interface{}) error {
 	rv := eindirect(reflect.ValueOf(v))
 	if err := enc.encode(Key([]string{}), rv); err != nil {
 		return err
@@ -54,7 +54,7 @@ func (enc *encoder) Encode(v interface{}) error {
 	return enc.w.Flush()
 }
 
-func (enc *encoder) encode(key Key, rv reflect.Value) error {
+func (enc *Encoder) encode(key Key, rv reflect.Value) error {
 	k := rv.Kind()
 	switch k {
 	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64, reflect.Array, reflect.Slice, reflect.String:
@@ -85,7 +85,7 @@ func (enc *encoder) encode(key Key, rv reflect.Value) error {
 }
 
 // eElement encodes any value that can be an array element (primitives and arrays).
-func (enc *encoder) eElement(rv reflect.Value) error {
+func (enc *Encoder) eElement(rv reflect.Value) error {
 	var err error
 	k := rv.Kind()
 	switch k {
@@ -120,7 +120,7 @@ func (enc *encoder) eElement(rv reflect.Value) error {
 	return err
 }
 
-func (enc *encoder) eArrayOrSlice(rv reflect.Value) error {
+func (enc *Encoder) eArrayOrSlice(rv reflect.Value) error {
 	if _, err := enc.w.Write([]byte{'['}); err != nil {
 		return err
 	}
@@ -172,7 +172,7 @@ func isStructOrMap(rv reflect.Value) bool {
 	}
 }
 
-func (enc *encoder) eMap(key Key, rv reflect.Value) error {
+func (enc *Encoder) eMap(key Key, rv reflect.Value) error {
 	if enc.hasWritten {
 		_, err := enc.w.Write([]byte{'\n'})
 		if err != nil {
@@ -238,7 +238,7 @@ func (enc *encoder) eMap(key Key, rv reflect.Value) error {
 	return nil
 }
 
-func (enc *encoder) eStruct(key Key, rv reflect.Value) error {
+func (enc *Encoder) eStruct(key Key, rv reflect.Value) error {
 	if enc.hasWritten {
 		_, err := enc.w.Write([]byte{'\n'})
 		if err != nil {
@@ -354,7 +354,7 @@ func isNil(rv reflect.Value) bool {
 	}
 }
 
-func (enc *encoder) eKeyEq(key Key) error {
+func (enc *Encoder) eKeyEq(key Key) error {
 	_, err := io.WriteString(enc.w, strings.Repeat(enc.Indent, len(key)-1))
 	if err != nil {
 		return err
