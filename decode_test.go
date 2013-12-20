@@ -65,15 +65,28 @@ func TestDecode(t *testing.T) {
 
 func TestDecodeEmbedded(t *testing.T) {
 	type Dog struct{ Name string }
-	var val struct{ Dog } // type has embedded struct
 
-	_, err := Decode(`Name = "milton"`, &val)
-	if err != nil {
-		t.Fatal(err)
+	tests := map[string]struct {
+		input       string
+		decodeInto  interface{}
+		wantDecoded interface{}
+	}{
+		"embedded struct": {
+			input:       `Name = "milton"`,
+			decodeInto:  &struct{ Dog }{},
+			wantDecoded: &struct{ Dog }{Dog{"milton"}},
+		},
 	}
 
-	if want, got := "milton", val.Name; want != got {
-		t.Errorf("want Dog.Name == %q, got %q", want, got)
+	for label, test := range tests {
+		_, err := Decode(test.input, test.decodeInto)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !reflect.DeepEqual(test.wantDecoded, test.decodeInto) {
+			t.Errorf("%s: want decoded == %+v, got %+v", label, test.wantDecoded, test.decodeInto)
+		}
 	}
 }
 
