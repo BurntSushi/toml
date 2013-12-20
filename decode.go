@@ -165,7 +165,18 @@ func unifyStruct(mapping interface{}, rv reflect.Value) error {
 			}
 		}
 		if f != nil {
-			sf := indirect(rv.FieldByIndex(f.index))
+			subv := rv
+			for _, i := range f.index {
+				if subv.Kind() == reflect.Ptr {
+					if subv.IsNil() {
+						subv.Set(reflect.New(subv.Type().Elem()))
+					}
+					subv = subv.Elem()
+				}
+				subv = subv.Field(i)
+			}
+			sf := indirect(subv)
+
 			if sf.CanSet() {
 				if err := unify(datum, sf); err != nil {
 					return e("Type mismatch for '%s.%s': %s",
