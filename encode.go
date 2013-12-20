@@ -161,6 +161,17 @@ func (enc *encoder) eArrayOrSlice(rv reflect.Value) error {
 	return nil
 }
 
+func isStructOrMap(rv reflect.Value) bool {
+	switch rv.Kind() {
+	case reflect.Interface, reflect.Ptr:
+		return isStructOrMap(rv.Elem())
+	case reflect.Map, reflect.Struct:
+		return true
+	default:
+		return false
+	}
+}
+
 func (enc *encoder) eMap(key Key, rv reflect.Value) error {
 	if enc.hasWritten {
 		_, err := enc.w.Write([]byte{'\n'})
@@ -180,31 +191,49 @@ func (enc *encoder) eMap(key Key, rv reflect.Value) error {
 		return errors.New("can't encode a map with non-string key type")
 	}
 
-	// Sort keys so that we have deterministic output.
-	mapKeys := make([]string, rv.Len())
-	i := 0
+	// Sort keys so that we have deterministic output. And write keys directly
+	// underneath this key first, before writing sub-structs or sub-maps.
+	var mapKeysDirect, mapKeysSub []string
 	for _, mapKey := range rv.MapKeys() {
-		mapKeys[i] = mapKey.String()
-		i++
+		k := mapKey.String()
+		mrv := rv.MapIndex(mapKey)
+		if isStructOrMap(mrv) {
+			mapKeysSub = append(mapKeysSub, k)
+		} else {
+			mapKeysDirect = append(mapKeysDirect, k)
+		}
 	}
-	sort.Strings(mapKeys)
 
-	for i, mapKey := range mapKeys {
-		mrv := rv.MapIndex(reflect.ValueOf(mapKey))
-		if isNil(mrv) {
-			// Don't write anything for nil fields.
-			continue
-		}
-		if err := enc.encode(key.add(mapKey), mrv); err != nil {
-			return err
-		}
-
-		if i != len(mapKeys)-1 {
-			if _, err := enc.w.Write([]byte{'\n'}); err != nil {
+	var writeMapKeys = func(mapKeys []string) error {
+		sort.Strings(mapKeys)
+		for i, mapKey := range mapKeys {
+			mrv := rv.MapIndex(reflect.ValueOf(mapKey))
+			if isNil(mrv) {
+				// Don't write anything for nil fields.
+				continue
+			}
+			if err := enc.encode(key.add(mapKey), mrv); err != nil {
 				return err
 			}
+
+			if i != len(mapKeys)-1 {
+				if _, err := enc.w.Write([]byte{'\n'}); err != nil {
+					return err
+				}
+			}
+			enc.hasWritten = true
 		}
-		enc.hasWritten = true
+
+		return nil
+	}
+
+	err := writeMapKeys(mapKeysDirect)
+	if err != nil {
+		return err
+	}
+	err = writeMapKeys(mapKeysSub)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -223,24 +252,49 @@ func (enc *encoder) eStruct(key Key, rv reflect.Value) error {
 		}
 	}
 
+	// Write keys for fields directly under this key first, because if we write
+	// a field that creates a new table, then all keys under it will be in that
+	// table (not the one we're writing here).
 	rt := rv.Type()
+	var fieldsDirect, fieldsSub []int
 	for i := 0; i < rt.NumField(); i++ {
-		sft := rt.Field(i)
-		sf := rv.Field(i)
-		if isNil(sf) {
-			// Don't write anything for nil fields.
-			continue
+		frv := rv.Field(i)
+		if isStructOrMap(frv) {
+			fieldsSub = append(fieldsSub, i)
+		} else {
+			fieldsDirect = append(fieldsDirect, i)
 		}
-		if err := enc.encode(key.add(sft.Name), sf); err != nil {
-			return err
-		}
+	}
 
-		if i != rt.NumField()-1 {
-			if _, err := enc.w.Write([]byte{'\n'}); err != nil {
+	var writeFields = func(fields []int) error {
+		for _, fieldIndex := range fields {
+			sft := rt.Field(fieldIndex)
+			sf := rv.Field(fieldIndex)
+			if isNil(sf) {
+				// Don't write anything for nil fields.
+				continue
+			}
+			if err := enc.encode(key.add(sft.Name), sf); err != nil {
 				return err
 			}
+
+			if fieldIndex != len(fields)-1 {
+				if _, err := enc.w.Write([]byte{'\n'}); err != nil {
+					return err
+				}
+			}
+			enc.hasWritten = true
 		}
-		enc.hasWritten = true
+		return nil
+	}
+
+	err := writeFields(fieldsDirect)
+	if err != nil {
+		return err
+	}
+	err = writeFields(fieldsSub)
+	if err != nil {
+		return err
 	}
 	return nil
 }

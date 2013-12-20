@@ -121,6 +121,10 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 			input:      map[string]interface{}{"a": 1, "b": "c"},
 			wantOutput: "a = 1\nb = \"c\"",
 		},
+		"map with interface{} value type, some of which are structs": {
+			input:      map[string]interface{}{"a": struct{ Int int }{2}, "b": 1},
+			wantOutput: "b = 1\n[a]\n  Int = 2",
+		},
 		"nested map": {
 			input:      map[string]map[string]int{"a": map[string]int{"b": 1}, "c": map[string]int{"d": 2}},
 			wantOutput: "[a]\n  b = 1\n\n[c]\n  d = 2",
@@ -128,6 +132,13 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 		"nested struct": {
 			input:      struct{ Struct struct{ Int int } }{struct{ Int int }{1}},
 			wantOutput: "[Struct]\n  Int = 1",
+		},
+		"nested struct and non-struct field": {
+			input: struct {
+				Struct struct{ Int int }
+				Bool   bool
+			}{struct{ Int int }{1}, true},
+			wantOutput: "Bool = true\n\n[Struct]\n  Int = 1",
 		},
 		"2 nested structs": {
 			input:      struct{ Struct1, Struct2 struct{ Int int } }{struct{ Int int }{1}, struct{ Int int }{2}},
