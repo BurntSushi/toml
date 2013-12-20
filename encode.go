@@ -57,12 +57,14 @@ func (enc *Encoder) Encode(v interface{}) error {
 func (enc *Encoder) encode(key Key, rv reflect.Value) error {
 	k := rv.Kind()
 	switch k {
-	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64, reflect.Array, reflect.Slice, reflect.String:
+	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64, reflect.String:
 		err := enc.eKeyEq(key)
 		if err != nil {
 			return err
 		}
 		return enc.eElement(rv)
+	case reflect.Array, reflect.Slice:
+		return enc.eArrayOrSlice(key, rv)
 	case reflect.Interface:
 		if rv.IsNil() {
 			return nil
@@ -72,14 +74,14 @@ func (enc *Encoder) encode(key Key, rv reflect.Value) error {
 		if rv.IsNil() {
 			return nil
 		}
-		return enc.eMap(key, rv)
+		return enc.eTable(key, rv)
 	case reflect.Ptr:
 		if rv.IsNil() {
 			return nil
 		}
-		return enc.eStruct(key, rv.Elem())
+		return enc.encode(key, rv.Elem())
 	case reflect.Struct:
-		return enc.eStruct(key, rv)
+		return enc.eTable(key, rv)
 	}
 	return e("Unsupported type for key '%s': %s", key, k)
 }
@@ -100,7 +102,7 @@ func (enc *Encoder) eElement(rv reflect.Value) error {
 	case reflect.Float64:
 		_, err = io.WriteString(enc.w, strconv.FormatFloat(rv.Float(), 'f', -1, 64))
 	case reflect.Array, reflect.Slice:
-		return enc.eArrayOrSlice(rv)
+		return enc.eArrayOrSliceElement(rv)
 	case reflect.Interface:
 		return enc.eElement(rv.Elem())
 	case reflect.String:
@@ -120,7 +122,29 @@ func (enc *Encoder) eElement(rv reflect.Value) error {
 	return err
 }
 
-func (enc *Encoder) eArrayOrSlice(rv reflect.Value) error {
+func (enc *Encoder) eArrayOrSlice(key Key, rv reflect.Value) error {
+	// Determine whether this is an array of tables or of primitives.
+	elemV := reflect.ValueOf(nil)
+	if rv.Len() > 0 {
+		elemV = rv.Index(0)
+	}
+	isTableType, err := isTOMLTableType(rv.Type().Elem(), elemV)
+	if err != nil {
+		return err
+	}
+
+	if len(key) > 0 && isTableType {
+		return enc.eArrayOfTables(key, rv)
+	}
+
+	err = enc.eKeyEq(key)
+	if err != nil {
+		return err
+	}
+	return enc.eArrayOrSliceElement(rv)
+}
+
+func (enc *Encoder) eArrayOrSliceElement(rv reflect.Value) error {
 	if _, err := enc.w.Write([]byte{'['}); err != nil {
 		return err
 	}
@@ -161,6 +185,40 @@ func (enc *Encoder) eArrayOrSlice(rv reflect.Value) error {
 	return nil
 }
 
+func (enc *Encoder) eArrayOfTables(key Key, rv reflect.Value) error {
+	if enc.hasWritten {
+		_, err := enc.w.Write([]byte{'\n'})
+		if err != nil {
+			return err
+		}
+	}
+
+	for i := 0; i < rv.Len(); i++ {
+		trv := rv.Index(i)
+		if isNil(trv) {
+			continue
+		}
+
+		_, err := fmt.Fprintf(enc.w, "%s[[%s]]\n", strings.Repeat(enc.Indent, len(key)-1), strings.Join(key, "."))
+		if err != nil {
+			return err
+		}
+
+		err = enc.eMapOrStruct(key, trv)
+		if err != nil {
+			return err
+		}
+
+		if i != rv.Len()-1 {
+			if _, err := enc.w.Write([]byte("\n\n")); err != nil {
+				return err
+			}
+		}
+		enc.hasWritten = true
+	}
+	return nil
+}
+
 func isStructOrMap(rv reflect.Value) bool {
 	switch rv.Kind() {
 	case reflect.Interface, reflect.Ptr:
@@ -172,7 +230,7 @@ func isStructOrMap(rv reflect.Value) bool {
 	}
 }
 
-func (enc *Encoder) eMap(key Key, rv reflect.Value) error {
+func (enc *Encoder) eTable(key Key, rv reflect.Value) error {
 	if enc.hasWritten {
 		_, err := enc.w.Write([]byte{'\n'})
 		if err != nil {
@@ -185,7 +243,23 @@ func (enc *Encoder) eMap(key Key, rv reflect.Value) error {
 			return err
 		}
 	}
+	return enc.eMapOrStruct(key, rv)
+}
 
+func (enc *Encoder) eMapOrStruct(key Key, rv reflect.Value) error {
+	switch rv.Kind() {
+	case reflect.Map:
+		return enc.eMap(key, rv)
+	case reflect.Struct:
+		return enc.eStruct(key, rv)
+	case reflect.Ptr, reflect.Interface:
+		return enc.eMapOrStruct(key, rv.Elem())
+	default:
+		panic("eTable: unhandled reflect.Value Kind: " + rv.Kind().String())
+	}
+}
+
+func (enc *Encoder) eMap(key Key, rv reflect.Value) error {
 	rt := rv.Type()
 	if rt.Key().Kind() != reflect.String {
 		return errors.New("can't encode a map with non-string key type")
@@ -239,19 +313,6 @@ func (enc *Encoder) eMap(key Key, rv reflect.Value) error {
 }
 
 func (enc *Encoder) eStruct(key Key, rv reflect.Value) error {
-	if enc.hasWritten {
-		_, err := enc.w.Write([]byte{'\n'})
-		if err != nil {
-			return err
-		}
-	}
-	if len(key) > 0 {
-		_, err := fmt.Fprintf(enc.w, "%s[%s]\n", strings.Repeat(enc.Indent, len(key)-1), strings.Join(key, "."))
-		if err != nil {
-			return err
-		}
-	}
-
 	// Write keys for fields directly under this key first, because if we write
 	// a field that creates a new table, then all keys under it will be in that
 	// table (not the one we're writing here).
@@ -336,10 +397,50 @@ func tomlTypeName(rv reflect.Value) (typeName string, valueIsNil bool) {
 		return "float", false
 	case reflect.Array, reflect.Slice:
 		return "array", false
-	case reflect.Interface:
+	case reflect.Ptr, reflect.Interface:
 		return tomlTypeName(rv.Elem())
 	case reflect.String:
 		return "string", false
+	case reflect.Map, reflect.Struct:
+		return "table", false
+	default:
+		panic("unexpected reflect.Kind: " + k.String())
+	}
+}
+
+// isTOMLTableType returns whether this type and value represents a TOML table
+// type (true) or element type (false). Both rt and rv are needed to determine
+// this, in case the Go type is interface{} or in case rv is nil. If there is
+// some other impossible situation detected, an error is returned.
+func isTOMLTableType(rt reflect.Type, rv reflect.Value) (bool, error) {
+	k := rt.Kind()
+	switch k {
+	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64, reflect.String:
+		return false, nil
+	case reflect.Array, reflect.Slice:
+		// Make sure that these eventually contain an underlying non-table type
+		// element.
+		elemV := reflect.ValueOf(nil)
+		if rv.Len() > 0 {
+			elemV = rv.Index(0)
+		}
+		hasUnderlyingTableType, err := isTOMLTableType(rt.Elem(), elemV)
+		if err != nil {
+			return false, err
+		}
+		if hasUnderlyingTableType {
+			return true, errors.New("TOML array element can't contain a table type")
+		}
+		return false, nil
+	case reflect.Ptr:
+		return isTOMLTableType(rt.Elem(), rv.Elem())
+	case reflect.Interface:
+		if rv.Kind() == reflect.Interface {
+			return false, nil
+		}
+		return isTOMLTableType(rv.Type(), rv)
+	case reflect.Map, reflect.Struct:
+		return true, nil
 	default:
 		panic("unexpected reflect.Kind: " + k.String())
 	}

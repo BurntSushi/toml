@@ -192,6 +192,16 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 			}{struct{ Embedded }{Embedded{1}}},
 			wantOutput: "[_struct]\n  _int = 1",
 		},
+		"array of tables": {
+			input: struct {
+				Structs []*struct{ Int int } `toml:"struct"`
+			}{
+				[]*struct{ Int int }{
+					{1}, nil, {3},
+				},
+			},
+			wantOutput: "[[struct]]\n  Int = 1\n\n[[struct]]\n  Int = 3",
+		},
 	}
 	for label, test := range tests {
 		var buf bytes.Buffer
