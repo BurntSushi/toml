@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -46,10 +47,20 @@ func (enc *encoder) Encode(v interface{}) error {
 func (enc *encoder) encode(key Key, rv reflect.Value) error {
 	k := rv.Kind()
 	switch k {
-	case reflect.Struct:
-		return enc.eStruct(key, rv)
+	case reflect.Bool:
+		return enc.eKeyVal(key, strconv.FormatBool(rv.Bool()))
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return enc.eKeyVal(key, strconv.FormatInt(rv.Int(), 10))
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return enc.eKeyVal(key, strconv.FormatUint(rv.Uint(), 10))
+	case reflect.Float32:
+		return enc.eKeyVal(key, strconv.FormatFloat(rv.Float(), 'f', -1, 32))
+	case reflect.Float64:
+		return enc.eKeyVal(key, strconv.FormatFloat(rv.Float(), 'f', -1, 64))
 	case reflect.String:
 		return enc.eString(key, rv)
+	case reflect.Struct:
+		return enc.eStruct(key, rv)
 	}
 	return e("Unsupported type for key '%s': %s", key, k)
 }
