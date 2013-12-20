@@ -113,6 +113,10 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 			input:     struct{ NilElement []interface{} }{[]interface{}{1, nil}},
 			wantError: ErrArrayNilElement,
 		},
+		"nested struct": {
+			input:      struct{ Struct struct{ Int int } }{struct{ Int int }{1}},
+			wantOutput: "[Struct]\n  Int = 1",
+		},
 	}
 	for label, test := range tests {
 		var buf bytes.Buffer
@@ -128,7 +132,6 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 		if err != nil {
 			continue
 		}
-		test.wantOutput += "\n"
 		if got := buf.String(); test.wantOutput != got {
 			t.Errorf("%s: want %q, got %q", label, test.wantOutput, got)
 		}

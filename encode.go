@@ -16,6 +16,7 @@ package toml
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"io"
 	"reflect"
 	"strconv"
@@ -142,6 +143,13 @@ func (enc *encoder) eArrayOrSlice(rv reflect.Value) error {
 }
 
 func (enc *encoder) eStruct(key Key, rv reflect.Value) error {
+	if len(key) > 0 {
+		_, err := fmt.Fprintf(enc.w, "[%s]\n", key[len(key)-1])
+		if err != nil {
+			return err
+		}
+	}
+
 	rt := rv.Type()
 	for i := 0; i < rt.NumField(); i++ {
 		sft := rt.Field(i)
@@ -153,8 +161,11 @@ func (enc *encoder) eStruct(key Key, rv reflect.Value) error {
 		if err := enc.encode(key.add(sft.Name), sf); err != nil {
 			return err
 		}
-		if _, err := enc.w.Write([]byte{'\n'}); err != nil {
-			return err
+
+		if i != rt.NumField()-1 {
+			if _, err := enc.w.Write([]byte{'\n'}); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
