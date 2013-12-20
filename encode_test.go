@@ -121,6 +121,31 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 			input:      struct{ Struct1, Struct2 struct{ Int int } }{struct{ Int int }{1}, struct{ Int int }{2}},
 			wantOutput: "[Struct1]\n  Int = 1\n\n[Struct2]\n  Int = 2",
 		},
+		"deeply nested structs": {
+			input: struct {
+				Struct1, Struct2 struct{ Struct3 *struct{ Int int } }
+			}{
+				struct{ Struct3 *struct{ Int int } }{&struct{ Int int }{1}},
+				struct{ Struct3 *struct{ Int int } }{nil},
+			},
+			wantOutput: "[Struct1]\n  [Struct1.Struct3]\n    Int = 1\n\n[Struct2]\n",
+		},
+		"nested struct with nil struct elem": {
+			input: struct {
+				Struct struct{ Inner *struct{ Int int } }
+			}{
+				struct{ Inner *struct{ Int int } }{nil},
+			},
+			wantOutput: "[Struct]\n",
+		},
+		"nested struct with no fields": {
+			input: struct {
+				Struct struct{ Inner struct{} }
+			}{
+				struct{ Inner struct{} }{struct{}{}},
+			},
+			wantOutput: "[Struct]\n  [Struct.Inner]\n",
+		},
 	}
 	for label, test := range tests {
 		var buf bytes.Buffer

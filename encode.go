@@ -62,6 +62,11 @@ func (enc *encoder) encode(key Key, rv reflect.Value) error {
 			return err
 		}
 		return enc.eElement(rv)
+	case reflect.Ptr:
+		if rv.IsNil() {
+			return nil
+		}
+		return enc.eStruct(key, rv.Elem())
 	case reflect.Struct:
 		return enc.eStruct(key, rv)
 	}
@@ -153,7 +158,7 @@ func (enc *encoder) eStruct(key Key, rv reflect.Value) error {
 		}
 	}
 	if len(key) > 0 {
-		_, err := fmt.Fprintf(enc.w, "[%s]\n", key[len(key)-1])
+		_, err := fmt.Fprintf(enc.w, "%s[%s]\n", strings.Repeat(enc.Indent, len(key)-1), strings.Join(key, "."))
 		if err != nil {
 			return err
 		}
