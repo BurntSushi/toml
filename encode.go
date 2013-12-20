@@ -52,6 +52,12 @@ func (enc *encoder) encode(key Key, rv reflect.Value) error {
 			return err
 		}
 		return enc.ePrimitive(rv)
+	case reflect.Array, reflect.Slice:
+		err := enc.eKeyEq(key)
+		if err != nil {
+			return err
+		}
+		return enc.eArrayOrSlice(key, rv)
 	case reflect.Struct:
 		return enc.eStruct(key, rv)
 	}
@@ -89,11 +95,38 @@ func (enc *encoder) ePrimitive(rv reflect.Value) error {
 	return err
 }
 
+func (enc *encoder) eArrayOrSlice(key Key, rv reflect.Value) error {
+	if _, err := enc.w.Write([]byte{'['}); err != nil {
+		return err
+	}
+
+	length := rv.Len()
+	for i := 0; i < length; i++ {
+		if err := enc.ePrimitive(rv.Index(i)); err != nil {
+			return err
+		}
+		if i != length-1 {
+			if _, err := enc.w.Write([]byte(", ")); err != nil {
+				return err
+			}
+		}
+	}
+
+	if _, err := enc.w.Write([]byte{']'}); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (enc *encoder) eStruct(key Key, rv reflect.Value) error {
 	rt := rv.Type()
 	for i := 0; i < rt.NumField(); i++ {
 		sft := rt.Field(i)
 		sf := rv.Field(i)
+		if isNil(sf) {
+			// Don't write anything for nil fields.
+			continue
+		}
 		if err := enc.encode(key.add(sft.Name), sf); err != nil {
 			return err
 		}
@@ -102,6 +135,15 @@ func (enc *encoder) eStruct(key Key, rv reflect.Value) error {
 		}
 	}
 	return nil
+}
+
+func isNil(rv reflect.Value) bool {
+	switch rv.Kind() {
+	case reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+		return rv.IsNil()
+	default:
+		return false
+	}
 }
 
 func (enc *encoder) eKeyEq(key Key) error {

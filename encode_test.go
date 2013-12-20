@@ -48,6 +48,17 @@ func TestEncode(t *testing.T) {
 			input:      struct{ String string }{"foo"},
 			wantOutput: `String = "foo"`,
 		},
+		"array fields": {
+			input: struct {
+				IntArray0 [0]int
+				IntArray3 [3]int
+			}{[0]int{}, [3]int{1, 2, 3}},
+			wantOutput: "IntArray0 = []\nIntArray3 = [1, 2, 3]",
+		},
+		"slice fields": {
+			input:      struct{ IntSliceNil, IntSlice0, IntSlice3 []int }{nil, []int{}, []int{1, 2, 3}},
+			wantOutput: "IntSlice0 = []\nIntSlice3 = [1, 2, 3]",
+		},
 	}
 	for label, test := range tests {
 		var buf bytes.Buffer
