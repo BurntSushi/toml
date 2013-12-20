@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -62,6 +63,16 @@ func (enc *encoder) encode(key Key, rv reflect.Value) error {
 			return err
 		}
 		return enc.eElement(rv)
+	case reflect.Interface:
+		if rv.IsNil() {
+			return nil
+		}
+		return enc.encode(key, rv.Elem())
+	case reflect.Map:
+		if rv.IsNil() {
+			return nil
+		}
+		return enc.eMap(key, rv)
 	case reflect.Ptr:
 		if rv.IsNil() {
 			return nil
@@ -146,6 +157,54 @@ func (enc *encoder) eArrayOrSlice(rv reflect.Value) error {
 
 	if _, err := enc.w.Write([]byte{']'}); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (enc *encoder) eMap(key Key, rv reflect.Value) error {
+	if enc.hasWritten {
+		_, err := enc.w.Write([]byte{'\n'})
+		if err != nil {
+			return err
+		}
+	}
+	if len(key) > 0 {
+		_, err := fmt.Fprintf(enc.w, "%s[%s]\n", strings.Repeat(enc.Indent, len(key)-1), strings.Join(key, "."))
+		if err != nil {
+			return err
+		}
+	}
+
+	rt := rv.Type()
+	if rt.Key().Kind() != reflect.String {
+		return errors.New("can't encode a map with non-string key type")
+	}
+
+	// Sort keys so that we have deterministic output.
+	mapKeys := make([]string, rv.Len())
+	i := 0
+	for _, mapKey := range rv.MapKeys() {
+		mapKeys[i] = mapKey.String()
+		i++
+	}
+	sort.Strings(mapKeys)
+
+	for i, mapKey := range mapKeys {
+		mrv := rv.MapIndex(reflect.ValueOf(mapKey))
+		if isNil(mrv) {
+			// Don't write anything for nil fields.
+			continue
+		}
+		if err := enc.encode(key.add(mapKey), mrv); err != nil {
+			return err
+		}
+
+		if i != len(mapKeys)-1 {
+			if _, err := enc.w.Write([]byte{'\n'}); err != nil {
+				return err
+			}
+		}
+		enc.hasWritten = true
 	}
 	return nil
 }

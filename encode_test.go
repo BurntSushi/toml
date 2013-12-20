@@ -113,6 +113,18 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 			input:     struct{ NilElement []interface{} }{[]interface{}{1, nil}},
 			wantError: ErrArrayNilElement,
 		},
+		"simple map": {
+			input:      map[string]int{"a": 1, "b": 2},
+			wantOutput: "a = 1\nb = 2",
+		},
+		"map with interface{} value type": {
+			input:      map[string]interface{}{"a": 1, "b": "c"},
+			wantOutput: "a = 1\nb = \"c\"",
+		},
+		"nested map": {
+			input:      map[string]map[string]int{"a": map[string]int{"b": 1}, "c": map[string]int{"d": 2}},
+			wantOutput: "[a]\n  b = 1\n\n[c]\n  d = 2",
+		},
 		"nested struct": {
 			input:      struct{ Struct struct{ Int int } }{struct{ Int int }{1}},
 			wantOutput: "[Struct]\n  Int = 1",
