@@ -169,6 +169,19 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 			},
 			wantOutput: "[Struct]\n  [Struct.Inner]\n",
 		},
+		"struct with tags": {
+			input: struct {
+				Struct struct {
+					Int int `toml:"_int"`
+				} `toml:"_struct"`
+				Bool bool `toml:"_bool"`
+			}{
+				struct {
+					Int int `toml:"_int"`
+				}{1}, true,
+			},
+			wantOutput: "_bool = true\n\n[_struct]\n  _int = 1",
+		},
 	}
 	for label, test := range tests {
 		var buf bytes.Buffer

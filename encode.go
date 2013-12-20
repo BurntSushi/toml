@@ -274,7 +274,13 @@ func (enc *encoder) eStruct(key Key, rv reflect.Value) error {
 				// Don't write anything for nil fields.
 				continue
 			}
-			if err := enc.encode(key.add(sft.Name), sf); err != nil {
+
+			keyName := sft.Tag.Get("toml")
+			if keyName == "" {
+				keyName = sft.Name
+			}
+
+			if err := enc.encode(key.add(keyName), sf); err != nil {
 				return err
 			}
 
