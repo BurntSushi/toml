@@ -15,10 +15,16 @@ package toml
 
 import (
 	"bufio"
+	"errors"
 	"io"
 	"reflect"
 	"strconv"
 	"strings"
+)
+
+var (
+	ErrArrayMixedElementTypes = errors.New("can't encode array with mixed element types")
+	ErrArrayNilElement        = errors.New("can't encode array with nil element")
 )
 
 type encoder struct {
@@ -46,25 +52,20 @@ func (enc *encoder) Encode(v interface{}) error {
 func (enc *encoder) encode(key Key, rv reflect.Value) error {
 	k := rv.Kind()
 	switch k {
-	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64, reflect.String:
+	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64, reflect.Array, reflect.Slice, reflect.String:
 		err := enc.eKeyEq(key)
 		if err != nil {
 			return err
 		}
-		return enc.ePrimitive(rv)
-	case reflect.Array, reflect.Slice:
-		err := enc.eKeyEq(key)
-		if err != nil {
-			return err
-		}
-		return enc.eArrayOrSlice(key, rv)
+		return enc.eElement(rv)
 	case reflect.Struct:
 		return enc.eStruct(key, rv)
 	}
 	return e("Unsupported type for key '%s': %s", key, k)
 }
 
-func (enc *encoder) ePrimitive(rv reflect.Value) error {
+// eElement encodes any value that can be an array element (primitives and arrays).
+func (enc *encoder) eElement(rv reflect.Value) error {
 	var err error
 	k := rv.Kind()
 	switch k {
@@ -78,6 +79,10 @@ func (enc *encoder) ePrimitive(rv reflect.Value) error {
 		_, err = io.WriteString(enc.w, strconv.FormatFloat(rv.Float(), 'f', -1, 32))
 	case reflect.Float64:
 		_, err = io.WriteString(enc.w, strconv.FormatFloat(rv.Float(), 'f', -1, 64))
+	case reflect.Array, reflect.Slice:
+		return enc.eArrayOrSlice(rv)
+	case reflect.Interface:
+		return enc.eElement(rv.Elem())
 	case reflect.String:
 		s := rv.String()
 		s = strings.NewReplacer(
@@ -95,19 +100,37 @@ func (enc *encoder) ePrimitive(rv reflect.Value) error {
 	return err
 }
 
-func (enc *encoder) eArrayOrSlice(key Key, rv reflect.Value) error {
+func (enc *encoder) eArrayOrSlice(rv reflect.Value) error {
 	if _, err := enc.w.Write([]byte{'['}); err != nil {
 		return err
 	}
 
 	length := rv.Len()
-	for i := 0; i < length; i++ {
-		if err := enc.ePrimitive(rv.Index(i)); err != nil {
-			return err
+	if length > 0 {
+		arrayElemType, isNil := tomlTypeName(rv.Index(0))
+		if isNil {
+			return ErrArrayNilElement
 		}
-		if i != length-1 {
-			if _, err := enc.w.Write([]byte(", ")); err != nil {
+
+		for i := 0; i < length; i++ {
+			elem := rv.Index(i)
+
+			// Ensure that the array's elements each have the same TOML type.
+			elemType, isNil := tomlTypeName(elem)
+			if isNil {
+				return ErrArrayNilElement
+			}
+			if elemType != arrayElemType {
+				return ErrArrayMixedElementTypes
+			}
+
+			if err := enc.eElement(elem); err != nil {
 				return err
+			}
+			if i != length-1 {
+				if _, err := enc.w.Write([]byte(", ")); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -135,6 +158,33 @@ func (enc *encoder) eStruct(key Key, rv reflect.Value) error {
 		}
 	}
 	return nil
+}
+
+// tomlTypeName returns the TOML type name of the Go value's type. It is used to
+// determine whether the types of array elements are mixed (which is forbidden).
+// If the Go value is nil, then it is illegal for it to be an array element, and
+// valueIsNil is returned as true.
+func tomlTypeName(rv reflect.Value) (typeName string, valueIsNil bool) {
+	if isNil(rv) {
+		return "", true
+	}
+	k := rv.Kind()
+	switch k {
+	case reflect.Bool:
+		return "bool", false
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return "integer", false
+	case reflect.Float32, reflect.Float64:
+		return "float", false
+	case reflect.Array, reflect.Slice:
+		return "array", false
+	case reflect.Interface:
+		return tomlTypeName(rv.Elem())
+	case reflect.String:
+		return "string", false
+	default:
+		panic("unexpected reflect.Kind: " + k.String())
+	}
 }
 
 func isNil(rv reflect.Value) bool {
