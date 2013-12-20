@@ -33,6 +33,9 @@ type encoder struct {
 	Indent string
 
 	w *bufio.Writer
+
+	// hasWritten is whether we have written any output to w yet.
+	hasWritten bool
 }
 
 func newEncoder(w io.Writer) *encoder {
@@ -143,6 +146,12 @@ func (enc *encoder) eArrayOrSlice(rv reflect.Value) error {
 }
 
 func (enc *encoder) eStruct(key Key, rv reflect.Value) error {
+	if enc.hasWritten {
+		_, err := enc.w.Write([]byte{'\n'})
+		if err != nil {
+			return err
+		}
+	}
 	if len(key) > 0 {
 		_, err := fmt.Fprintf(enc.w, "[%s]\n", key[len(key)-1])
 		if err != nil {
@@ -167,6 +176,7 @@ func (enc *encoder) eStruct(key Key, rv reflect.Value) error {
 				return err
 			}
 		}
+		enc.hasWritten = true
 	}
 	return nil
 }

@@ -117,6 +117,10 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 			input:      struct{ Struct struct{ Int int } }{struct{ Int int }{1}},
 			wantOutput: "[Struct]\n  Int = 1",
 		},
+		"2 nested structs": {
+			input:      struct{ Struct1, Struct2 struct{ Int int } }{struct{ Int int }{1}, struct{ Int int }{2}},
+			wantOutput: "[Struct1]\n  Int = 1\n\n[Struct2]\n  Int = 2",
+		},
 	}
 	for label, test := range tests {
 		var buf bytes.Buffer
