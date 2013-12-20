@@ -186,10 +186,20 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 			input:      struct{ Embedded }{Embedded{1}},
 			wantOutput: "_int = 1",
 		},
+		"embedded *struct": {
+			input:      struct{ *Embedded }{&Embedded{1}},
+			wantOutput: "_int = 1",
+		},
 		"nested embedded struct": {
 			input: struct {
 				Struct struct{ Embedded } `toml:"_struct"`
 			}{struct{ Embedded }{Embedded{1}}},
+			wantOutput: "[_struct]\n  _int = 1",
+		},
+		"nested embedded *struct": {
+			input: struct {
+				Struct struct{ *Embedded } `toml:"_struct"`
+			}{struct{ *Embedded }{&Embedded{1}}},
 			wantOutput: "[_struct]\n  _int = 1",
 		},
 		"array of tables": {

@@ -324,7 +324,12 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) error {
 			f := rt.Field(i)
 			frv := rv.Field(i)
 			if f.Anonymous {
-				addFields(frv.Type(), frv, f.Index)
+				t := frv.Type()
+				if t.Kind() == reflect.Ptr {
+					t = t.Elem()
+					frv = frv.Elem()
+				}
+				addFields(t, frv, f.Index)
 			} else if isStructOrMap(frv) {
 				fieldsSub = append(fieldsSub, append(startingIndex, f.Index...))
 			} else {
