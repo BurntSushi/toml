@@ -15,7 +15,6 @@ package toml
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"reflect"
 	"strconv"
@@ -47,22 +46,47 @@ func (enc *encoder) Encode(v interface{}) error {
 func (enc *encoder) encode(key Key, rv reflect.Value) error {
 	k := rv.Kind()
 	switch k {
-	case reflect.Bool:
-		return enc.eKeyVal(key, strconv.FormatBool(rv.Bool()))
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return enc.eKeyVal(key, strconv.FormatInt(rv.Int(), 10))
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return enc.eKeyVal(key, strconv.FormatUint(rv.Uint(), 10))
-	case reflect.Float32:
-		return enc.eKeyVal(key, strconv.FormatFloat(rv.Float(), 'f', -1, 32))
-	case reflect.Float64:
-		return enc.eKeyVal(key, strconv.FormatFloat(rv.Float(), 'f', -1, 64))
-	case reflect.String:
-		return enc.eString(key, rv)
+	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64, reflect.String:
+		err := enc.eKeyEq(key)
+		if err != nil {
+			return err
+		}
+		return enc.ePrimitive(rv)
 	case reflect.Struct:
 		return enc.eStruct(key, rv)
 	}
 	return e("Unsupported type for key '%s': %s", key, k)
+}
+
+func (enc *encoder) ePrimitive(rv reflect.Value) error {
+	var err error
+	k := rv.Kind()
+	switch k {
+	case reflect.Bool:
+		_, err = io.WriteString(enc.w, strconv.FormatBool(rv.Bool()))
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		_, err = io.WriteString(enc.w, strconv.FormatInt(rv.Int(), 10))
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		_, err = io.WriteString(enc.w, strconv.FormatUint(rv.Uint(), 10))
+	case reflect.Float32:
+		_, err = io.WriteString(enc.w, strconv.FormatFloat(rv.Float(), 'f', -1, 32))
+	case reflect.Float64:
+		_, err = io.WriteString(enc.w, strconv.FormatFloat(rv.Float(), 'f', -1, 64))
+	case reflect.String:
+		s := rv.String()
+		s = strings.NewReplacer(
+			"\t", "\\t",
+			"\n", "\\n",
+			"\r", "\\r",
+			"\"", "\\\"",
+			"\\", "\\\\",
+		).Replace(s)
+		s = "\"" + s + "\""
+		_, err = io.WriteString(enc.w, s)
+	default:
+		return e("Unexpected primitive type: %s", k)
+	}
+	return err
 }
 
 func (enc *encoder) eStruct(key Key, rv reflect.Value) error {
@@ -73,30 +97,20 @@ func (enc *encoder) eStruct(key Key, rv reflect.Value) error {
 		if err := enc.encode(key.add(sft.Name), sf); err != nil {
 			return err
 		}
+		if _, err := enc.w.Write([]byte{'\n'}); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func (enc *encoder) eString(key Key, rv reflect.Value) error {
-	s := rv.String()
-	s = strings.NewReplacer(
-		"\t", "\\t",
-		"\n", "\\n",
-		"\r", "\\r",
-		"\"", "\\\"",
-		"\\", "\\\\",
-	).Replace(s)
-	s = "\"" + s + "\""
-	if err := enc.eKeyVal(key, s); err != nil {
+func (enc *encoder) eKeyEq(key Key) error {
+	_, err := io.WriteString(enc.w, strings.Repeat(enc.Indent, len(key)-1))
+	if err != nil {
 		return err
 	}
-	return nil
-}
-
-func (enc *encoder) eKeyVal(key Key, value string) error {
-	out := fmt.Sprintf("%s%s = %s",
-		strings.Repeat(enc.Indent, len(key)-1), key[len(key)-1], value)
-	if _, err := fmt.Fprintln(enc.w, out); err != nil {
+	_, err = io.WriteString(enc.w, key[len(key)-1]+" = ")
+	if err != nil {
 		return err
 	}
 	return nil
