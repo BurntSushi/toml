@@ -63,6 +63,20 @@ func TestDecode(t *testing.T) {
 	testf("%v\n", val)
 }
 
+func TestDecodeEmbedded(t *testing.T) {
+	type Dog struct{ Name string }
+	var val struct{ Dog } // type has embedded struct
+
+	_, err := Decode(`Name = "milton"`, &val)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if want, got := "milton", val.Name; want != got {
+		t.Errorf("want Dog.Name == %q, got %q", want, got)
+	}
+}
+
 var tomlTableArrays = `
 [[albums]]
 name = "Born to Run"
@@ -124,8 +138,6 @@ tOpdate = 2006-01-02T15:04:05Z
 tOparray = [ "array" ]
 Match = "i should be in Match only"
 MatcH = "i should be in MatcH only"
-Field = "neat"
-FielD = "messy"
 once = "just once"
 [nEst.eD]
 nEstedString = "another string"
@@ -140,7 +152,6 @@ type Insensitive struct {
 	TopArray  []string
 	Match     string
 	MatcH     string
-	Field     string
 	Once      string
 	OncE      string
 	Nest      InsensitiveNest
@@ -168,9 +179,8 @@ func TestCase(t *testing.T) {
 		TopArray:  []string{"array"},
 		MatcH:     "i should be in MatcH only",
 		Match:     "i should be in Match only",
-		Field:     "neat", // encoding/json would store "messy" here
 		Once:      "just once",
-		OncE:      "just once", // wait, what?
+		OncE:      "",
 		Nest: InsensitiveNest{
 			Ed: InsensitiveEd{NestedString: "another string"},
 		},
