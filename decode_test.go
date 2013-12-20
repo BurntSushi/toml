@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"reflect"
@@ -76,6 +77,16 @@ func TestDecodeEmbedded(t *testing.T) {
 			decodeInto:  &struct{ Dog }{},
 			wantDecoded: &struct{ Dog }{Dog{"milton"}},
 		},
+		"embedded non-nil pointer to struct": {
+			input:       `Name = "milton"`,
+			decodeInto:  &struct{ *Dog }{},
+			wantDecoded: &struct{ *Dog }{&Dog{"milton"}},
+		},
+		"embedded nil pointer to struct": {
+			input:       ``,
+			decodeInto:  &struct{ *Dog }{},
+			wantDecoded: &struct{ *Dog }{nil},
+		},
 	}
 
 	for label, test := range tests {
@@ -84,10 +95,19 @@ func TestDecodeEmbedded(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if !reflect.DeepEqual(test.wantDecoded, test.decodeInto) {
-			t.Errorf("%s: want decoded == %+v, got %+v", label, test.wantDecoded, test.decodeInto)
+		if want, got := jsonstr(test.wantDecoded), jsonstr(test.decodeInto); want != got {
+			t.Errorf("%s: want decoded == %+v, got %+v", label, want, got)
 		}
 	}
+}
+
+// jsonstr allows comparison of deeply nested structs with pointer members.
+func jsonstr(o interface{}) string {
+	s, err := json.MarshalIndent(o, "", "  ")
+	if err != nil {
+		panic(err.Error())
+	}
+	return string(s)
 }
 
 var tomlTableArrays = `
