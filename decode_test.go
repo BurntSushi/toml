@@ -19,6 +19,7 @@ age = 250
 andrew = "gallant"
 kait = "brady"
 now = 1987-07-05T05:45:00Z 
+timeout = "10s"
 yesOrNo = true
 pi = 3.14
 colors = [
@@ -43,6 +44,7 @@ type simple struct {
 	Pi       float64
 	YesOrNo  bool
 	Now      time.Time
+	Timeout  time.Duration
 	Andrew   string
 	Kait     string
 	Annoying map[string]kitties
