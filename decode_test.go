@@ -95,7 +95,8 @@ func TestDecodeEmbedded(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if want, got := jsonstr(test.wantDecoded), jsonstr(test.decodeInto); want != got {
+		want, got := jsonstr(test.wantDecoded), jsonstr(test.decodeInto)
+		if want != got {
 			t.Errorf("%s: want decoded == %+v, got %+v", label, want, got)
 		}
 	}

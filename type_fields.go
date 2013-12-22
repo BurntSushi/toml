@@ -61,9 +61,9 @@ func (x byIndex) Less(i, j int) bool {
 	return len(x[i].index) < len(x[j].index)
 }
 
-// typeFields returns a list of fields that TOML should recognize for the given type.
-// The algorithm is breadth-first search over the set of structs to include - the top struct
-// and then any reachable anonymous structs.
+// typeFields returns a list of fields that TOML should recognize for the given
+// type. The algorithm is breadth-first search over the set of structs to
+// include - the top struct and then any reachable anonymous structs.
 func typeFields(t reflect.Type) []field {
 	// Anonymous fields to explore at the current level and the next.
 	current := []field{}
@@ -129,7 +129,8 @@ func typeFields(t reflect.Type) []field {
 				// Record new anonymous struct to explore in next round.
 				nextCount[ft]++
 				if nextCount[ft] == 1 {
-					next = append(next, field{name: ft.Name(), index: index, typ: ft})
+					f := field{name: ft.Name(), index: index, typ: ft}
+					next = append(next, f)
 				}
 			}
 		}
