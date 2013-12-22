@@ -349,6 +349,9 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) error {
 			}
 
 			keyName := sft.Tag.Get("toml")
+			if keyName == "-" {
+				continue
+			}
 			if keyName == "" {
 				keyName = sft.Name
 			}
