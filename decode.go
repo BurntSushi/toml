@@ -104,6 +104,9 @@ func unify(data interface{}, rv reflect.Value) error {
 	// to confuse with a user struct.
 	if rv.Type().AssignableTo(rvalue(time.Time{}).Type()) {
 		return unifyDatetime(data, rv)
+	// time.Duration is an int64, we don't want to confuse it with a regular int
+	} else if rv.Type().AssignableTo(rvalue(time.Duration(0)).Type()) {
+		return unifyDuration(data, rv)
 	}
 
 	k := rv.Kind()
@@ -238,6 +241,20 @@ func unifyDatetime(data interface{}, rv reflect.Value) error {
 		return nil
 	}
 	return badtype("time.Time", data)
+}
+
+func unifyDuration(data interface{}, rv reflect.Value) error {
+	str, ok := data.(string)
+	if !ok {
+		return badtype("time.Duration", data)
+	}
+	duration, err := time.ParseDuration(str)
+	if err != nil {
+		return err
+	}
+
+	rv.Set(reflect.ValueOf(duration))
+	return nil
 }
 
 func unifyString(data interface{}, rv reflect.Value) error {
