@@ -36,7 +36,8 @@ func TestEncode(t *testing.T) {
 				Uint32 uint32
 				Uint64 uint64
 			}{1, 2, 3, 4, 5},
-			wantOutput: "Uint = 1\nUint8 = 2\nUint16 = 3\nUint32 = 4\nUint64 = 5",
+			wantOutput: "Uint = 1\nUint8 = 2\nUint16 = 3\nUint32 = 4" +
+				"\nUint64 = 5",
 		},
 		"float fields": {
 			input: struct {
@@ -57,7 +58,9 @@ func TestEncode(t *testing.T) {
 			wantOutput: "IntArray0 = []\nIntArray3 = [1, 2, 3]",
 		},
 		"slice fields": {
-			input:      struct{ IntSliceNil, IntSlice0, IntSlice3 []int }{nil, []int{}, []int{1, 2, 3}},
+			input: struct{ IntSliceNil, IntSlice0, IntSlice3 []int }{
+				nil, []int{}, []int{1, 2, 3},
+			},
 			wantOutput: "IntSlice0 = []\nIntSlice3 = [1, 2, 3]",
 		},
 		"nested arrays and slices": {
@@ -71,10 +74,28 @@ func TestEncode(t *testing.T) {
 			}{
 				[][2]int{[2]int{1, 2}, [2]int{3, 4}},
 				[2][]int{[]int{1, 2}, []int{3, 4}},
-				[][2][]int{[2][]int{[]int{1, 2}, []int{3, 4}}, [2][]int{[]int{5, 6}, []int{7, 8}}},
-				[2][][2]int{[][2]int{[2]int{1, 2}, [2]int{3, 4}}, [][2]int{[2]int{5, 6}, [2]int{7, 8}}},
-				[][2]interface{}{[2]interface{}{1, 2}, [2]interface{}{"a", "b"}},
-				[2][]interface{}{[]interface{}{1, 2}, []interface{}{"a", "b"}},
+				[][2][]int{
+					[2][]int{
+						[]int{1, 2}, []int{3, 4},
+					},
+					[2][]int{
+						[]int{5, 6}, []int{7, 8},
+					},
+				},
+				[2][][2]int{
+					[][2]int{
+						[2]int{1, 2}, [2]int{3, 4},
+					},
+					[][2]int{
+						[2]int{5, 6}, [2]int{7, 8},
+					},
+				},
+				[][2]interface{}{
+					[2]interface{}{1, 2}, [2]interface{}{"a", "b"},
+				},
+				[2][]interface{}{
+					[]interface{}{1, 2}, []interface{}{"a", "b"},
+				},
 			},
 			wantOutput: `SliceOfArrays = [[1, 2], [3, 4]]
 ArrayOfSlices = [[1, 2], [3, 4]]
@@ -96,13 +117,19 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 				MixedInts   []interface{}
 				MixedFloats []interface{}
 			}{
-				[]interface{}{int(1), int8(2), int16(3), int32(4), int64(5), uint(1), uint8(2), uint16(3), uint32(4), uint64(5)},
+				[]interface{}{
+					int(1), int8(2), int16(3), int32(4), int64(5),
+					uint(1), uint8(2), uint16(3), uint32(4), uint64(5),
+				},
 				[]interface{}{float32(1.5), float64(2.5)},
 			},
-			wantOutput: "MixedInts = [1, 2, 3, 4, 5, 1, 2, 3, 4, 5]\nMixedFloats = [1.5, 2.5]",
+			wantOutput: "MixedInts = [1, 2, 3, 4, 5, 1, 2, 3, 4, 5]\n" +
+				"MixedFloats = [1.5, 2.5]",
 		},
-		"(error) slice with element type mismatch (one of which is nested array)": {
-			input:     struct{ Mixed []interface{} }{[]interface{}{1, []interface{}{2}}},
+		"(error) slice w/ element type mismatch (one is nested array)": {
+			input: struct{ Mixed []interface{} }{
+				[]interface{}{1, []interface{}{2}},
+			},
 			wantError: ErrArrayMixedElementTypes,
 		},
 		"(error) slice with 1 nil element": {
@@ -110,7 +137,9 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 			wantError: ErrArrayNilElement,
 		},
 		"(error) slice with 1 nil element (and other non-nil elements)": {
-			input:     struct{ NilElement []interface{} }{[]interface{}{1, nil}},
+			input: struct{ NilElement []interface{} }{
+				[]interface{}{1, nil},
+			},
 			wantError: ErrArrayNilElement,
 		},
 		"simple map": {
@@ -122,15 +151,23 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 			wantOutput: "a = 1\nb = \"c\"",
 		},
 		"map with interface{} value type, some of which are structs": {
-			input:      map[string]interface{}{"a": struct{ Int int }{2}, "b": 1},
+			input: map[string]interface{}{
+				"a": struct{ Int int }{2},
+				"b": 1,
+			},
 			wantOutput: "b = 1\n[a]\n  Int = 2",
 		},
 		"nested map": {
-			input:      map[string]map[string]int{"a": map[string]int{"b": 1}, "c": map[string]int{"d": 2}},
+			input: map[string]map[string]int{
+				"a": map[string]int{"b": 1},
+				"c": map[string]int{"d": 2},
+			},
 			wantOutput: "[a]\n  b = 1\n\n[c]\n  d = 2",
 		},
 		"nested struct": {
-			input:      struct{ Struct struct{ Int int } }{struct{ Int int }{1}},
+			input: struct{ Struct struct{ Int int } }{
+				struct{ Int int }{1},
+			},
 			wantOutput: "[Struct]\n  Int = 1",
 		},
 		"nested struct and non-struct field": {
@@ -141,7 +178,9 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 			wantOutput: "Bool = true\n\n[Struct]\n  Int = 1",
 		},
 		"2 nested structs": {
-			input:      struct{ Struct1, Struct2 struct{ Int int } }{struct{ Int int }{1}, struct{ Int int }{2}},
+			input: struct{ Struct1, Struct2 struct{ Int int } }{
+				struct{ Int int }{1}, struct{ Int int }{2},
+			},
 			wantOutput: "[Struct1]\n  Int = 1\n\n[Struct2]\n  Int = 2",
 		},
 		"deeply nested structs": {
@@ -151,7 +190,8 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 				struct{ Struct3 *struct{ Int int } }{&struct{ Int int }{1}},
 				struct{ Struct3 *struct{ Int int } }{nil},
 			},
-			wantOutput: "[Struct1]\n  [Struct1.Struct3]\n    Int = 1\n\n[Struct2]\n",
+			wantOutput: "[Struct1]\n  [Struct1.Struct3]\n    Int = 1" +
+				"\n\n[Struct2]\n",
 		},
 		"nested struct with nil struct elem": {
 			input: struct {
@@ -219,7 +259,8 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 		err := e.Encode(test.input)
 		if err != test.wantError {
 			if test.wantError != nil {
-				t.Errorf("%s: want Encode error %v, got %v", label, test.wantError, err)
+				t.Errorf("%s: want Encode error %v, got %v",
+					label, test.wantError, err)
 			} else {
 				t.Errorf("%s: Encode failed: %s", label, err)
 			}

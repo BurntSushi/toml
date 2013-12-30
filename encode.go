@@ -25,8 +25,10 @@ import (
 )
 
 var (
-	ErrArrayMixedElementTypes = errors.New("can't encode array with mixed element types")
-	ErrArrayNilElement        = errors.New("can't encode array with nil element")
+	ErrArrayMixedElementTypes = errors.New(
+		"can't encode array with mixed element types")
+	ErrArrayNilElement = errors.New(
+		"can't encode array with nil element")
 )
 
 type Encoder struct {
@@ -57,7 +59,11 @@ func (enc *Encoder) Encode(v interface{}) error {
 func (enc *Encoder) encode(key Key, rv reflect.Value) error {
 	k := rv.Kind()
 	switch k {
-	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64, reflect.String:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32,
+		reflect.Uint64,
+		reflect.Float32, reflect.Float64,
+		reflect.String, reflect.Bool:
 		err := enc.eKeyEq(key)
 		if err != nil {
 			return err
@@ -86,21 +92,28 @@ func (enc *Encoder) encode(key Key, rv reflect.Value) error {
 	return e("Unsupported type for key '%s': %s", key, k)
 }
 
-// eElement encodes any value that can be an array element (primitives and arrays).
+// eElement encodes any value that can be an array element (primitives and
+// arrays).
 func (enc *Encoder) eElement(rv reflect.Value) error {
+	ws := func(s string) error {
+		_, err := io.WriteString(enc.w, s)
+		return err
+	}
+
 	var err error
 	k := rv.Kind()
 	switch k {
 	case reflect.Bool:
-		_, err = io.WriteString(enc.w, strconv.FormatBool(rv.Bool()))
+		err = ws(strconv.FormatBool(rv.Bool()))
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		_, err = io.WriteString(enc.w, strconv.FormatInt(rv.Int(), 10))
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		_, err = io.WriteString(enc.w, strconv.FormatUint(rv.Uint(), 10))
+		err = ws(strconv.FormatInt(rv.Int(), 10))
+	case reflect.Uint, reflect.Uint8, reflect.Uint16,
+		reflect.Uint32, reflect.Uint64:
+		err = ws(strconv.FormatUint(rv.Uint(), 10))
 	case reflect.Float32:
-		_, err = io.WriteString(enc.w, strconv.FormatFloat(rv.Float(), 'f', -1, 32))
+		err = ws(strconv.FormatFloat(rv.Float(), 'f', -1, 32))
 	case reflect.Float64:
-		_, err = io.WriteString(enc.w, strconv.FormatFloat(rv.Float(), 'f', -1, 64))
+		err = ws(strconv.FormatFloat(rv.Float(), 'f', -1, 64))
 	case reflect.Array, reflect.Slice:
 		return enc.eArrayOrSliceElement(rv)
 	case reflect.Interface:
@@ -114,8 +127,7 @@ func (enc *Encoder) eElement(rv reflect.Value) error {
 			"\"", "\\\"",
 			"\\", "\\\\",
 		).Replace(s)
-		s = "\"" + s + "\""
-		_, err = io.WriteString(enc.w, s)
+		err = ws("\"" + s + "\"")
 	default:
 		return e("Unexpected primitive type: %s", k)
 	}
@@ -199,7 +211,8 @@ func (enc *Encoder) eArrayOfTables(key Key, rv reflect.Value) error {
 			continue
 		}
 
-		_, err := fmt.Fprintf(enc.w, "%s[[%s]]\n", strings.Repeat(enc.Indent, len(key)-1), strings.Join(key, "."))
+		_, err := fmt.Fprintf(enc.w, "%s[[%s]]\n",
+			strings.Repeat(enc.Indent, len(key)-1), key.String())
 		if err != nil {
 			return err
 		}
@@ -238,7 +251,8 @@ func (enc *Encoder) eTable(key Key, rv reflect.Value) error {
 		}
 	}
 	if len(key) > 0 {
-		_, err := fmt.Fprintf(enc.w, "%s[%s]\n", strings.Repeat(enc.Indent, len(key)-1), strings.Join(key, "."))
+		_, err := fmt.Fprintf(enc.w, "%s[%s]\n",
+			strings.Repeat(enc.Indent, len(key)-1), key.String())
 		if err != nil {
 			return err
 		}
@@ -318,8 +332,8 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) error {
 	// table (not the one we're writing here).
 	rt := rv.Type()
 	var fieldsDirect, fieldsSub [][]int
-	var addFields func(rt reflect.Type, rv reflect.Value, startingIndex []int)
-	addFields = func(rt reflect.Type, rv reflect.Value, startingIndex []int) {
+	var addFields func(rt reflect.Type, rv reflect.Value, start []int)
+	addFields = func(rt reflect.Type, rv reflect.Value, start []int) {
 		for i := 0; i < rt.NumField(); i++ {
 			f := rt.Field(i)
 			frv := rv.Field(i)
@@ -331,9 +345,9 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) error {
 				}
 				addFields(t, frv, f.Index)
 			} else if isStructOrMap(frv) {
-				fieldsSub = append(fieldsSub, append(startingIndex, f.Index...))
+				fieldsSub = append(fieldsSub, append(start, f.Index...))
 			} else {
-				fieldsDirect = append(fieldsDirect, append(startingIndex, f.Index...))
+				fieldsDirect = append(fieldsDirect, append(start, f.Index...))
 			}
 		}
 	}
@@ -399,7 +413,9 @@ func tomlTypeName(rv reflect.Value) (typeName string, valueIsNil bool) {
 	switch k {
 	case reflect.Bool:
 		return "bool", false
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32,
+		reflect.Uint64:
 		return "integer", false
 	case reflect.Float32, reflect.Float64:
 		return "float", false
@@ -423,7 +439,11 @@ func tomlTypeName(rv reflect.Value) (typeName string, valueIsNil bool) {
 func isTOMLTableType(rt reflect.Type, rv reflect.Value) (bool, error) {
 	k := rt.Kind()
 	switch k {
-	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32, reflect.Float64, reflect.String:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32,
+		reflect.Uint64,
+		reflect.Float32, reflect.Float64,
+		reflect.String, reflect.Bool:
 		return false, nil
 	case reflect.Array, reflect.Slice:
 		// Make sure that these eventually contain an underlying non-table type
@@ -437,7 +457,7 @@ func isTOMLTableType(rt reflect.Type, rv reflect.Value) (bool, error) {
 			return false, err
 		}
 		if hasUnderlyingTableType {
-			return true, errors.New("TOML array element can't contain a table type")
+			return true, errors.New("TOML array element can't contain a table")
 		}
 		return false, nil
 	case reflect.Ptr:
