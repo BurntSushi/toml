@@ -1,10 +1,10 @@
-# TOML parser for Go with reflection
+# TOML parser and encoder for Go with reflection
 
 TOML stands for Tom's Obvious, Minimal Language. This Go package provides a
 reflection interface similar to Go's standard library `json` and `xml` 
-packages. This package also supports the `encoding.TextUnmarshaler` interface 
-so that you can define custom data representations. (There is an example of 
-this below.)
+packages. This package also supports the `encoding.TextUnmarshaler` and
+`encoding.TextMarshaler` interfaces so that you can define custom data 
+representations. (There is an example of this below.)
 
 Spec: https://github.com/mojombo/toml
 
@@ -30,7 +30,8 @@ tomlv some-toml-file.toml
 ## Testing
 
 This package passes all tests in
-[toml-test](https://github.com/BurntSushi/toml-test).
+[toml-test](https://github.com/BurntSushi/toml-test) for both the decoder
+and the encoder.
 
 ## Examples
 
