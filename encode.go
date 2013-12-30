@@ -99,6 +99,14 @@ func (enc *Encoder) eElement(rv reflect.Value) error {
 		_, err := io.WriteString(enc.w, s)
 		return err
 	}
+	// By the TOML spec, all floats must have a decimal with at least one
+	// number on either side.
+	floatAddDecimal := func(fstr string) string {
+		if !strings.Contains(fstr, ".") {
+			return fstr + ".0"
+		}
+		return fstr
+	}
 
 	var err error
 	k := rv.Kind()
@@ -111,9 +119,9 @@ func (enc *Encoder) eElement(rv reflect.Value) error {
 		reflect.Uint32, reflect.Uint64:
 		err = ws(strconv.FormatUint(rv.Uint(), 10))
 	case reflect.Float32:
-		err = ws(strconv.FormatFloat(rv.Float(), 'f', -1, 32))
+		err = ws(floatAddDecimal(strconv.FormatFloat(rv.Float(), 'f', -1, 32)))
 	case reflect.Float64:
-		err = ws(strconv.FormatFloat(rv.Float(), 'f', -1, 64))
+		err = ws(floatAddDecimal(strconv.FormatFloat(rv.Float(), 'f', -1, 64)))
 	case reflect.Array, reflect.Slice:
 		return enc.eArrayOrSliceElement(rv)
 	case reflect.Interface:
