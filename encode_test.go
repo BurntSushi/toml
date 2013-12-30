@@ -5,6 +5,9 @@ import (
 	"testing"
 )
 
+// XXX(burntsushi)
+// I think these tests probably should be removed. They are good, but they
+// ought to be obsolete by toml-test.
 func TestEncode(t *testing.T) {
 	tests := map[string]struct {
 		input      interface{}
