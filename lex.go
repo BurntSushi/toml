@@ -82,7 +82,7 @@ func (lx *lexer) nextItem() item {
 
 func lex(input string) *lexer {
 	lx := &lexer{
-		input: input,
+		input: input + "\n",
 		state: lexTop,
 		line:  1,
 		items: make(chan item, 10),
