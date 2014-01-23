@@ -65,7 +65,7 @@ func parse(data string) (p *parser, err error) {
 	return p, nil
 }
 
-func (p *parser) panic(format string, v ...interface{}) {
+func (p *parser) panicf(format string, v ...interface{}) {
 	msg := fmt.Sprintf("Near line %d, key '%s': %s",
 		p.approxLine, p.current(), fmt.Sprintf(format, v...))
 	panic(parseError(msg))
@@ -74,7 +74,7 @@ func (p *parser) panic(format string, v ...interface{}) {
 func (p *parser) next() item {
 	it := p.lx.nextItem()
 	if it.typ == itemError {
-		p.panic("Near line %d: %s", it.line, it.val)
+		p.panicf("Near line %d: %s", it.line, it.val)
 	}
 	return it
 }
@@ -164,7 +164,7 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 			if e, ok := err.(*strconv.NumError); ok &&
 				e.Err == strconv.ErrRange {
 
-				p.panic("Integer '%s' is out of the range of 64-bit "+
+				p.panicf("Integer '%s' is out of the range of 64-bit "+
 					"signed integers.", it.val)
 			} else {
 				p.bug("Expected integer value, but got '%s'.", it.val)
@@ -184,7 +184,7 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 			if e, ok := err.(*strconv.NumError); ok &&
 				e.Err == strconv.ErrRange {
 
-				p.panic("Float '%s' is out of the range of 64-bit "+
+				p.panicf("Float '%s' is out of the range of 64-bit "+
 					"IEEE-754 floating-point numbers.", it.val)
 			} else {
 				p.bug("Expected float value, but got '%s'.", it.val)
@@ -252,7 +252,7 @@ func (p *parser) establishContext(key Key, array bool) {
 		case map[string]interface{}:
 			hashContext = t
 		default:
-			p.panic("Key '%s' was already created as a hash.", keyContext)
+			p.panicf("Key '%s' was already created as a hash.", keyContext)
 		}
 	}
 
@@ -270,7 +270,7 @@ func (p *parser) establishContext(key Key, array bool) {
 		if hash, ok := hashContext[k].([]map[string]interface{}); ok {
 			hashContext[k] = append(hash, make(map[string]interface{}))
 		} else {
-			p.panic("Key '%s' was already created and cannot be used as "+
+			p.panicf("Key '%s' was already created and cannot be used as "+
 				"an array.", keyContext)
 		}
 	} else {
@@ -326,7 +326,7 @@ func (p *parser) setValue(key string, value interface{}) {
 
 		// Otherwise, we have a concrete key trying to override a previous
 		// key, which is *always* wrong.
-		p.panic("Key '%s' has already been defined.", keyContext)
+		p.panicf("Key '%s' has already been defined.", keyContext)
 	}
 	hash[key] = value
 }
@@ -411,7 +411,7 @@ func (p *parser) asciiEscapeToUnicode(s string) string {
 	// UTF-8 characters like U+DCFF, but it doesn't.
 	r := string(rune(hex))
 	if !utf8.ValidString(r) {
-		p.panic("Escaped character '\\u%s' is not valid UTF-8.", s)
+		p.panicf("Escaped character '\\u%s' is not valid UTF-8.", s)
 	}
 	return string(r)
 }

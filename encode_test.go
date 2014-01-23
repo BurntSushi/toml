@@ -75,29 +75,29 @@ func TestEncode(t *testing.T) {
 				SliceOfMixedArrays    [][2]interface{}
 				ArrayOfMixedSlices    [2][]interface{}
 			}{
-				[][2]int{[2]int{1, 2}, [2]int{3, 4}},
-				[2][]int{[]int{1, 2}, []int{3, 4}},
+				[][2]int{{1, 2}, {3, 4}},
+				[2][]int{{1, 2}, {3, 4}},
 				[][2][]int{
-					[2][]int{
-						[]int{1, 2}, []int{3, 4},
+					{
+						{1, 2}, {3, 4},
 					},
-					[2][]int{
-						[]int{5, 6}, []int{7, 8},
+					{
+						{5, 6}, {7, 8},
 					},
 				},
 				[2][][2]int{
-					[][2]int{
-						[2]int{1, 2}, [2]int{3, 4},
+					{
+						{1, 2}, {3, 4},
 					},
-					[][2]int{
-						[2]int{5, 6}, [2]int{7, 8},
+					{
+						{5, 6}, {7, 8},
 					},
 				},
 				[][2]interface{}{
-					[2]interface{}{1, 2}, [2]interface{}{"a", "b"},
+					{1, 2}, {"a", "b"},
 				},
 				[2][]interface{}{
-					[]interface{}{1, 2}, []interface{}{"a", "b"},
+					{1, 2}, {"a", "b"},
 				},
 			},
 			wantOutput: `SliceOfArrays = [[1, 2], [3, 4]]
@@ -162,8 +162,8 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 		},
 		"nested map": {
 			input: map[string]map[string]int{
-				"a": map[string]int{"b": 1},
-				"c": map[string]int{"d": 2},
+				"a": {"b": 1},
+				"c": {"d": 2},
 			},
 			wantOutput: "[a]\n  b = 1\n\n[c]\n  d = 2",
 		},
