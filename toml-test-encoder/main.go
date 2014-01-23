@@ -59,8 +59,8 @@ func translate(typedJson interface{}) interface{} {
 			if m, ok := translate(v[i]).(map[string]interface{}); ok {
 				tabArray[i] = m
 			} else {
-				log.Fatalf("JSON arrays may only contain objects. This "+
-					"corresponds to only tables being allowed in "+
+				log.Fatalf("JSON arrays may only contain objects. This " +
+					"corresponds to only tables being allowed in " +
 					"TOML table arrays.")
 			}
 		}
