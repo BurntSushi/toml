@@ -602,17 +602,23 @@ func lexFloat(lx *lexer) stateFn {
 	return lx.pop()
 }
 
+// lexConst consumes the s[1:] in s. It assumes that s[0] has already been
+// consumed.
+func lexConst(lx *lexer, s string) stateFn {
+	for i := range s[1:] {
+		if r := lx.next(); r != rune(s[i+1]) {
+			return lx.errorf("Expected %q, but found %q instead.", s[:i+1],
+				s[:i]+string(r))
+		}
+	}
+	return nil
+}
+
 // lexTrue consumes the "rue" in "true". It assumes that 't' has already
 // been consumed.
 func lexTrue(lx *lexer) stateFn {
-	if r := lx.next(); r != 'r' {
-		return lx.errorf("Expected 'tr', but found %q instead.", "t"+string(r))
-	}
-	if r := lx.next(); r != 'u' {
-		return lx.errorf("Expected 'tru', but found %q instead.", "tr"+string(r))
-	}
-	if r := lx.next(); r != 'e' {
-		return lx.errorf("Expected 'true', but found %q instead.", "tru"+string(r))
+	if fn := lexConst(lx, "true"); fn != nil {
+		return fn
 	}
 	lx.emit(itemBool)
 	return lx.pop()
@@ -621,17 +627,8 @@ func lexTrue(lx *lexer) stateFn {
 // lexFalse consumes the "alse" in "false". It assumes that 'f' has already
 // been consumed.
 func lexFalse(lx *lexer) stateFn {
-	if r := lx.next(); r != 'a' {
-		return lx.errorf("Expected 'fa', but found %q instead.", "f"+string(r))
-	}
-	if r := lx.next(); r != 'l' {
-		return lx.errorf("Expected 'fal', but found %q instead.", "fa"+string(r))
-	}
-	if r := lx.next(); r != 's' {
-		return lx.errorf("Expected 'fals', but found %q instead.", "fal"+string(r))
-	}
-	if r := lx.next(); r != 'e' {
-		return lx.errorf("Expected 'false', but found %q instead.", "fals"+string(r))
+	if fn := lexConst(lx, "false"); fn != nil {
+		return fn
 	}
 	lx.emit(itemBool)
 	return lx.pop()

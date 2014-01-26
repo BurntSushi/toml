@@ -229,6 +229,44 @@ func TestCase(t *testing.T) {
 	}
 }
 
+func TestTrueFalse(t *testing.T) {
+	table := []struct {
+		raw string
+		exp bool
+	}{
+		{`key = true`, true},
+		{`key = false`, false},
+	}
+	tableErr := []string{
+		`key = truue`,
+		`key = tabc`,
+		`key = fbcd`,
+		`key = falabc`,
+	}
+	var got map[string]bool
+	for _, row := range table {
+		_, err := Decode(row.raw, &got)
+		if err != nil {
+			t.Errorf("expected err to be nil, got %q instead", err)
+			continue
+		}
+		v, ok := got["key"]
+		if !ok {
+			t.Errorf(`expected acessing got["key"] to be ok`)
+			continue
+		}
+		if v != row.exp {
+			t.Errorf(`expected got["key"] to be %v, was %v instead`, row.exp, v)
+		}
+	}
+	for _, raw := range tableErr {
+		_, err := Decode(raw, nil)
+		if err == nil {
+			t.Errorf("expected err to be non-nil")
+		}
+	}
+}
+
 func TestPointers(t *testing.T) {
 	type Object struct {
 		Type        string
