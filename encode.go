@@ -15,7 +15,6 @@ package toml
 
 import (
 	"bufio"
-	"encoding"
 	"errors"
 	"fmt"
 	"io"
@@ -59,7 +58,7 @@ func (enc *Encoder) Encode(v interface{}) error {
 
 func (enc *Encoder) encode(key Key, rv reflect.Value) error {
 	// Special case. If we can marshal the type to text, then we used that.
-	if _, ok := rv.Interface().(encoding.TextMarshaler); ok {
+	if _, ok := rv.Interface().(TextMarshaler); ok {
 		err := enc.eKeyEq(key)
 		if err != nil {
 			return err
@@ -119,7 +118,7 @@ func (enc *Encoder) eElement(rv reflect.Value) error {
 	}
 
 	// Special case. Use text marshaler if it's available for this value.
-	if v, ok := rv.Interface().(encoding.TextMarshaler); ok {
+	if v, ok := rv.Interface().(TextMarshaler); ok {
 		s, err := v.MarshalText()
 		if err != nil {
 			return err
