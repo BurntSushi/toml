@@ -13,6 +13,7 @@ const (
 	itemEOF
 	itemText
 	itemString
+	itemRawString
 	itemBool
 	itemInteger
 	itemFloat
@@ -41,6 +42,8 @@ const (
 	commentStart    = '#'
 	stringStart     = '"'
 	stringEnd       = '"'
+	rawStringStart  = '`'
+	rawStringEnd    = '`'
 )
 
 type stateFn func(lx *lexer) stateFn
@@ -359,6 +362,9 @@ func lexValue(lx *lexer) stateFn {
 	case r == stringStart:
 		lx.ignore() // ignore the '"'
 		return lexString
+	case r == rawStringStart:
+		lx.ignore() // ignore the '`'
+		return lexRawString
 	case r == 't':
 		return lexTrue
 	case r == 'f':
@@ -484,6 +490,30 @@ func lexStringUnicode(lx *lexer) stateFn {
 		}
 	}
 	return lexString
+}
+
+// lexRawString consumes a raw string. Nothing but backticks need to be escaped
+// in such a string. It assumes that the beginning '`' has already been consumed
+// and ignored.
+
+func lexRawString(lx *lexer) stateFn {
+	r := lx.next()
+	switch {
+	case isNL(r):
+		return lx.errorf("Strings cannot contain new lines.")
+	case r == '\\':
+		n := lx.peek()
+		if n == rawStringEnd {
+			lx.next()
+		}
+	case r == rawStringEnd:
+		lx.backup()
+		lx.emit(itemRawString)
+		lx.next()
+		lx.ignore()
+		return lx.pop()
+	}
+	return lexRawString
 }
 
 // lexNumberOrDateStart consumes either a (positive) integer, float or datetime.
@@ -694,6 +724,8 @@ func (itype itemType) String() string {
 	case itemText:
 		return "Text"
 	case itemString:
+		return "String"
+	case itemRawString:
 		return "String"
 	case itemBool:
 		return "Bool"

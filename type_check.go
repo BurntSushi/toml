@@ -49,6 +49,8 @@ func (p *parser) typeOfPrimitive(lexItem item) tomlType {
 		return tomlDatetime
 	case itemString:
 		return tomlString
+	case itemRawString:
+		return tomlString
 	case itemBool:
 		return tomlBool
 	}
