@@ -471,8 +471,8 @@ func lexStringEscape(lx *lexer) stateFn {
 		"\\b, \\t, \\n, \\f, \\r, \\\", \\/, \\\\, and \\uXXXX.", r)
 }
 
-// lexStringBinary consumes two hexadecimal digits following '\x'. It assumes
-// that the '\x' has already been consumed.
+// lexStringUnicode consumes four hexadecimal digits following '\u'. It assumes
+// that the '\u' has already been consumed.
 func lexStringUnicode(lx *lexer) stateFn {
 	var r rune
 
