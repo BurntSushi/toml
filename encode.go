@@ -345,8 +345,8 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) error {
 	// table (not the one we're writing here).
 	rt := rv.Type()
 	var fieldsDirect, fieldsSub [][]int
-	var addFields func(rt reflect.Type, rv reflect.Value, start []int)
-	addFields = func(rt reflect.Type, rv reflect.Value, start []int) {
+	var addFields func(rt reflect.Type, rv reflect.Value, start []int) error
+	addFields = func(rt reflect.Type, rv reflect.Value, start []int) error {
 		for i := 0; i < rt.NumField(); i++ {
 			f := rt.Field(i)
 			frv := rv.Field(i)
@@ -356,15 +356,24 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) error {
 					t = t.Elem()
 					frv = frv.Elem()
 				}
-				addFields(t, frv, f.Index)
+				if t.Kind() != reflect.Struct {
+					return errors.New(
+						"can't encode an anonymous field that is not a struct")
+				}
+				if err := addFields(t, frv, f.Index); err != nil {
+					return err
+				}
 			} else if isStructOrMap(frv) {
 				fieldsSub = append(fieldsSub, append(start, f.Index...))
 			} else {
 				fieldsDirect = append(fieldsDirect, append(start, f.Index...))
 			}
 		}
+		return nil
 	}
-	addFields(rt, rv, nil)
+	if err := addFields(rt, rv, nil); err != nil {
+		return err
+	}
 
 	var writeFields = func(fields [][]int) error {
 		for i, fieldIndex := range fields {
