@@ -278,6 +278,23 @@ Description = "da base"
 	}
 }
 
+type sphere struct {
+	Center [3]float64
+	Radius float64
+}
+
+func TestDecodeArrays(t *testing.T) {
+	var s1 sphere
+	if _, err := Decode(`center = [0.0, 1.5, 0.0]`, &s1); err != nil {
+		t.Fatal(err)
+	}
+
+	var s2 sphere
+	if _, err := Decode(`center = [0.1, 2.3]`, &s2); err == nil {
+		t.Fatal("Expected array type mismatch error")
+	}
+}
+
 func ExamplePrimitiveDecode() {
 	var md MetaData
 	var err error
