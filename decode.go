@@ -182,6 +182,8 @@ func unify(data interface{}, rv reflect.Value) error {
 		return unifyStruct(data, rv)
 	case reflect.Map:
 		return unifyMap(data, rv)
+	case reflect.Array:
+		return unifyArray(data, rv)
 	case reflect.Slice:
 		return unifySlice(data, rv)
 	case reflect.String:
@@ -266,6 +268,26 @@ func unifyMap(mapping interface{}, rv reflect.Value) error {
 
 		rvkey.SetString(k)
 		rv.SetMapIndex(rvkey, rvval)
+	}
+	return nil
+}
+
+func unifyArray(data interface{}, rv reflect.Value) error {
+	datav := reflect.ValueOf(data)
+	if datav.Kind() != reflect.Slice {
+		return badtype("slice", data)
+	}
+	sliceLen := datav.Len()
+	if sliceLen != rv.Len() {
+		return e("expected array length %d; got TOML array of length %d",
+			rv.Len(), sliceLen)
+	}
+	for i := 0; i < sliceLen; i++ {
+		v := datav.Index(i).Interface()
+		sliceval := indirect(rv.Index(i))
+		if err := unify(v, sliceval); err != nil {
+			return err
+		}
 	}
 	return nil
 }
