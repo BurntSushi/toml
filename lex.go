@@ -407,6 +407,7 @@ func lexArrayValueEnd(lx *lexer) stateFn {
 		lx.push(lexArrayValueEnd)
 		return lexCommentStart
 	case r == arrayValTerm:
+		lx.ignore()
 		return lexArrayValue // move on to the next value
 	case r == arrayEnd:
 		return lexArrayEnd
