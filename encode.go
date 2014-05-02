@@ -495,7 +495,10 @@ func isTOMLTableType(rt reflect.Type, rv reflect.Value) (bool, error) {
 		if rv.Kind() == reflect.Interface {
 			return false, nil
 		}
-		return isTOMLTableType(rv.Type(), rv)
+		if rv.IsValid() {
+			return isTOMLTableType(rv.Type(), rv)
+		}
+		return false, nil
 	case reflect.Map, reflect.Struct:
 		return true, nil
 	default:
