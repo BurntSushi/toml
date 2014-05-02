@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -44,6 +45,22 @@ func (enc *Encoder) Encode(v interface{}) error {
 }
 
 func (enc *Encoder) encode(key Key, rv reflect.Value) error {
+	// Extra special case. Time needs to be in ISO8601 format.
+	switch rv.Interface().(type) {
+	case time.Time:
+		if enc.hasWritten {
+			_, err := enc.w.Write([]byte{'\n'})
+			if err != nil {
+				return err
+			}
+		}
+		err := enc.eKeyEq(key)
+		if err != nil {
+			return err
+		}
+		return enc.eElement(rv)
+	}
+
 	// Special case. If we can marshal the type to text, then we used that.
 	if _, ok := rv.Interface().(TextMarshaler); ok {
 
@@ -109,6 +126,12 @@ func (enc *Encoder) eElement(rv reflect.Value) error {
 			return fstr + ".0"
 		}
 		return fstr
+	}
+
+	// Extra special case. Time needs to be in ISO8601 format.
+	switch s := rv.Interface().(type) {
+	case time.Time:
+		return ws(s.UTC().Format("2006-01-02T03:04:05Z"))
 	}
 
 	// Special case. Use text marshaler if it's available for this value.
