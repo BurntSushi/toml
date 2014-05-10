@@ -63,7 +63,6 @@ func (enc *Encoder) encode(key Key, rv reflect.Value) error {
 
 	// Special case. If we can marshal the type to text, then we used that.
 	if _, ok := rv.Interface().(TextMarshaler); ok {
-
 		if enc.hasWritten {
 			_, err := enc.w.Write([]byte{'\n'})
 			if err != nil {
