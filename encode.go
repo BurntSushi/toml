@@ -127,10 +127,12 @@ func (enc *Encoder) eElement(rv reflect.Value) error {
 		return fstr
 	}
 
-	// Extra special case. Time needs to be in ISO8601 format.
-	switch s := rv.Interface().(type) {
-	case time.Time:
-		return ws(s.UTC().Format("2006-01-02T03:04:05Z"))
+	// Special case time.Time as a primitive. Has to come before TextMarshaler
+	// below because time.Time implements encoding.TextMarshaler, but we need to
+	// always use UTC.
+	if t, ok := rv.Interface().(time.Time); ok {
+		t = t.In(time.FixedZone("UTC", 0))
+		return ws(t.Format("2006-01-02T15:04:05Z"))
 	}
 
 	// Special case. Use text marshaler if it's available for this value.
@@ -278,8 +280,11 @@ func isStructOrMap(rv reflect.Value) bool {
 	switch rv.Kind() {
 	case reflect.Interface, reflect.Ptr:
 		return isStructOrMap(rv.Elem())
-	case reflect.Map, reflect.Struct:
+	case reflect.Map:
 		return true
+	case reflect.Struct:
+		_, isDate := rv.Interface().(time.Time)
+		return !isDate
 	default:
 		return false
 	}
@@ -480,8 +485,14 @@ func tomlTypeName(rv reflect.Value) (typeName string, valueIsNil bool) {
 		return tomlTypeName(rv.Elem())
 	case reflect.String:
 		return "string", false
-	case reflect.Map, reflect.Struct:
+	case reflect.Map:
 		return "table", false
+	case reflect.Struct:
+		if _, isDate := rv.Interface().(time.Time); isDate {
+			return "datetime", false
+		} else {
+			return "table", false
+		}
 	default:
 		panic("unexpected reflect.Kind: " + k.String())
 	}
@@ -525,8 +536,11 @@ func isTOMLTableType(rt reflect.Type, rv reflect.Value) (bool, error) {
 			return isTOMLTableType(rv.Type(), rv)
 		}
 		return false, nil
-	case reflect.Map, reflect.Struct:
+	case reflect.Map:
 		return true, nil
+	case reflect.Struct:
+		_, isDate := rv.Interface().(time.Time)
+		return !isDate, nil
 	default:
 		panic("unexpected reflect.Kind: " + k.String())
 	}
