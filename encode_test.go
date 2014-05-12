@@ -67,6 +67,13 @@ func TestEncode(t *testing.T) {
 			input:      struct{ String string }{"foo"},
 			wantOutput: `String = "foo"`,
 		},
+		"string field and unxeported field": {
+			input: struct {
+				String     string
+				unexported int
+			}{"foo", 0},
+			wantOutput: `String = "foo"`,
+		},
 		"array fields": {
 			input: struct {
 				IntArray0 [0]int
