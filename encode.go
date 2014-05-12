@@ -378,6 +378,10 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) error {
 	addFields = func(rt reflect.Type, rv reflect.Value, start []int) error {
 		for i := 0; i < rt.NumField(); i++ {
 			f := rt.Field(i)
+			// skip unexporded fields
+			if f.PkgPath != "" {
+				continue
+			}
 			frv := rv.Field(i)
 			if f.Anonymous {
 				t := frv.Type()
