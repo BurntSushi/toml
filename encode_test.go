@@ -5,10 +5,24 @@ import (
 	"testing"
 )
 
+func TestUnexported(t *testing.T) {
+	type unexported struct {
+		unexported int
+	}
+	enc := NewEncoder(new(bytes.Buffer))
+	if err := enc.Encode(&unexported{0}); err != nil {
+		t.Fatalf("Unexported fields should be ignored when encoding.")
+	}
+}
+
 // XXX(burntsushi)
 // I think these tests probably should be removed. They are good, but they
 // ought to be obsolete by toml-test.
 func TestEncode(t *testing.T) {
+	type Embedded struct {
+		Int int `toml:"_int"`
+	}
+
 	tests := map[string]struct {
 		input      interface{}
 		wantOutput string
@@ -275,8 +289,4 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 			t.Errorf("%s: want %q, got %q", label, test.wantOutput, got)
 		}
 	}
-}
-
-type Embedded struct {
-	Int int `toml:"_int"`
 }
