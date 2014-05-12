@@ -5,16 +5,6 @@ import (
 	"testing"
 )
 
-func TestUnexported(t *testing.T) {
-	type unexported struct {
-		unexported int
-	}
-	enc := NewEncoder(new(bytes.Buffer))
-	if err := enc.Encode(&unexported{0}); err != nil {
-		t.Fatalf("Unexported fields should be ignored when encoding.")
-	}
-}
-
 // XXX(burntsushi)
 // I think these tests probably should be removed. They are good, but they
 // ought to be obsolete by toml-test.
@@ -67,7 +57,7 @@ func TestEncode(t *testing.T) {
 			input:      struct{ String string }{"foo"},
 			wantOutput: `String = "foo"`,
 		},
-		"string field and unxeported field": {
+		"string field and unexported field": {
 			input: struct {
 				String     string
 				unexported int
