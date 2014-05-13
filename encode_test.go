@@ -7,6 +7,13 @@ import (
 	"time"
 )
 
+type MarshalString string
+
+func (s MarshalString) MarshalText() (text []byte, err error) {
+  str := fmt.Sprintf("++%s++", s)
+	return []byte(str), nil
+}
+
 // XXX(burntsushi)
 // I think these tests probably should be removed. They are good, but they
 // ought to be obsolete by toml-test.
@@ -68,6 +75,13 @@ func TestEncode(t *testing.T) {
 				unexported int
 			}{"foo", 0},
 			wantOutput: `String = "foo"`,
+		},
+		"TextMarshaler field": {
+			input: map[string]interface{}{
+				"Int": 1,
+				"Marshal": MarshalString("foo"),
+			},
+			wantOutput: "Int = 1\nMarshal = ++foo++",
 		},
 		"datetime field in UTC": {
 			input:      struct{ Date time.Time }{date},
