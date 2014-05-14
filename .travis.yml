@@ -1,0 +1,13 @@
+language: go
+go:
+  - 1.0
+  - 1.1
+  - 1.2
+  - tip
+install:
+  - go get github.com/BurntSushi/toml-test
+script:
+  - go test -v
+  - toml-test toml-test-go
+  - toml-test -encoder toml-test-encoder
+
