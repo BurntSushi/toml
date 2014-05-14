@@ -152,6 +152,14 @@ func unify(data interface{}, rv reflect.Value) error {
 		return unifyAnything(data, rv)
 	}
 
+	// Special case. Handle time.Time values specifically.
+	// TODO: Remove this code when we decide to drop support for Go 1.1.
+	// This isn't necessary in Go 1.2 because time.Time satisfies the encoding
+	// interfaces.
+	if rv.Type().AssignableTo(rvalue(time.Time{}).Type()) {
+		return unifyDatetime(data, rv)
+	}
+
 	// Special case. Look for a value satisfying the TextUnmarshaler interface.
 	if v, ok := rv.Interface().(TextUnmarshaler); ok {
 		return unifyText(data, v)
