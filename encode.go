@@ -44,25 +44,15 @@ func (enc *Encoder) Encode(v interface{}) error {
 	return enc.w.Flush()
 }
 
-func (enc *Encoder) encode(key Key, rv reflect.Value) error {
-	// Extra special case. Time needs to be in ISO8601 format.
-	switch rv.Interface().(type) {
-	case time.Time:
-		if enc.hasWritten {
-			_, err := enc.w.Write([]byte{'\n'})
-			if err != nil {
-				return err
-			}
-		}
-		err := enc.eKeyEq(key)
-		if err != nil {
-			return err
-		}
-		return enc.eElement(rv)
-	}
+func treatAsPrimitive(rv reflect.Value) bool {
+	i := rv.Interface()
+	_, isDate := i.(time.Time)
+	_, isMarshall := i.(TextMarshaler)
+	return isDate || isMarshall
+}
 
-	// Special case. If we can marshal the type to text, then we used that.
-	if _, ok := rv.Interface().(TextMarshaler); ok {
+func (enc *Encoder) encode(key Key, rv reflect.Value) error {
+	if treatAsPrimitive(rv) {
 		if enc.hasWritten {
 			_, err := enc.w.Write([]byte{'\n'})
 			if err != nil {
@@ -536,11 +526,8 @@ func isTOMLTableType(rt reflect.Type, rv reflect.Value) (bool, error) {
 			return isTOMLTableType(rv.Type(), rv)
 		}
 		return false, nil
-	case reflect.Map:
-		return true, nil
-	case reflect.Struct:
-		_, isDate := rv.Interface().(time.Time)
-		return !isDate, nil
+	case reflect.Map, reflect.Struct:
+		return !treatAsPrimitive(rv), nil
 	default:
 		panic("unexpected reflect.Kind: " + k.String())
 	}
