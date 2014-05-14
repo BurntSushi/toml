@@ -7,6 +7,7 @@ go:
 install:
   - go get github.com/BurntSushi/toml-test
 script:
+  - export PATH="$PATH:$HOME/gopath/bin"
   - go test -v
   - toml-test toml-test-go
   - toml-test -encoder toml-test-encoder

@@ -26,6 +26,8 @@ go get github.com/BurntSushi/toml/tomlv
 tomlv some-toml-file.toml
 ```
 
+[![Build status](https://api.travis-ci.org/BurntSushi/toml.png)](https://travis-ci.org/BurntSushi/toml)
+
 
 ## Testing
 
