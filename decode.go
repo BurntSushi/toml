@@ -381,7 +381,7 @@ func unifyInt(data interface{}, rv reflect.Value) error {
 					return e("Value '%d' is out of range for uint32.", num)
 				}
 			}
-			rv.SetInt(num)
+			rv.SetUint(unum)
 		} else {
 			panic("unreachable")
 		}

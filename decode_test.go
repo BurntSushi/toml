@@ -305,6 +305,41 @@ func TestDecodeSmallInt(t *testing.T) {
 	}
 }
 
+func TestDecodeInts(t *testing.T) {
+	type table struct {
+		U8  uint8
+		U16 uint16
+		U32 uint32
+		U64 uint64
+		U   uint
+		I8  int8
+		I16 int16
+		I32 int32
+		I64 int64
+		I   int
+	}
+	answer := table{1, 1, 1, 1, 1, -1, -1, -1, -1, -1}
+	toml := `
+	u8 = 1
+	u16 = 1
+	u32 = 1
+	u64 = 1
+	u = 1
+	i8 = -1
+	i16 = -1
+	i32 = -1
+	i64 = -1
+	i = -1
+	`
+	var tab table
+	if _, err := Decode(toml, &tab); err != nil {
+		t.Fatal(err.Error())
+	}
+	if answer != tab {
+		t.Fatalf("Expected %p but got %p", answer, tab)
+	}
+}
+
 func ExamplePrimitiveDecode() {
 	var md MetaData
 	var err error
