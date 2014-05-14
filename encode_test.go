@@ -7,6 +7,22 @@ import (
 	"time"
 )
 
+type MarshalMap map[string]int
+type MarshalString string
+type MarshalStruct struct{}
+
+func (s MarshalMap) MarshalText() (text []byte, err error) {
+	return []byte("++map++"), nil
+}
+
+func (s MarshalString) MarshalText() (text []byte, err error) {
+	return []byte("++string++"), nil
+}
+
+func (s MarshalStruct) MarshalText() (text []byte, err error) {
+	return []byte("++struct++"), nil
+}
+
 // XXX(burntsushi)
 // I think these tests probably should be removed. They are good, but they
 // ought to be obsolete by toml-test.
@@ -68,6 +84,38 @@ func TestEncode(t *testing.T) {
 				unexported int
 			}{"foo", 0},
 			wantOutput: `String = "foo"`,
+		},
+		"(BROKEN) TextMarshaler field implemented by string": {
+			input: map[string]interface{}{
+				"Int": 1,
+				"Marshal": MarshalString(""),
+			},
+			// FIXME: Should be only one newline character here:
+			wantOutput: "Int = 1\n\nMarshal = ++string++",
+		},
+		"TextMarshaler field implemented by struct": {
+			input: map[string]interface{}{
+				"Int": 1,
+				"Marshal": MarshalStruct{},
+			},
+			wantOutput: "Int = 1\nMarshal = ++struct++",
+		},
+		"TextMarshaler field implemented by map": {
+			input: map[string]interface{}{
+				"Int": 1,
+				"Marshal": MarshalMap{},
+			},
+			wantOutput: "Int = 1\nMarshal = ++map++",
+		},
+		"(BROKEN) TextMarshaler multiple fields": {
+			input: map[string]interface{}{
+				"Map": MarshalMap{},
+				"String": MarshalString(""),
+			},
+			// FIXME: order should be alphabetical:
+			// wantOutput: "Map = ++map++\nString = ++string++",
+			// But currently it is:
+			wantOutput: "String = ++string++\nMap = ++map++",
 		},
 		"datetime field in UTC": {
 			input:      struct{ Date time.Time }{date},
