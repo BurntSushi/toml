@@ -2,7 +2,9 @@ package toml
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
+	"time"
 )
 
 // XXX(burntsushi)
@@ -12,6 +14,9 @@ func TestEncode(t *testing.T) {
 	type Embedded struct {
 		Int int `toml:"_int"`
 	}
+
+	date := time.Date(2014, 5, 11, 20, 30, 40, 0, time.FixedZone("IST", 3600))
+	dateStr := "2014-05-11T19:30:40Z"
 
 	tests := map[string]struct {
 		input      interface{}
@@ -64,6 +69,18 @@ func TestEncode(t *testing.T) {
 			}{"foo", 0},
 			wantOutput: `String = "foo"`,
 		},
+		"datetime field in UTC": {
+			input:      struct{ Date time.Time }{date},
+			wantOutput: fmt.Sprintf("Date = %s", dateStr),
+		},
+		"datetime field as primitive": {
+			// Using a map here to fail if isStructOrMap() returns true for time.Time.
+			input: map[string]interface{}{
+				"Date": date,
+				"Int":  1,
+			},
+			wantOutput: fmt.Sprintf("Date = %s\nInt = 1", dateStr),
+		},
 		"array fields": {
 			input: struct {
 				IntArray0 [0]int
@@ -76,6 +93,12 @@ func TestEncode(t *testing.T) {
 				nil, []int{}, []int{1, 2, 3},
 			},
 			wantOutput: "IntSlice0 = []\nIntSlice3 = [1, 2, 3]",
+		},
+		"datetime slices": {
+			input: struct{ DatetimeSlice []time.Time }{
+				[]time.Time{date, date},
+			},
+			wantOutput: fmt.Sprintf("DatetimeSlice = [%s, %s]", dateStr, dateStr),
 		},
 		"nested arrays and slices": {
 			input: struct {
