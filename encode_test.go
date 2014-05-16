@@ -144,7 +144,7 @@ SliceOfMixedArrays = [[1, 2], ["a", "b"]]
 ArrayOfMixedSlices = [[1, 2], ["a", "b"]]`,
 		},
 		"empty slice": {
-			input: struct { Empty []interface{} }{[]interface{}{}},
+			input:      struct{ Empty []interface{} }{[]interface{}{}},
 			wantOutput: `Empty = []`,
 		},
 		"(error) slice with element type mismatch (string and integer)": {
