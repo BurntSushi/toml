@@ -110,6 +110,17 @@ func (enc *Encoder) eElement(rv reflect.Value) error {
 		_, err := io.WriteString(enc.w, s)
 		return err
 	}
+	writeQuoted := func(s string) error {
+		s = strings.NewReplacer(
+			"\t", "\\t",
+			"\n", "\\n",
+			"\r", "\\r",
+			"\"", "\\\"",
+			"\\", "\\\\",
+		).Replace(s)
+		return ws("\"" + s + "\"")
+	}
+
 	// By the TOML spec, all floats must have a decimal with at least one
 	// number on either side.
 	floatAddDecimal := func(fstr string) string {
@@ -133,7 +144,7 @@ func (enc *Encoder) eElement(rv reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		return ws(string(s))
+		return writeQuoted(string(s))
 	}
 
 	var err error
@@ -155,15 +166,7 @@ func (enc *Encoder) eElement(rv reflect.Value) error {
 	case reflect.Interface:
 		return enc.eElement(rv.Elem())
 	case reflect.String:
-		s := rv.String()
-		s = strings.NewReplacer(
-			"\t", "\\t",
-			"\n", "\\n",
-			"\r", "\\r",
-			"\"", "\\\"",
-			"\\", "\\\\",
-		).Replace(s)
-		err = ws("\"" + s + "\"")
+		err = writeQuoted(rv.String())
 	default:
 		return e("Unexpected primitive type: %s", k)
 	}
