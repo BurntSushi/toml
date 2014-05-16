@@ -2,6 +2,10 @@
 
 package toml
 
+// In order to support Go 1.1, we define our own TextMarshaler and
+// TextUnmarshaler types. For Go 1.2+, we just alias them with the
+// standard library interfaces.
+
 import (
 	"encoding"
 )
