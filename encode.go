@@ -48,14 +48,10 @@ func (enc *Encoder) encode(key Key, rv reflect.Value) error {
 	// Extra special case. Time needs to be in ISO8601 format.
 	switch rv.Interface().(type) {
 	case time.Time:
-		if enc.hasWritten {
-			_, err := enc.w.Write([]byte{'\n'})
-			if err != nil {
-				return err
-			}
+		if err := enc.writeNewLine(); err != nil {
+			return err
 		}
-		err := enc.eKeyEq(key)
-		if err != nil {
+		if err := enc.eKeyEq(key); err != nil {
 			return err
 		}
 		return enc.eElement(rv)
@@ -63,14 +59,10 @@ func (enc *Encoder) encode(key Key, rv reflect.Value) error {
 
 	// Special case. If we can marshal the type to text, then we used that.
 	if _, ok := rv.Interface().(TextMarshaler); ok {
-		if enc.hasWritten {
-			_, err := enc.w.Write([]byte{'\n'})
-			if err != nil {
-				return err
-			}
+		if err := enc.writeNewLine(); err != nil {
+			return err
 		}
-		err := enc.eKeyEq(key)
-		if err != nil {
+		if err := enc.eKeyEq(key); err != nil {
 			return err
 		}
 		return enc.eElement(rv)
@@ -242,13 +234,9 @@ func (enc *Encoder) eArrayOrSliceElement(rv reflect.Value) error {
 }
 
 func (enc *Encoder) eArrayOfTables(key Key, rv reflect.Value) error {
-	if enc.hasWritten {
-		_, err := enc.w.Write([]byte{'\n'})
-		if err != nil {
-			return err
-		}
+	if err := enc.writeNewLine(); err != nil {
+		return err
 	}
-
 	for i := 0; i < rv.Len(); i++ {
 		trv := rv.Index(i)
 		if isNil(trv) {
@@ -291,11 +279,8 @@ func isStructOrMap(rv reflect.Value) bool {
 }
 
 func (enc *Encoder) eTable(key Key, rv reflect.Value) error {
-	if enc.hasWritten {
-		_, err := enc.w.Write([]byte{'\n'})
-		if err != nil {
-			return err
-		}
+	if err := enc.writeNewLine(); err != nil {
+		return err
 	}
 	if len(key) > 0 {
 		_, err := fmt.Fprintf(enc.w, "%s[%s]\n",
@@ -544,6 +529,13 @@ func isTOMLTableType(rt reflect.Type, rv reflect.Value) (bool, error) {
 	default:
 		panic("unexpected reflect.Kind: " + k.String())
 	}
+}
+
+func (enc *Encoder) writeNewLine() (err error) {
+	if enc.hasWritten {
+		_, err = enc.w.Write([]byte{'\n'})
+	}
+	return
 }
 
 func isNil(rv reflect.Value) bool {
