@@ -1,7 +1,6 @@
 package toml
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"reflect"
@@ -13,9 +12,9 @@ func init() {
 	log.SetFlags(0)
 }
 
-var testSimple = `
+func TestDecodeSimple(t *testing.T) {
+	var testSimple = `
 age = 250
-
 andrew = "gallant"
 kait = "brady"
 now = 1987-07-05T05:45:00Z 
@@ -26,39 +25,60 @@ colors = [
 	["cyan", "magenta", "yellow", "black"],
 ]
 
-[Annoying.Cats]
-plato = "smelly"
-cauchy = "stupido"
-
+[My.Cats]
+plato = "cat 1"
+cauchy = "cat 2"
 `
 
-type kitties struct {
-	Plato  string
-	Cauchy string
-}
+	type cats struct {
+		Plato  string
+		Cauchy string
+	}
+	type simple struct {
+		Age     int
+		Colors  [][]string
+		Pi      float64
+		YesOrNo bool
+		Now     time.Time
+		Andrew  string
+		Kait    string
+		My      map[string]cats
+	}
 
-type simple struct {
-	Age      int
-	Colors   [][]string
-	Pi       float64
-	YesOrNo  bool
-	Now      time.Time
-	Andrew   string
-	Kait     string
-	Annoying map[string]kitties
-}
-
-func TestDecode(t *testing.T) {
 	var val simple
-
 	_, err := Decode(testSimple, &val)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	now, err := time.Parse("2006-01-02T15:04:05", "1987-07-05T05:45:00")
+	if err != nil {
+		panic(err)
+	}
+	var answer = simple{
+		Age:     250,
+		Andrew:  "gallant",
+		Kait:    "brady",
+		Now:     now,
+		YesOrNo: true,
+		Pi:      3.14,
+		Colors: [][]string{
+			{"red", "green", "blue"},
+			{"cyan", "magenta", "yellow", "black"},
+		},
+		My: map[string]cats{
+			"Cats": cats{Plato: "cat 1", Cauchy: "cat 2"},
+		},
+	}
+	if !reflect.DeepEqual(val, answer) {
+		t.Fatalf("Expected\n-----\n%#v\n-----\nbut got\n-----\n%#v\n",
+			answer, val)
 	}
 }
 
 func TestDecodeEmbedded(t *testing.T) {
 	type Dog struct{ Name string }
+	type Age int
 
 	tests := map[string]struct {
 		input       string
@@ -80,6 +100,11 @@ func TestDecodeEmbedded(t *testing.T) {
 			decodeInto:  &struct{ *Dog }{},
 			wantDecoded: &struct{ *Dog }{nil},
 		},
+		"embedded int": {
+			input:       `Age = -5`,
+			decodeInto:  &struct{ Age }{},
+			wantDecoded: &struct{ Age }{-5},
+		},
 	}
 
 	for label, test := range tests {
@@ -87,24 +112,15 @@ func TestDecodeEmbedded(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		want, got := jsonstr(test.wantDecoded), jsonstr(test.decodeInto)
-		if want != got {
-			t.Errorf("%s: want decoded == %+v, got %+v", label, want, got)
+		if !reflect.DeepEqual(test.wantDecoded, test.decodeInto) {
+			t.Errorf("%s: want decoded == %+v, got %+v",
+				label, test.wantDecoded, test.decodeInto)
 		}
 	}
 }
 
-// jsonstr allows comparison of deeply nested structs with pointer members.
-func jsonstr(o interface{}) string {
-	s, err := json.MarshalIndent(o, "", "  ")
-	if err != nil {
-		panic(err.Error())
-	}
-	return string(s)
-}
-
-var tomlTableArrays = `
+func TestTableArrays(t *testing.T) {
+	var tomlTableArrays = `
 [[albums]]
 name = "Born to Run"
 
@@ -124,20 +140,19 @@ name = "Born in the USA"
   name = "Dancing in the Dark"
 `
 
-type Music struct {
-	Albums []Album
-}
+	type Song struct {
+		Name string
+	}
 
-type Album struct {
-	Name  string
-	Songs []Song
-}
+	type Album struct {
+		Name  string
+		Songs []Song
+	}
 
-type Song struct {
-	Name string
-}
+	type Music struct {
+		Albums []Album
+	}
 
-func TestTableArrays(t *testing.T) {
 	expected := Music{[]Album{
 		{"Born to Run", []Song{{"Jungleland"}, {"Meeting Across the River"}}},
 		{"Born in the USA", []Song{{"Glory Days"}, {"Dancing in the Dark"}}},
@@ -156,7 +171,8 @@ func TestTableArrays(t *testing.T) {
 // but implementations change.
 // Probably still missing demonstrations of some ugly corner cases regarding
 // case insensitive matching and multiple fields.
-var caseToml = `
+func TestCase(t *testing.T) {
+	var caseToml = `
 tOpString = "string"
 tOpInt = 1
 tOpFloat = 1.1
@@ -170,29 +186,28 @@ once = "just once"
 nEstedString = "another string"
 `
 
-type Insensitive struct {
-	TopString string
-	TopInt    int
-	TopFloat  float64
-	TopBool   bool
-	TopDate   time.Time
-	TopArray  []string
-	Match     string
-	MatcH     string
-	Once      string
-	OncE      string
-	Nest      InsensitiveNest
-}
+	type InsensitiveEd struct {
+		NestedString string
+	}
 
-type InsensitiveNest struct {
-	Ed InsensitiveEd
-}
+	type InsensitiveNest struct {
+		Ed InsensitiveEd
+	}
 
-type InsensitiveEd struct {
-	NestedString string
-}
+	type Insensitive struct {
+		TopString string
+		TopInt    int
+		TopFloat  float64
+		TopBool   bool
+		TopDate   time.Time
+		TopArray  []string
+		Match     string
+		MatcH     string
+		Once      string
+		OncE      string
+		Nest      InsensitiveNest
+	}
 
-func TestCase(t *testing.T) {
 	tme, err := time.Parse(time.RFC3339, time.RFC3339[:len(time.RFC3339)-5])
 	if err != nil {
 		panic(err)
@@ -213,8 +228,7 @@ func TestCase(t *testing.T) {
 		},
 	}
 	var got Insensitive
-	_, err = Decode(caseToml, &got)
-	if err != nil {
+	if _, err := Decode(caseToml, &got); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(expected, got) {
@@ -276,19 +290,21 @@ type sphere struct {
 	Radius float64
 }
 
-func TestDecodeArrays(t *testing.T) {
+func TestDecodeSimpleArray(t *testing.T) {
 	var s1 sphere
 	if _, err := Decode(`center = [0.0, 1.5, 0.0]`, &s1); err != nil {
 		t.Fatal(err)
 	}
+}
 
-	var s2 sphere
-	if _, err := Decode(`center = [0.1, 2.3]`, &s2); err == nil {
+func TestDecodeArrayWrongSize(t *testing.T) {
+	var s1 sphere
+	if _, err := Decode(`center = [0.1, 2.3]`, &s1); err == nil {
 		t.Fatal("Expected array type mismatch error")
 	}
 }
 
-func TestDecodeSmallInt(t *testing.T) {
+func TestDecodeLargeIntoSmallInt(t *testing.T) {
 	type table struct {
 		Value int8
 	}
@@ -298,7 +314,7 @@ func TestDecodeSmallInt(t *testing.T) {
 	}
 }
 
-func TestDecodeInts(t *testing.T) {
+func TestDecodeSizedInts(t *testing.T) {
 	type table struct {
 		U8  uint8
 		U16 uint16
@@ -451,8 +467,9 @@ func (d *duration) UnmarshalText(text []byte) error {
 	return err
 }
 
-// Example Unmarshaler blah blah.
-func ExampleUnmarshaler() {
+// Example Unmarshaler shows how to decode TOML strings into your own
+// custom data type.
+func Example_unmarshaler() {
 	blob := `
 [[song]]
 name = "Thunder Road"
@@ -473,6 +490,18 @@ duration = "8m03s"
 	if _, err := Decode(blob, &favorites); err != nil {
 		log.Fatal(err)
 	}
+
+	// Code to implement the TextUnmarshaler interface for `duration`:
+	//
+	// type duration struct {
+	// 	time.Duration
+	// }
+	//
+	// func (d *duration) UnmarshalText(text []byte) error {
+	// 	var err error
+	// 	d.Duration, err = time.ParseDuration(string(text))
+	// 	return err
+	// }
 
 	for _, s := range favorites.Song {
 		fmt.Printf("%s (%s)\n", s.Name, s.Duration)
