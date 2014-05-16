@@ -51,17 +51,10 @@ type simple struct {
 func TestDecode(t *testing.T) {
 	var val simple
 
-	md, err := Decode(testSimple, &val)
+	_, err := Decode(testSimple, &val)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	testf("Is 'Annoying.Cats.plato' defined? %v\n",
-		md.IsDefined("Annoying", "Cats", "plato"))
-	testf("Is 'Cats.Stinky' defined? %v\n", md.IsDefined("Cats", "Stinky"))
-	testf("Type of 'colors'? %s\n\n", md.Type("colors"))
-
-	testf("%v\n", val)
 }
 
 func TestDecodeEmbedded(t *testing.T) {

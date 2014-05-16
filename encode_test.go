@@ -74,7 +74,8 @@ func TestEncode(t *testing.T) {
 			wantOutput: fmt.Sprintf("Date = %s", dateStr),
 		},
 		"datetime field as primitive": {
-			// Using a map here to fail if isStructOrMap() returns true for time.Time.
+			// Using a map here to fail if isStructOrMap() returns true for
+			// time.Time.
 			input: map[string]interface{}{
 				"Date": date,
 				"Int":  1,
@@ -98,7 +99,8 @@ func TestEncode(t *testing.T) {
 			input: struct{ DatetimeSlice []time.Time }{
 				[]time.Time{date, date},
 			},
-			wantOutput: fmt.Sprintf("DatetimeSlice = [%s, %s]", dateStr, dateStr),
+			wantOutput: fmt.Sprintf("DatetimeSlice = [%s, %s]",
+				dateStr, dateStr),
 		},
 		"nested arrays and slices": {
 			input: struct {
