@@ -349,7 +349,7 @@ func TestDecodeSizedInts(t *testing.T) {
 	}
 }
 
-func ExamplePrimitiveDecode() {
+func ExampleMetaData_PrimitiveDecode() {
 	var md MetaData
 	var err error
 
@@ -369,7 +369,6 @@ albums = ["The J. Geils Band", "Full House", "Blow Your Face Out"]
 		Started int
 		Albums  []string
 	}
-
 	type classics struct {
 		Ranking []string
 		Bands   map[string]Primitive
@@ -392,16 +391,20 @@ albums = ["The J. Geils Band", "Full House", "Blow Your Face Out"]
 		primValue := music.Bands[artist]
 
 		var aBand band
-		if err = PrimitiveDecode(primValue, &aBand); err != nil {
+		if err = md.PrimitiveDecode(primValue, &aBand); err != nil {
 			log.Fatal(err)
 		}
 		fmt.Printf("%s started in %d.\n", artist, aBand.Started)
 	}
+	// Check to see if there were any fields left undecoded.
+	// Note that this won't be empty before decoding the Primitive value!
+	fmt.Printf("Undecoded: %q\n", md.Undecoded())
 
 	// Output:
 	// Is `bands.Springsteen` defined? true
 	// Springsteen started in 1973.
 	// J Geils started in 1970.
+	// Undecoded: []
 }
 
 func ExampleDecode() {
@@ -509,4 +512,29 @@ duration = "8m03s"
 	// Output:
 	// Thunder Road (4m49s)
 	// Stairway to Heaven (8m3s)
+}
+
+// Example StrictDecoding shows how to detect whether there are keys in the
+// TOML document that weren't decoded into the value given. This is useful
+// for returning an error to the user if they've included extraneous fields
+// in their configuration.
+func Example_strictDecoding() {
+	var blob = `
+key1 = "value1"
+key2 = "value2"
+key3 = "value3"
+`
+	type config struct {
+		Key1 string
+		Key3 string
+	}
+
+	var conf config
+	md, err := Decode(blob, &conf)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Undecoded keys: %q\n", md.Undecoded())
+	// Output:
+	// Undecoded keys: ["key2"]
 }
