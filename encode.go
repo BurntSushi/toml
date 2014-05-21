@@ -38,6 +38,10 @@ var quotedReplacer = strings.NewReplacer(
 	"\\", "\\\\",
 )
 
+// Encoder controls the encoding of Go values to a TOML document to some
+// io.Writer.
+//
+// The indentation level can be controlled with the Indent field.
 type Encoder struct {
 	// A single indentation level. By default it is two spaces.
 	Indent string
@@ -47,6 +51,8 @@ type Encoder struct {
 	w          *bufio.Writer
 }
 
+// NewEncoder returns a TOML encoder that encodes Go values to the io.Writer
+// given. By default, a single indentation level is 2 spaces.
 func NewEncoder(w io.Writer) *Encoder {
 	return &Encoder{
 		w:      bufio.NewWriter(w),
@@ -54,6 +60,29 @@ func NewEncoder(w io.Writer) *Encoder {
 	}
 }
 
+// Encode writes a TOML representation of the Go value to the underlying
+// io.Writer. If the value given cannot be encoded to a valid TOML document,
+// then an error is returned.
+//
+// The mapping between Go values and TOML values should be precisely the same
+// as for the Decode* functions. Similarly, the TextMarshaler interface is
+// supported by encoding the resulting bytes as strings. (If you want to write
+// arbitrary binary data then you will need to use something like base64 since
+// TOML does not have any binary types.)
+//
+// When encoding TOML hashes (i.e., Go maps or structs), keys without any
+// sub-hashes are encoded first.
+//
+// If a Go map is encoded, then its keys are sorted alphabetically for
+// deterministic output. More control over this behavior may be provided if
+// there is demand for it.
+//
+// Encoding Go values without a corresponding TOML representation---like map
+// types with non-string keys---will cause an error to be returned. Similarly
+// for mixed arrays/slices, arrays/slices with nil elements, embedded
+// non-struct types and nested slices containing maps or structs.
+// (e.g., [][]map[string]string is not allowed but []map[string]string is OK
+// and so is []map[string][]string.)
 func (enc *Encoder) Encode(v interface{}) error {
 	rv := eindirect(reflect.ValueOf(v))
 	if err := enc.safeEncode(Key([]string{}), rv); err != nil {
