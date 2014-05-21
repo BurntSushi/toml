@@ -125,7 +125,6 @@ func (enc *Encoder) encode(key Key, rv reflect.Value) {
 // eElement encodes any value that can be an array element (primitives and
 // arrays).
 func (enc *Encoder) eElement(rv reflect.Value) {
-
 	switch v := rv.Interface().(type) {
 	case time.Time:
 		// Special case time.Time as a primitive. Has to come before
@@ -402,7 +401,6 @@ func (enc *Encoder) newline() {
 	if enc.hasWritten {
 		enc.wf("\n")
 	}
-	return
 }
 
 func (enc *Encoder) keyEqElement(key Key, val reflect.Value) {
