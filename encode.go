@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 type tomlEncodeError struct{ error }
@@ -194,6 +195,7 @@ func (enc *Encoder) eArrayOfTables(key Key, rv reflect.Value) {
 	if len(key) == 0 {
 		encPanic(errNoKey)
 	}
+	panicIfInvalidKey(key, true)
 	for i := 0; i < rv.Len(); i++ {
 		trv := rv.Index(i)
 		if isNil(trv) {
@@ -213,6 +215,7 @@ func (enc *Encoder) eTable(key Key, rv reflect.Value) {
 		enc.newline()
 	}
 	if len(key) > 0 {
+		panicIfInvalidKey(key, true)
 		enc.wf("%s[%s]", enc.indentStr(key), key.String())
 		enc.newline()
 	}
@@ -406,6 +409,7 @@ func (enc *Encoder) keyEqElement(key Key, val reflect.Value) {
 	if len(key) == 0 {
 		encPanic(errNoKey)
 	}
+	panicIfInvalidKey(key, false)
 	enc.wf("%s%s = ", enc.indentStr(key), key[len(key)-1])
 	enc.eElement(val)
 	enc.newline()
@@ -442,4 +446,38 @@ func isNil(rv reflect.Value) bool {
 	default:
 		return false
 	}
+}
+
+func panicIfInvalidKey(key Key, hash bool) {
+	if hash {
+		for _, k := range key {
+			if !isValidTableName(k) {
+				encPanic(e("Key '%s' is not a valid table name. Table names "+
+					"cannot contain '[', ']' or '.'.", key.String()))
+			}
+		}
+	} else {
+		if !isValidKeyName(key[len(key)-1]) {
+			encPanic(e("Key '%s' is not a name. Key names "+
+				"cannot contain whitespace.", key.String()))
+		}
+	}
+}
+
+func isValidTableName(s string) bool {
+	for _, r := range s {
+		if r == '[' || r == ']' || r == '.' {
+			return false
+		}
+	}
+	return true
+}
+
+func isValidKeyName(s string) bool {
+	for _, r := range s {
+		if unicode.IsSpace(r) {
+			return false
+		}
+	}
+	return true
 }
