@@ -433,7 +433,7 @@ func encodeExpected(
 }
 
 func ExampleEncoder_Encode() {
-	date, _ := time.Parse(time.RFC822, "14 Mar 10 18:00 EST")
+	date, _ := time.Parse(time.RFC822, "14 Mar 10 18:00 UTC")
 	var config = map[string]interface{}{
 		"date":   date,
 		"counts": []int{1, 1, 2, 3, 5, 8},
@@ -450,7 +450,7 @@ func ExampleEncoder_Encode() {
 
 	// Output:
 	// counts = [1, 1, 2, 3, 5, 8]
-	// date = 2010-03-14T23:00:00Z
+	// date = 2010-03-14T18:00:00Z
 	//
 	// [hash]
 	//   key1 = "val1"
