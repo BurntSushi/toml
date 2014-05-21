@@ -431,3 +431,28 @@ func encodeExpected(
 			label, wantStr, got)
 	}
 }
+
+func ExampleEncoder_Encode() {
+	date, _ := time.Parse(time.RFC822, "14 Mar 10 18:00 EST")
+	var config = map[string]interface{}{
+		"date":   date,
+		"counts": []int{1, 1, 2, 3, 5, 8},
+		"hash": map[string]string{
+			"key1": "val1",
+			"key2": "val2",
+		},
+	}
+	buf := new(bytes.Buffer)
+	if err := NewEncoder(buf).Encode(config); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(buf.String())
+
+	// Output:
+	// counts = [1, 1, 2, 3, 5, 8]
+	// date = 2010-03-14T23:00:00Z
+	//
+	// [hash]
+	//   key1 = "val1"
+	//   key2 = "val2"
+}
