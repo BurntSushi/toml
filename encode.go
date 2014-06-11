@@ -28,6 +28,7 @@ var (
 		"TOML array element can't contain a table")
 	errNoKey = errors.New(
 		"top-level values must be a Go map or struct")
+	errAnything = errors.New("") // used in testing
 )
 
 var quotedReplacer = strings.NewReplacer(
@@ -496,6 +497,9 @@ func panicIfInvalidKey(key Key, hash bool) {
 }
 
 func isValidTableName(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
 	for _, r := range s {
 		if r == '[' || r == ']' || r == '.' {
 			return false
@@ -505,6 +509,9 @@ func isValidTableName(s string) bool {
 }
 
 func isValidKeyName(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
 	for _, r := range s {
 		if unicode.IsSpace(r) {
 			return false

@@ -377,6 +377,16 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 			input:     struct{ NonStruct }{5},
 			wantError: errAnonNonStruct,
 		},
+		"(error) empty key name": {
+			input:     map[string]int{"": 1},
+			wantError: errAnything,
+		},
+		"(error) empty map name": {
+			input: map[string]interface{}{
+				"": map[string]int{"v": 1},
+			},
+			wantError: errAnything,
+		},
 	}
 	for label, test := range tests {
 		encodeExpected(t, label, test.input, test.wantOutput, test.wantError)
@@ -453,6 +463,9 @@ func encodeExpected(
 	err := enc.Encode(val)
 	if err != wantErr {
 		if wantErr != nil {
+			if wantErr == errAnything && err != nil {
+				return
+			}
 			t.Errorf("%s: want Encode error %v, got %v", label, wantErr, err)
 		} else {
 			t.Errorf("%s: Encode failed: %s", label, err)
