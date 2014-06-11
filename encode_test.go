@@ -344,6 +344,19 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 			},
 			wantOutput: "[[struct]]\n  Int = 1\n\n[[struct]]\n  Int = 3\n",
 		},
+		"array of tables order": {
+			input: map[string]interface{}{
+				"map": map[string]interface{}{
+					"zero": 5,
+					"arr": []map[string]int{
+						map[string]int{
+							"friend": 5,
+						},
+					},
+				},
+			},
+			wantOutput: "[map]\n  zero = 5\n\n  [[map.arr]]\n    friend = 5\n",
+		},
 		"(error) top-level slice": {
 			input:     []struct{ Int int }{{1}, {2}, {3}},
 			wantError: errNoKey,

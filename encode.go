@@ -124,7 +124,7 @@ func (enc *Encoder) encode(key Key, rv reflect.Value) {
 		reflect.Float32, reflect.Float64, reflect.String, reflect.Bool:
 		enc.keyEqElement(key, rv)
 	case reflect.Array, reflect.Slice:
-		if typeEqual(tomlHash, tomlArrayType(rv)) {
+		if typeEqual(tomlArrayHash, tomlTypeOfGo(rv)) {
 			enc.eArrayOfTables(key, rv)
 		} else {
 			enc.keyEqElement(key, rv)
@@ -272,7 +272,7 @@ func (enc *Encoder) eMap(key Key, rv reflect.Value) {
 	var mapKeysDirect, mapKeysSub []string
 	for _, mapKey := range rv.MapKeys() {
 		k := mapKey.String()
-		if typeEqual(tomlHash, tomlTypeOfGo(rv.MapIndex(mapKey))) {
+		if typeIsHash(tomlTypeOfGo(rv.MapIndex(mapKey))) {
 			mapKeysSub = append(mapKeysSub, k)
 		} else {
 			mapKeysDirect = append(mapKeysDirect, k)
@@ -316,7 +316,7 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 					encPanic(errAnonNonStruct)
 				}
 				addFields(t, frv, f.Index)
-			} else if typeEqual(tomlHash, tomlTypeOfGo(frv)) {
+			} else if typeIsHash(tomlTypeOfGo(frv)) {
 				fieldsSub = append(fieldsSub, append(start, f.Index...))
 			} else {
 				fieldsDirect = append(fieldsDirect, append(start, f.Index...))
@@ -369,7 +369,11 @@ func tomlTypeOfGo(rv reflect.Value) tomlType {
 	case reflect.Float32, reflect.Float64:
 		return tomlFloat
 	case reflect.Array, reflect.Slice:
-		return tomlArray
+		if typeEqual(tomlHash, tomlArrayType(rv)) {
+			return tomlArrayHash
+		} else {
+			return tomlArray
+		}
 	case reflect.Ptr, reflect.Interface:
 		return tomlTypeOfGo(rv.Elem())
 	case reflect.String:
@@ -417,7 +421,7 @@ func tomlArrayType(rv reflect.Value) tomlType {
 	// If we have a nested array, then we must make sure that the nested
 	// array contains ONLY primitives.
 	// This checks arbitrarily nested arrays.
-	if typeEqual(firstType, tomlArray) {
+	if typeEqual(firstType, tomlArray) || typeEqual(firstType, tomlArrayHash) {
 		nest := tomlArrayType(eindirect(rv.Index(0)))
 		if typeEqual(nest, tomlHash) || typeEqual(nest, tomlArrayHash) {
 			encPanic(errArrayNoTable)

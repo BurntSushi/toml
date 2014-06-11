@@ -16,6 +16,10 @@ func typeEqual(t1, t2 tomlType) bool {
 	return t1.typeString() == t2.typeString()
 }
 
+func typeIsHash(t tomlType) bool {
+	return typeEqual(t, tomlHash) || typeEqual(t, tomlArrayHash)
+}
+
 type tomlBaseType string
 
 func (btype tomlBaseType) typeString() string {
