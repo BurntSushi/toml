@@ -22,7 +22,7 @@ go get github.com/BurntSushi/toml
 Try the toml validator:
 
 ```bash
-go get github.com/BurntSushi/toml/tomlv
+go get github.com/BurntSushi/toml/cmd/tomlv
 tomlv some-toml-file.toml
 ```
 
