@@ -345,7 +345,7 @@ func TestDecodeSizedInts(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	if answer != tab {
-		t.Fatalf("Expected %p but got %p", answer, tab)
+		t.Fatalf("Expected %#v but got %#v", answer, tab)
 	}
 }
 
