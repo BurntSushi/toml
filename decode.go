@@ -269,23 +269,29 @@ func (md *MetaData) unifyMap(mapping interface{}, rv reflect.Value) error {
 	if !ok {
 		return badtype("map", mapping)
 	}
-	if rv.IsNil() {
-		rv.Set(reflect.MakeMap(rv.Type()))
-	}
+	newrv := reflect.MakeMap(rv.Type())
 	for k, v := range tmap {
 		md.decoded[md.context.add(k).String()] = true
 		md.context = append(md.context, k)
 
 		rvkey := indirect(reflect.New(rv.Type().Key()))
-		rvval := reflect.Indirect(reflect.New(rv.Type().Elem()))
+		rvkey.SetString(k)
+
+		rvval := rv.MapIndex(rvkey)
+		if rvval.IsValid() && rvval.Kind() == reflect.Interface {
+			rvval = reflect.Indirect(reflect.New(rvval.Elem().Type()))
+		} else {
+			rvval = reflect.Indirect(reflect.New(rv.Type().Elem()))
+		}
+
 		if err := md.unify(v, rvval); err != nil {
 			return err
 		}
 		md.context = md.context[0 : len(md.context)-1]
 
-		rvkey.SetString(k)
-		rv.SetMapIndex(rvkey, rvval)
+		newrv.SetMapIndex(rvkey, rvval)
 	}
+	rv.Set(newrv)
 	return nil
 }
 
