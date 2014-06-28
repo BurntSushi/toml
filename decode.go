@@ -278,7 +278,7 @@ func (md *MetaData) unifyMap(mapping interface{}, rv reflect.Value) error {
 		rvkey.SetString(k)
 
 		rvval := rv.MapIndex(rvkey)
-		if rvval.IsValid() && rvval.Kind() == reflect.Interface {
+		if rvval.IsValid() && rvval.Kind() == reflect.Interface && ! rvval.IsNil() {
 			rvval = reflect.Indirect(reflect.New(rvval.Elem().Type()))
 		} else {
 			rvval = reflect.Indirect(reflect.New(rv.Type().Elem()))
