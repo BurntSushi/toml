@@ -588,7 +588,7 @@ func lexNumber(lx *lexer) stateFn {
 	return lx.pop()
 }
 
-// lexFloatStart starts the consumption of digits of a float after a '.'.
+// lexFloatStart starts the consumption of digits of a float after a '.' or 'e' or 'E'.
 // Namely, at least one digit is required.
 func lexFloatStart(lx *lexer) stateFn {
 	r := lx.next()
@@ -599,7 +599,7 @@ func lexFloatStart(lx *lexer) stateFn {
 	return lexFloat
 }
 
-// lexFloat consumes the digits of a float after a '.'.
+// lexFloat consumes the digits of a float after a '.' or 'e' or 'E'.
 // Assumes that one digit has been consumed after a '.' already.
 func lexFloat(lx *lexer) stateFn {
 	r := lx.next()
