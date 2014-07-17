@@ -315,6 +315,11 @@ func lexKey(lx *lexer) stateFn {
 		return lexKeyEnd
 	}
 
+	// Keys cannot contain a '#' character.
+	if r == commentStart {
+		lx.errorf("Key cannot contain a '#' character.")
+	}
+
 	// Let's also call it quits if we see an equals sign.
 	if r == keySep {
 		lx.emit(itemText)
