@@ -305,6 +305,11 @@ func lexKeyStart(lx *lexer) stateFn {
 func lexKey(lx *lexer) stateFn {
 	r := lx.peek()
 
+	// Keys cannot contain a '#' character.
+	if r == commentStart {
+		return lx.errorf("Key cannot contain a '#' character.")
+	}
+
 	// XXX: Possible divergence from spec?
 	// "Keys start with the first non-whitespace character and end with the
 	// last non-whitespace character before the equals sign."
@@ -313,11 +318,6 @@ func lexKey(lx *lexer) stateFn {
 	if isWhitespace(r) || isNL(r) {
 		lx.emit(itemText)
 		return lexKeyEnd
-	}
-
-	// Keys cannot contain a '#' character.
-	if r == commentStart {
-		lx.errorf("Key cannot contain a '#' character.")
 	}
 
 	// Let's also call it quits if we see an equals sign.
