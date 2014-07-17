@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 )
 
 type tomlEncodeError struct{ error }
@@ -511,11 +510,6 @@ func isValidTableName(s string) bool {
 func isValidKeyName(s string) bool {
 	if len(s) == 0 {
 		return false
-	}
-	for _, r := range s {
-		if unicode.IsSpace(r) {
-			return false
-		}
 	}
 	return true
 }
