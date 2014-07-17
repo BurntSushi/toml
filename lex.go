@@ -257,7 +257,7 @@ func lexArrayTableEnd(lx *lexer) stateFn {
 
 func lexTableNameStart(lx *lexer) stateFn {
 	switch lx.next() {
-	case tableEnd:
+	case tableEnd, eof:
 		return lx.errorf("Unexpected end of table. (Tables cannot " +
 			"be empty.)")
 	case tableSep:
@@ -271,6 +271,8 @@ func lexTableNameStart(lx *lexer) stateFn {
 // valid character for the table has already been read.
 func lexTableName(lx *lexer) stateFn {
 	switch lx.peek() {
+	case eof:
+		return lx.errorf("Unexpected end of table name %q.", lx.current())
 	case tableStart:
 		return lx.errorf("Table names cannot contain %q or %q.",
 			tableStart, tableEnd)
