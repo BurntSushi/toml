@@ -428,9 +428,10 @@ type menu struct {
 	Dishes map[string]dish
 }
 
-func (m *menu) UnmarshalTOML(p map[string]interface{}) error {
+func (m *menu) UnmarshalTOML(p interface{}) error {
 	m.Dishes = make(map[string]dish)
-	dishes := p["dishes"].(map[string]interface{})
+	data, _ := p.(map[string]interface{})
+	dishes := data["dishes"].(map[string]interface{})
 	for n, v := range dishes {
 		if d, ok := v.(map[string]interface{}); ok {
 			nd := dish{}
@@ -449,10 +450,11 @@ type dish struct {
 	Ingredients []ingredient
 }
 
-func (d *dish) UnmarshalTOML(p map[string]interface{}) error {
-	d.Name, _ = p["name"].(string)
-	d.Price, _ = p["price"].(float32)
-	ingredients, _ := p["ingredients"].([]map[string]interface{})
+func (d *dish) UnmarshalTOML(p interface{}) error {
+	data, _ := p.(map[string]interface{})
+	d.Name, _ = data["name"].(string)
+	d.Price, _ = data["price"].(float32)
+	ingredients, _ := data["ingredients"].([]map[string]interface{})
 	for _, e := range ingredients {
 		n, _ := interface{}(e).(map[string]interface{})
 		name, _ := n["name"].(string)
@@ -693,21 +695,38 @@ rating = 3.1
 		log.Fatal(err)
 	}
 
-	fmt.Println(len(o.Parts))
+	fmt.Println(len(o.parts))
 
-	for _, part := range o.Parts {
+	for _, part := range o.parts {
 		fmt.Println(part.Name())
 	}
 
 	// Code to implement UmarshalJSON.
 
 	// type order struct {
-	// 	Parts parts
+	// 	// NOTE `order.parts` is a private slice of type `part` which is an
+	// 	// interface and may only be loaded from toml using the UnmarshalTOML()
+	// 	// method of the Umarshaler interface.
+	// 	parts parts
 	// }
 
-	// func (o *order) UnmarshalTOML(data map[string]interface{}) error {
+	// func (o *order) UnmarshalTOML(data interface{}) error {
 
-	// 	parts, _ := data["parts"].([]map[string]interface{})
+	// 	// NOTE the example below contains detailed type casting to show how
+	// 	// the 'data' is retrieved. In operational use, a type cast wrapper
+	// 	// may be prefered e.g.
+	// 	//
+	// 	// func AsMap(v interface{}) (map[string]interface{}, error) {
+	// 	// 		return v.(map[string]interface{})
+	// 	// }
+	// 	//
+	// 	// resulting in:
+	// 	// d, _ := AsMap(data)
+	// 	//
+
+	// 	d, _ := data.(map[string]interface{})
+	// 	parts, _ := d["parts"].([]map[string]interface{})
+
 	// 	for _, p := range parts {
 
 	// 		typ, _ := p["type"].(string)
@@ -727,7 +746,7 @@ rating = 3.1
 	// 				Rating: rating,
 	// 			}
 
-	// 			o.Parts = append(o.Parts, valve)
+	// 			o.parts = append(o.parts, valve)
 
 	// 		case "pipe":
 
@@ -741,7 +760,7 @@ rating = 3.1
 	// 				Diameter: diameter,
 	// 			}
 
-	// 			o.Parts = append(o.Parts, pipe)
+	// 			o.parts = append(o.parts, pipe)
 
 	// 		case "cable":
 
@@ -755,7 +774,7 @@ rating = 3.1
 	// 				Rating: rating,
 	// 			}
 
-	// 			o.Parts = append(o.Parts, cable)
+	// 			o.parts = append(o.parts, cable)
 
 	// 		}
 	// 	}
@@ -812,12 +831,29 @@ rating = 3.1
 }
 
 type order struct {
-	Parts parts
+	// NOTE `order.parts` is a private slice of type `part` which is an
+	// interface and may only be loaded from toml using the UnmarshalTOML()
+	// method of the Umarshaler interface.
+	parts parts
 }
 
-func (o *order) UnmarshalTOML(data map[string]interface{}) error {
+func (o *order) UnmarshalTOML(data interface{}) error {
 
-	parts, _ := data["parts"].([]map[string]interface{})
+	// NOTE the example below contains detailed type casting to show how
+	// the 'data' is retrieved. In operational use, a type cast wrapper
+	// may be prefered e.g.
+	//
+	// func AsMap(v interface{}) (map[string]interface{}, error) {
+	// 		return v.(map[string]interface{})
+	// }
+	//
+	// resulting in:
+	// d, _ := AsMap(data)
+	//
+
+	d, _ := data.(map[string]interface{})
+	parts, _ := d["parts"].([]map[string]interface{})
+
 	for _, p := range parts {
 
 		typ, _ := p["type"].(string)
@@ -837,7 +873,7 @@ func (o *order) UnmarshalTOML(data map[string]interface{}) error {
 				Rating: rating,
 			}
 
-			o.Parts = append(o.Parts, valve)
+			o.parts = append(o.parts, valve)
 
 		case "pipe":
 
@@ -851,7 +887,7 @@ func (o *order) UnmarshalTOML(data map[string]interface{}) error {
 				Diameter: diameter,
 			}
 
-			o.Parts = append(o.Parts, pipe)
+			o.parts = append(o.parts, pipe)
 
 		case "cable":
 
@@ -865,7 +901,7 @@ func (o *order) UnmarshalTOML(data map[string]interface{}) error {
 				Rating: rating,
 			}
 
-			o.Parts = append(o.Parts, cable)
+			o.parts = append(o.parts, cable)
 
 		}
 	}

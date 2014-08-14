@@ -15,7 +15,7 @@ var e = fmt.Errorf
 // Unmarshaler is the interface implemented by objects that can unmarshal a
 // TOML description of themselves.
 type Unmarshaler interface {
-	UnmarshalTOML(map[string]interface{}) error
+	UnmarshalTOML(interface{}) error
 }
 
 // Decode decodes the contents of `p` in TOML format into a pointer `v`.
@@ -157,10 +157,7 @@ func (md *MetaData) unify(data interface{}, rv reflect.Value) error {
 	// Special case. Unmarshaler Interface support.
 	if rv.CanAddr() {
 		if v, ok := rv.Addr().Interface().(Unmarshaler); ok {
-			if d, ok := data.(map[string]interface{}); ok {
-				return v.UnmarshalTOML(d)
-			}
-			return e("data is not a map[string]interface{}")
+			return v.UnmarshalTOML(data)
 		}
 	}
 
