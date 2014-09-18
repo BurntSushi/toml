@@ -148,6 +148,8 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 	switch it.typ {
 	case itemString:
 		return p.replaceUnicode(replaceEscapes(it.val)), p.typeOfPrimitive(it)
+	case itemRawString:
+		return replaceRawEscape(it.val), p.typeOfPrimitive(it)
 	case itemBool:
 		switch it.val {
 		case "true":
@@ -384,6 +386,12 @@ func replaceEscapes(s string) string {
 		"\\\"", "\u0022",
 		"\\/", "\u002F",
 		"\\\\", "\u005C",
+	).Replace(s)
+}
+
+func replaceRawEscape(s string) string {
+	return strings.NewReplacer(
+		"\\`", "`",
 	).Replace(s)
 }
 
