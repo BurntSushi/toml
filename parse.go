@@ -148,6 +148,8 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 	switch it.typ {
 	case itemString:
 		return p.replaceUnicode(replaceEscapes(it.val)), p.typeOfPrimitive(it)
+	case itemRawString:
+		return it.val, p.typeOfPrimitive(it)
 	case itemBool:
 		switch it.val {
 		case "true":
