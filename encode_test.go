@@ -387,6 +387,18 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 			},
 			wantError: errAnything,
 		},
+		"multiline string": {
+			input: struct {
+				Text string `modifier:"multiline_string"`
+			}{"\"Roses\" are red\n\"Violets\" are blue"},
+			wantOutput: "Text = \"\"\"\n\\\"Roses\\\" are red\n\\\"Violets\\\" are blue\"\"\"\n",
+		},
+		"multiline raw string": {
+			input: struct {
+				Text string `modifier:"multiline_rawstring"`
+			}{"\"Roses\" are red\n\"Violets\" are blue"},
+			wantOutput: "Text = '''\n\"Roses\" are red\n\"Violets\" are blue'''\n",
+		},
 	}
 	for label, test := range tests {
 		encodeExpected(t, label, test.input, test.wantOutput, test.wantError)
