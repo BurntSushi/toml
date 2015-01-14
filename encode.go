@@ -30,12 +30,15 @@ var (
 	errAnything = errors.New("") // used in testing
 )
 
+type Modifier string
+
 const (
-	MOD_MULTILINE_STRING    string = "multiline_string"
-	MOD_MULTILINE_RAWSTRING string = "multiline_rawstring"
+	MOD_NONE                Modifier = ""
+	MOD_MULTILINE_STRING    Modifier = "multiline_string"
+	MOD_MULTILINE_RAWSTRING Modifier = "multiline_rawstring"
 )
 
-var validmodifiers = map[string]reflect.Kind{
+var validmodifiers = map[Modifier]reflect.Kind{
 	MOD_MULTILINE_STRING:    reflect.String,
 	MOD_MULTILINE_RAWSTRING: reflect.String,
 }
@@ -61,16 +64,16 @@ type Encoder struct {
 	w          *bufio.Writer
 
 	// modifiers contains a map of struct field keys with detected modifiers
-	modifiers map[string]string
+	modifier Modifier
 }
 
 // NewEncoder returns a TOML encoder that encodes Go values to the io.Writer
 // given. By default, a single indentation level is 2 spaces.
 func NewEncoder(w io.Writer) *Encoder {
 	return &Encoder{
-		w:         bufio.NewWriter(w),
-		Indent:    "  ",
-		modifiers: make(map[string]string),
+		w:        bufio.NewWriter(w),
+		Indent:   "  ",
+		modifier: MOD_NONE,
 	}
 }
 
@@ -356,9 +359,11 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 				keyName = sft.Name
 			}
 
-			keyModifier := sft.Tag.Get("modifier")
+			keyModifier := Modifier(sft.Tag.Get("modifier"))
 			if kind, ok := validmodifiers[keyModifier]; ok && sf.Kind() == kind {
-				enc.modifiers[key.add(keyName).String()] = keyModifier
+				enc.modifier = keyModifier
+			} else {
+				enc.modifier = MOD_NONE
 			}
 
 			enc.encode(key.add(keyName), sf)
@@ -464,17 +469,12 @@ func (enc *Encoder) keyEqElement(key Key, val reflect.Value) {
 	enc.wf("%s%s = ", enc.indentStr(key), key[len(key)-1])
 
 	//a modifier exists on this element, handle it with the appropriate function
-	if modifier, exists := enc.modifiers[key.String()]; exists {
-		switch modifier {
-		case MOD_MULTILINE_STRING:
-			enc.writeMultiLineString(val.String(), false)
-		case MOD_MULTILINE_RAWSTRING:
-			enc.writeMultiLineString(val.String(), true)
-		default:
-			enc.eElement(val)
-		}
-		delete(enc.modifiers, key.String())
-	} else {
+	switch enc.modifier {
+	case MOD_MULTILINE_STRING:
+		enc.writeMultiLineString(val.String(), false)
+	case MOD_MULTILINE_RAWSTRING:
+		enc.writeMultiLineString(val.String(), true)
+	default:
 		enc.eElement(val)
 	}
 	enc.newline()
