@@ -478,6 +478,7 @@ func (enc *Encoder) keyEqElement(key Key, val reflect.Value) {
 		enc.eElement(val)
 	}
 	enc.newline()
+	enc.modifier = MOD_NONE //re-setting the flag for safety. shoud not strictly be necessary
 }
 
 func (enc *Encoder) writeMultiLineString(s string, raw bool) {
