@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf16"
 	"unicode/utf8"
 )
 
@@ -148,9 +149,9 @@ func (p *parser) topLevel(item item) {
 func (p *parser) value(it item) (interface{}, tomlType) {
 	switch it.typ {
 	case itemString:
-		return p.replaceUnicode(replaceEscapes(it.val)), p.typeOfPrimitive(it)
+		return p.replaceEscapes(it.val), p.typeOfPrimitive(it)
 	case itemMultilineString:
-		return p.replaceUnicode(replaceEscapes(stripFirstNewline(stripEscapedWhitespace(it.val)))), p.typeOfPrimitive(it)
+		return p.replaceEscapes(stripFirstNewline(stripEscapedWhitespace(it.val))), p.typeOfPrimitive(it)
 	case itemRawString:
 		return it.val, p.typeOfPrimitive(it)
 	case itemRawMultilineString:
@@ -381,19 +382,6 @@ func (p *parser) current() string {
 	return fmt.Sprintf("%s.%s", p.context, p.currentKey)
 }
 
-func replaceEscapes(s string) string {
-	return strings.NewReplacer(
-		"\\b", "\u0008",
-		"\\t", "\u0009",
-		"\\n", "\u000A",
-		"\\f", "\u000C",
-		"\\r", "\u000D",
-		"\\\"", "\u0022",
-		"\\/", "\u002F",
-		"\\\\", "\u005C",
-	).Replace(s)
-}
-
 func stripFirstNewline(s string) string {
 	if len(s) == 0 || s[0] != '\n' {
 		return s
@@ -414,31 +402,137 @@ func stripEscapedWhitespace(s string) string {
 	return strings.Join(esc, "")
 }
 
-func (p *parser) replaceUnicode(s string) string {
-	indexEsc := func() int {
-		return strings.Index(s, "\\u")
+func (p *parser) replaceEscapes(es string) string {
+	// this function started as a copy of encoding/json.unquoteBytes
+	s := []byte(es)
+
+	// Check for unusual characters. If there are none,
+	// then no unquoting is needed, so return a slice of the
+	// original bytes.
+	r := 0
+	for r < len(s) {
+		c := s[r]
+		if c == '\\' || c == '"' || c < ' ' {
+			break
+		}
+		if c < utf8.RuneSelf {
+			r++
+			continue
+		}
+		rr, size := utf8.DecodeRune(s[r:])
+		if rr == utf8.RuneError && size == 1 {
+			break
+		}
+		r += size
 	}
-	for i := indexEsc(); i != -1; i = indexEsc() {
-		asciiBytes := s[i+2 : i+6]
-		s = strings.Replace(s, s[i:i+6], p.asciiEscapeToUnicode(asciiBytes), -1)
+	if r == len(s) {
+		return string(s)
 	}
-	return s
+
+	b := make([]byte, len(s)+2*utf8.UTFMax)
+	w := copy(b, s[0:r])
+	for r < len(s) {
+		// Out of room?  Can only happen if s is full of
+		// malformed UTF-8 and we're replacing each
+		// byte with RuneError.
+		if w >= len(b)-2*utf8.UTFMax {
+			nb := make([]byte, (len(b)+utf8.UTFMax)*2)
+			copy(nb, b[0:w])
+			b = nb
+		}
+		switch c := s[r]; {
+		case c == '\\':
+			r++
+			if r >= len(s) {
+				p.bug("Escape sequence at end of string.")
+				return ""
+			}
+			switch s[r] {
+			default:
+				p.bug("Expected valid escape code after \\, but got '%v'.", s[r])
+				return ""
+			case '"', '\\', '/', '\'':
+				b[w] = s[r]
+				r++
+				w++
+			case 'b':
+				b[w] = '\b'
+				r++
+				w++
+			case 'f':
+				b[w] = '\f'
+				r++
+				w++
+			case 'n':
+				b[w] = '\n'
+				r++
+				w++
+			case 'r':
+				b[w] = '\r'
+				r++
+				w++
+			case 't':
+				b[w] = '\t'
+				r++
+				w++
+			case 'u':
+				r--
+				rr := getu4(s[r:])
+				if rr < 0 {
+					rn := len(s[r:])
+					if rn > 6 {
+						rn = 6
+					}
+					p.bug("Could not parse '%s' as a hexadecimal number, but the "+
+						"lexer claims it's OK", s[r:r+rn])
+					return ""
+				}
+				r += 6
+				if utf16.IsSurrogate(rr) {
+					rr1 := getu4(s[r:])
+					if dec := utf16.DecodeRune(rr, rr1); dec != unicode.ReplacementChar {
+						// A valid pair; consume.
+						r += 6
+						w += utf8.EncodeRune(b[w:], dec)
+						break
+					}
+					// Invalid surrogate; fall back to replacement rune.
+					rr = unicode.ReplacementChar
+				}
+				w += utf8.EncodeRune(b[w:], rr)
+			}
+
+		// Quote, control characters are invalid.
+		case c == '"', c < ' ':
+			p.bug("Unescaped quote or control character in string.")
+			return ""
+
+		// ASCII
+		case c < utf8.RuneSelf:
+			b[w] = c
+			r++
+			w++
+
+		// Coerce to well-formed UTF-8.
+		default:
+			rr, size := utf8.DecodeRune(s[r:])
+			r += size
+			w += utf8.EncodeRune(b[w:], rr)
+		}
+	}
+	return string(b[0:w])
 }
 
-func (p *parser) asciiEscapeToUnicode(s string) string {
-	hex, err := strconv.ParseUint(strings.ToLower(s), 16, 32)
+// getu4 decodes \uXXXX from the beginning of s, returning the hex value,
+// or it returns -1.
+func getu4(s []byte) rune {
+	// this function is a copy of encoding/json.getu4
+	if len(s) < 6 || s[0] != '\\' || s[1] != 'u' {
+		return -1
+	}
+	r, err := strconv.ParseUint(string(s[2:6]), 16, 64)
 	if err != nil {
-		p.bug("Could not parse '%s' as a hexadecimal number, but the "+
-			"lexer claims it's OK: %s", s, err)
+		return -1
 	}
-
-	// BUG(burntsushi)
-	// I honestly don't understand how this works. I can't seem
-	// to find a way to make this fail. I figured this would fail on invalid
-	// UTF-8 characters like U+DCFF, but it doesn't.
-	r := string(rune(hex))
-	if !utf8.ValidString(r) {
-		p.panicf("Escaped character '\\u%s' is not valid UTF-8.", s)
-	}
-	return string(r)
+	return rune(r)
 }
