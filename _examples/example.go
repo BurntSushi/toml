@@ -48,9 +48,11 @@ func main() {
 
 	fmt.Printf("Title: %s\n", config.Title)
 	fmt.Printf("Owner: %s (%s, %s), Born: %s\n",
-		config.Owner.Name, config.Owner.Org, config.Owner.Bio, config.Owner.DOB)
+		config.Owner.Name, config.Owner.Org, config.Owner.Bio,
+		config.Owner.DOB)
 	fmt.Printf("Database: %s %v (Max conn. %d), Enabled? %v\n",
-		config.DB.Server, config.DB.Ports, config.DB.ConnMax, config.DB.Enabled)
+		config.DB.Server, config.DB.Ports, config.DB.ConnMax,
+		config.DB.Enabled)
 	for serverName, server := range config.Servers {
 		fmt.Printf("Server: %s (%s, %s)\n", serverName, server.IP, server.DC)
 	}

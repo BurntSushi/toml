@@ -118,7 +118,8 @@ func (enc *Encoder) encode(key Key, rv reflect.Value) {
 
 	k := rv.Kind()
 	switch k {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32,
+		reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32,
 		reflect.Uint64,
 		reflect.Float32, reflect.Float64, reflect.String, reflect.Bool:
@@ -173,7 +174,8 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 	switch rv.Kind() {
 	case reflect.Bool:
 		enc.wf(strconv.FormatBool(rv.Bool()))
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32,
+		reflect.Int64:
 		enc.wf(strconv.FormatInt(rv.Int(), 10))
 	case reflect.Uint, reflect.Uint8, reflect.Uint16,
 		reflect.Uint32, reflect.Uint64:
@@ -348,10 +350,10 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 	writeFields(fieldsSub)
 }
 
-// tomlTypeName returns the TOML type name of the Go value's type. It is used to
-// determine whether the types of array elements are mixed (which is forbidden).
-// If the Go value is nil, then it is illegal for it to be an array element, and
-// valueIsNil is returned as true.
+// tomlTypeName returns the TOML type name of the Go value's type. It is
+// used to determine whether the types of array elements are mixed (which is
+// forbidden). If the Go value is nil, then it is illegal for it to be an array
+// element, and valueIsNil is returned as true.
 
 // Returns the TOML type of a Go value. The type may be `nil`, which means
 // no concrete TOML type could be found.
@@ -362,7 +364,8 @@ func tomlTypeOfGo(rv reflect.Value) tomlType {
 	switch rv.Kind() {
 	case reflect.Bool:
 		return tomlBool
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32,
+		reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32,
 		reflect.Uint64:
 		return tomlInteger

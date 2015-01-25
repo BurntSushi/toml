@@ -661,7 +661,8 @@ key3 = "value3"
 // Example UnmarshalTOML shows how to implement a struct type that knows how to
 // unmarshal itself. The struct must take full responsibility for mapping the
 // values passed into the struct. The method may be used with interfaces in a
-// struct in cases where the actual type is not known until the data is examined.
+// struct in cases where the actual type is not known until the data is
+// examined.
 func Example_unmarshalTOML() {
 
 	var blob = `
@@ -705,8 +706,8 @@ rating = 3.1
 
 	// type order struct {
 	// 	// NOTE `order.parts` is a private slice of type `part` which is an
-	// 	// interface and may only be loaded from toml using the UnmarshalTOML()
-	// 	// method of the Umarshaler interface.
+	// 	// interface and may only be loaded from toml using the
+	// 	// UnmarshalTOML() method of the Umarshaler interface.
 	// 	parts parts
 	// }
 

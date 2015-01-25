@@ -360,7 +360,8 @@ func (p *parser) addImplicit(key Key) {
 	p.implicits[key.String()] = true
 }
 
-// removeImplicit stops tagging the given key as having been implicitly created.
+// removeImplicit stops tagging the given key as having been implicitly
+// created.
 func (p *parser) removeImplicit(key Key) {
 	p.implicits[key.String()] = false
 }
@@ -386,19 +387,16 @@ func stripFirstNewline(s string) string {
 	if len(s) == 0 || s[0] != '\n' {
 		return s
 	}
-
 	return s[1:len(s)]
 }
 
 func stripEscapedWhitespace(s string) string {
 	esc := strings.Split(s, "\\\n")
-
 	if len(esc) > 1 {
 		for i := 1; i < len(esc); i++ {
 			esc[i] = strings.TrimLeftFunc(esc[i], unicode.IsSpace)
 		}
 	}
-
 	return strings.Join(esc, "")
 }
 

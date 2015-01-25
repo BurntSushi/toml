@@ -359,7 +359,8 @@ func lexKeyEnd(lx *lexer) stateFn {
 // After a value is lexed, the last state on the next is popped and returned.
 func lexValue(lx *lexer) stateFn {
 	// We allow whitespace to precede a value, but NOT new lines.
-	// In array syntax, the array states are responsible for ignoring new lines.
+	// In array syntax, the array states are responsible for ignoring new
+	// lines.
 	r := lx.next()
 	if isWhitespace(r) {
 		return lexSkip(lx, lexValue)
@@ -493,11 +494,14 @@ func lexMultilineStringEscape(lx *lexer) stateFn {
 		return lexMultilineString
 	} else {
 		lx.backup()
-		return lexStringEscapeHandler(lx, lexMultilineString, lexMultilineStringUnicode)
+		return lexStringEscapeHandler(
+			lx, lexMultilineString, lexMultilineStringUnicode)
 	}
 }
 
-func lexStringEscapeHandler(lx *lexer, stringFn stateFn, unicodeFn stateFn) stateFn {
+func lexStringEscapeHandler(
+	lx *lexer, stringFn stateFn, unicodeFn stateFn,
+) stateFn {
 	r := lx.next()
 	switch r {
 	case 'b':
@@ -619,8 +623,8 @@ func lexMultilineRawString(lx *lexer) stateFn {
 	return lexMultilineRawString
 }
 
-// lexNumberOrDateStart consumes either a (positive) integer, float or datetime.
-// It assumes that NO negative sign has been consumed.
+// lexNumberOrDateStart consumes either a (positive) integer, float or
+// datetime. It assumes that NO negative sign has been consumed.
 func lexNumberOrDateStart(lx *lexer) stateFn {
 	r := lx.next()
 	if !isDigit(r) {
@@ -680,9 +684,10 @@ func lexDateAfterYear(lx *lexer) stateFn {
 	return lx.pop()
 }
 
-// lexNumberStart consumes either an integer or a float. It assumes that a
-// negative sign has already been read, but that *no* digits have been consumed.
-// lexNumberStart will move to the appropriate integer or float states.
+// lexNumberStart consumes either an integer or a float. It assumes that
+// a negative sign has already been read, but that *no* digits have been
+// consumed. lexNumberStart will move to the appropriate integer or float
+// states.
 func lexNumberStart(lx *lexer) stateFn {
 	// we MUST see a digit. Even floats have to start with a digit.
 	r := lx.next()
