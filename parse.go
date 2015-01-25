@@ -148,9 +148,10 @@ func (p *parser) topLevel(item item) {
 func (p *parser) value(it item) (interface{}, tomlType) {
 	switch it.typ {
 	case itemString:
-		return p.replaceUnicode(replaceEscapes(it.val)), p.typeOfPrimitive(it)
+		return p.replaceEscapes(it.val), p.typeOfPrimitive(it)
 	case itemMultilineString:
-		return p.replaceUnicode(replaceEscapes(stripFirstNewline(stripEscapedWhitespace(it.val)))), p.typeOfPrimitive(it)
+		trimmed := stripFirstNewline(stripEscapedWhitespace(it.val))
+		return p.replaceEscapes(trimmed), p.typeOfPrimitive(it)
 	case itemRawString:
 		return it.val, p.typeOfPrimitive(it)
 	case itemRawMultilineString:
@@ -381,19 +382,6 @@ func (p *parser) current() string {
 	return fmt.Sprintf("%s.%s", p.context, p.currentKey)
 }
 
-func replaceEscapes(s string) string {
-	return strings.NewReplacer(
-		"\\b", "\u0008",
-		"\\t", "\u0009",
-		"\\n", "\u000A",
-		"\\f", "\u000C",
-		"\\r", "\u000D",
-		"\\\"", "\u0022",
-		"\\/", "\u002F",
-		"\\\\", "\u005C",
-	).Replace(s)
-}
-
 func stripFirstNewline(s string) string {
 	if len(s) == 0 || s[0] != '\n' {
 		return s
@@ -414,18 +402,64 @@ func stripEscapedWhitespace(s string) string {
 	return strings.Join(esc, "")
 }
 
-func (p *parser) replaceUnicode(s string) string {
-	indexEsc := func() int {
-		return strings.Index(s, "\\u")
+func (p *parser) replaceEscapes(str string) string {
+	var replaced []rune
+	s := []byte(str)
+	r := 0
+	for r < len(s) {
+		if s[r] != '\\' {
+			c, size := utf8.DecodeRune(s[r:])
+			r += size
+			replaced = append(replaced, c)
+			continue
+		}
+		r += 1
+		if r >= len(s) {
+			p.bug("Escape sequence at end of string.")
+			return ""
+		}
+		switch s[r] {
+		default:
+			p.bug("Expected valid escape code after \\, but fot '%v'.", s[r])
+			return ""
+		case 'b':
+			replaced = append(replaced, rune(0x0008))
+			r += 1
+		case 't':
+			replaced = append(replaced, rune(0x0009))
+			r += 1
+		case 'n':
+			replaced = append(replaced, rune(0x000A))
+			r += 1
+		case 'f':
+			replaced = append(replaced, rune(0x000C))
+			r += 1
+		case 'r':
+			replaced = append(replaced, rune(0x000D))
+			r += 1
+		case '"':
+			replaced = append(replaced, rune(0x0022))
+			r += 1
+		case '/':
+			replaced = append(replaced, rune(0x002F))
+			r += 1
+		case '\\':
+			replaced = append(replaced, rune(0x005C))
+			r += 1
+		case 'u':
+			// At this point, we know we have a Unicode escape of the form
+			// `uXXXX` at [r, r+5). (Because the lexer guarantees this
+			// for us.)
+			escaped := p.asciiEscapeToUnicode(s[r+1 : r+5])
+			replaced = append(replaced, escaped)
+			r += 5
+		}
 	}
-	for i := indexEsc(); i != -1; i = indexEsc() {
-		asciiBytes := s[i+2 : i+6]
-		s = strings.Replace(s, s[i:i+6], p.asciiEscapeToUnicode(asciiBytes), -1)
-	}
-	return s
+	return string(replaced)
 }
 
-func (p *parser) asciiEscapeToUnicode(s string) string {
+func (p *parser) asciiEscapeToUnicode(bs []byte) rune {
+	s := string(bs)
 	hex, err := strconv.ParseUint(strings.ToLower(s), 16, 32)
 	if err != nil {
 		p.bug("Could not parse '%s' as a hexadecimal number, but the "+
@@ -436,9 +470,8 @@ func (p *parser) asciiEscapeToUnicode(s string) string {
 	// I honestly don't understand how this works. I can't seem
 	// to find a way to make this fail. I figured this would fail on invalid
 	// UTF-8 characters like U+DCFF, but it doesn't.
-	r := string(rune(hex))
-	if !utf8.ValidString(r) {
+	if !utf8.ValidString(string(rune(hex))) {
 		p.panicf("Escaped character '\\u%s' is not valid UTF-8.", s)
 	}
-	return string(r)
+	return rune(hex)
 }
