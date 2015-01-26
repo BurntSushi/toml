@@ -281,6 +281,8 @@ func lexTableName(lx *lexer) stateFn {
 	case tableStart:
 		return lx.errorf("Table names cannot contain %q or %q.",
 			tableStart, tableEnd)
+	case commentStart:
+		return lx.errorf("Table names cannot contain %q.", commentStart)
 	case tableEnd:
 		lx.emit(itemText)
 		lx.next()
