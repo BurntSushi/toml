@@ -418,7 +418,7 @@ func (p *parser) replaceEscapes(str string) string {
 		}
 		switch s[r] {
 		default:
-			p.bug("Expected valid escape code after \\, but got '%v'.", s[r])
+			p.bug("Expected valid escape code after \\, but got %q.", s[r])
 			return ""
 		case 'b':
 			replaced = append(replaced, rune(0x0008))
@@ -451,6 +451,13 @@ func (p *parser) replaceEscapes(str string) string {
 			escaped := p.asciiEscapeToUnicode(s[r+1 : r+5])
 			replaced = append(replaced, escaped)
 			r += 5
+		case 'U':
+			// At this point, we know we have a Unicode escape of the form
+			// `uXXXX` at [r, r+9). (Because the lexer guarantees this
+			// for us.)
+			escaped := p.asciiEscapeToUnicode(s[r+1 : r+9])
+			replaced = append(replaced, escaped)
+			r += 9
 		}
 	}
 	return string(replaced)

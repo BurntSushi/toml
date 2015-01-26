@@ -377,10 +377,8 @@ func lexValue(lx *lexer) stateFn {
 				lx.ignore() // Ignore """
 				return lexMultilineString
 			}
-
 			lx.backup()
 		}
-
 		lx.ignore() // ignore the '"'
 		return lexString
 	case r == rawStringStart:
@@ -389,10 +387,8 @@ func lexValue(lx *lexer) stateFn {
 				lx.ignore() // Ignore """
 				return lexMultilineRawString
 			}
-
 			lx.backup()
 		}
-
 		lx.ignore() // ignore the "'"
 		return lexRawString
 	case r == 't':
@@ -468,6 +464,7 @@ func lexString(lx *lexer) stateFn {
 	case isNL(r):
 		return lx.errorf("Strings cannot contain new lines.")
 	case r == '\\':
+		lx.push(lexString)
 		return lexStringEscape
 	case r == stringEnd:
 		lx.backup()
@@ -477,80 +474,6 @@ func lexString(lx *lexer) stateFn {
 		return lx.pop()
 	}
 	return lexString
-}
-
-// lexStringEscape consumes an escaped character. It assumes that the preceding
-// '\\' has already been consumed.
-func lexStringEscape(lx *lexer) stateFn {
-	return lexStringEscapeHandler(lx, lexString, lexStringUnicode)
-}
-
-// lexMultilineStringEscape consumes an escaped character. It assumes that the
-// preceding '\\' has already been consumed.
-func lexMultilineStringEscape(lx *lexer) stateFn {
-	// Handle the special case first:
-	if isNL(lx.next()) {
-		lx.next()
-		return lexMultilineString
-	} else {
-		lx.backup()
-		return lexStringEscapeHandler(
-			lx, lexMultilineString, lexMultilineStringUnicode)
-	}
-}
-
-func lexStringEscapeHandler(
-	lx *lexer, stringFn stateFn, unicodeFn stateFn,
-) stateFn {
-	r := lx.next()
-	switch r {
-	case 'b':
-		fallthrough
-	case 't':
-		fallthrough
-	case 'n':
-		fallthrough
-	case 'f':
-		fallthrough
-	case 'r':
-		fallthrough
-	case '"':
-		fallthrough
-	case '/':
-		fallthrough
-	case '\\':
-		return stringFn
-	case 'u':
-		return unicodeFn
-	}
-	return lx.errorf("Invalid escape character %q. Only the following "+
-		"escape characters are allowed: "+
-		"\\b, \\t, \\n, \\f, \\r, \\\", \\/, \\\\, and \\uXXXX.", r)
-}
-
-// lexStringUnicode consumes four hexadecimal digits following '\u'. It assumes
-// that the '\u' has already been consumed.
-func lexStringUnicode(lx *lexer) stateFn {
-	return lexStringUnicodeHandler(lx, lexString)
-}
-
-// lexMultilineStringUnicode consumes four hexadecimal digits following '\u'.
-// It assumes that the '\u' has already been consumed.
-func lexMultilineStringUnicode(lx *lexer) stateFn {
-	return lexStringUnicodeHandler(lx, lexMultilineString)
-}
-
-func lexStringUnicodeHandler(lx *lexer, nextFunc stateFn) stateFn {
-	var r rune
-
-	for i := 0; i < 4; i++ {
-		r = lx.next()
-		if !isHexadecimal(r) {
-			return lx.errorf("Expected four hexadecimal digits after '\\x', "+
-				"but got '%s' instead.", lx.current())
-		}
-	}
-	return nextFunc
 }
 
 // lexMultilineString consumes the inner contents of a string. It assumes that
@@ -621,6 +544,74 @@ func lexMultilineRawString(lx *lexer) stateFn {
 		}
 	}
 	return lexMultilineRawString
+}
+
+// lexMultilineStringEscape consumes an escaped character. It assumes that the
+// preceding '\\' has already been consumed.
+func lexMultilineStringEscape(lx *lexer) stateFn {
+	// Handle the special case first:
+	if isNL(lx.next()) {
+		lx.next()
+		return lexMultilineString
+	} else {
+		lx.backup()
+		lx.push(lexMultilineString)
+		return lexStringEscape(lx)
+	}
+}
+
+func lexStringEscape(lx *lexer) stateFn {
+	r := lx.next()
+	switch r {
+	case 'b':
+		fallthrough
+	case 't':
+		fallthrough
+	case 'n':
+		fallthrough
+	case 'f':
+		fallthrough
+	case 'r':
+		fallthrough
+	case '"':
+		fallthrough
+	case '/':
+		fallthrough
+	case '\\':
+		return lx.pop()
+	case 'u':
+		return lexShortUnicodeEscape
+	case 'U':
+		return lexLongUnicodeEscape
+	}
+	return lx.errorf("Invalid escape character %q. Only the following "+
+		"escape characters are allowed: "+
+		"\\b, \\t, \\n, \\f, \\r, \\\", \\/, \\\\, "+
+		"\\uXXXX and \\UXXXXXXXX.", r)
+}
+
+func lexShortUnicodeEscape(lx *lexer) stateFn {
+	var r rune
+	for i := 0; i < 4; i++ {
+		r = lx.next()
+		if !isHexadecimal(r) {
+			return lx.errorf("Expected four hexadecimal digits after '\\u', "+
+				"but got '%s' instead.", lx.current())
+		}
+	}
+	return lx.pop()
+}
+
+func lexLongUnicodeEscape(lx *lexer) stateFn {
+	var r rune
+	for i := 0; i < 8; i++ {
+		r = lx.next()
+		if !isHexadecimal(r) {
+			return lx.errorf("Expected eight hexadecimal digits after '\\U', "+
+				"but got '%s' instead.", lx.current())
+		}
+	}
+	return lx.pop()
 }
 
 // lexNumberOrDateStart consumes either a (positive) integer, float or
