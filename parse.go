@@ -438,9 +438,6 @@ func (p *parser) replaceEscapes(str string) string {
 		case '"':
 			replaced = append(replaced, rune(0x0022))
 			r += 1
-		case '/':
-			replaced = append(replaced, rune(0x002F))
-			r += 1
 		case '\\':
 			replaced = append(replaced, rune(0x005C))
 			r += 1

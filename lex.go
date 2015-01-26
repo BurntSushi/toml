@@ -498,7 +498,6 @@ func lexMultilineString(lx *lexer) stateFn {
 				lx.ignore()
 				return lx.pop()
 			}
-
 			lx.backup()
 		}
 	}
@@ -541,7 +540,6 @@ func lexMultilineRawString(lx *lexer) stateFn {
 				lx.ignore()
 				return lx.pop()
 			}
-
 			lx.backup()
 		}
 	}
@@ -576,8 +574,6 @@ func lexStringEscape(lx *lexer) stateFn {
 	case 'r':
 		fallthrough
 	case '"':
-		fallthrough
-	case '/':
 		fallthrough
 	case '\\':
 		return lx.pop()
