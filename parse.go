@@ -418,7 +418,7 @@ func (p *parser) replaceEscapes(str string) string {
 		}
 		switch s[r] {
 		default:
-			p.bug("Expected valid escape code after \\, but fot '%v'.", s[r])
+			p.bug("Expected valid escape code after \\, but got '%v'.", s[r])
 			return ""
 		case 'b':
 			replaced = append(replaced, rune(0x0008))
