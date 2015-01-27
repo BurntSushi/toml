@@ -67,7 +67,7 @@ func parse(data string) (p *parser, err error) {
 }
 
 func (p *parser) panicf(format string, v ...interface{}) {
-	msg := fmt.Sprintf("Near line %d, key '%s': %s",
+	msg := fmt.Sprintf("Near line %d (last key parsed '%s'): %s",
 		p.approxLine, p.current(), fmt.Sprintf(format, v...))
 	panic(parseError(msg))
 }
@@ -75,7 +75,7 @@ func (p *parser) panicf(format string, v ...interface{}) {
 func (p *parser) next() item {
 	it := p.lx.nextItem()
 	if it.typ == itemError {
-		p.panicf("Near line %d: %s", it.line, it.val)
+		p.panicf("%s", it.val)
 	}
 	return it
 }
@@ -102,12 +102,12 @@ func (p *parser) topLevel(item item) {
 		p.approxLine = item.line
 		p.expect(itemText)
 	case itemTableStart:
-		kg := p.expect(itemText)
+		kg := p.next()
 		p.approxLine = kg.line
 
-		key := make(Key, 0)
-		for ; kg.typ == itemText; kg = p.next() {
-			key = append(key, kg.val)
+		var key Key
+		for ; kg.typ != itemTableEnd && kg.typ != itemEOF; kg = p.next() {
+			key = append(key, p.keyString(kg))
 		}
 		p.assertEqual(itemTableEnd, kg.typ)
 
@@ -115,12 +115,12 @@ func (p *parser) topLevel(item item) {
 		p.setType("", tomlHash)
 		p.ordered = append(p.ordered, key)
 	case itemArrayTableStart:
-		kg := p.expect(itemText)
+		kg := p.next()
 		p.approxLine = kg.line
 
-		key := make(Key, 0)
-		for ; kg.typ == itemText; kg = p.next() {
-			key = append(key, kg.val)
+		var key Key
+		for ; kg.typ != itemArrayTableEnd && kg.typ != itemEOF; kg = p.next() {
+			key = append(key, p.keyString(kg))
 		}
 		p.assertEqual(itemArrayTableEnd, kg.typ)
 
@@ -128,18 +128,32 @@ func (p *parser) topLevel(item item) {
 		p.setType("", tomlArrayHash)
 		p.ordered = append(p.ordered, key)
 	case itemKeyStart:
-		kname := p.expect(itemText)
-		p.currentKey = kname.val
+		kname := p.next()
 		p.approxLine = kname.line
+		p.currentKey = p.keyString(kname)
 
 		val, typ := p.value(p.next())
 		p.setValue(p.currentKey, val)
 		p.setType(p.currentKey, typ)
 		p.ordered = append(p.ordered, p.context.add(p.currentKey))
-
 		p.currentKey = ""
 	default:
 		p.bug("Unexpected type at top level: %s", item.typ)
+	}
+}
+
+// Gets a string for a key (or part of a key in a table name).
+func (p *parser) keyString(it item) string {
+	switch it.typ {
+	case itemText:
+		return it.val
+	case itemString, itemMultilineString,
+		itemRawString, itemRawMultilineString:
+		s, _ := p.value(it)
+		return s.(string)
+	default:
+		p.bug("Unexpected key type: %s", it.typ)
+		panic("unreachable")
 	}
 }
 
@@ -476,4 +490,9 @@ func (p *parser) asciiEscapeToUnicode(bs []byte) rune {
 		p.panicf("Escaped character '\\u%s' is not valid UTF-8.", s)
 	}
 	return rune(hex)
+}
+
+func isStringType(ty itemType) bool {
+	return ty == itemString || ty == itemMultilineString ||
+		ty == itemRawString || ty == itemRawMultilineString
 }

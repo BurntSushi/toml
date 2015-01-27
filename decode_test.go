@@ -479,7 +479,7 @@ ranking = ["Springsteen", "J Geils"]
 started = 1973
 albums = ["Greetings", "WIESS", "Born to Run", "Darkness"]
 
-[bands.J Geils]
+[bands."J Geils"]
 started = 1970
 albums = ["The J. Geils Band", "Full House", "Blow Your Face Out"]
 `
