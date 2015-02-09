@@ -29,24 +29,29 @@ const (
 	itemArrayTableEnd
 	itemKeyStart
 	itemCommentStart
+	itemInlineTable
+	itemInlineTableEnd
 )
 
 const (
-	eof             = 0
-	tableStart      = '['
-	tableEnd        = ']'
-	arrayTableStart = '['
-	arrayTableEnd   = ']'
-	tableSep        = '.'
-	keySep          = '='
-	arrayStart      = '['
-	arrayEnd        = ']'
-	arrayValTerm    = ','
-	commentStart    = '#'
-	stringStart     = '"'
-	stringEnd       = '"'
-	rawStringStart  = '\''
-	rawStringEnd    = '\''
+	eof                = 0
+	tableStart         = '['
+	tableEnd           = ']'
+	arrayTableStart    = '['
+	arrayTableEnd      = ']'
+	tableSep           = '.'
+	keySep             = '='
+	arrayStart         = '['
+	arrayEnd           = ']'
+	arrayValTerm       = ','
+	commentStart       = '#'
+	stringStart        = '"'
+	stringEnd          = '"'
+	rawStringStart     = '\''
+	rawStringEnd       = '\''
+	inlineTableStart   = '{'
+	inlineTableEnd     = '}'
+	inlineTableValTerm = ','
 )
 
 type stateFn func(lx *lexer) stateFn
@@ -382,6 +387,10 @@ func lexValue(lx *lexer) stateFn {
 		lx.ignore()
 		lx.emit(itemArray)
 		return lexArrayValue
+	case r == inlineTableStart:
+		lx.ignore()
+		lx.emit(itemInlineTable)
+		return lexInlineTableValue
 	case r == stringStart:
 		if lx.accept(stringStart) {
 			if lx.accept(stringStart) {
@@ -464,6 +473,57 @@ func lexArrayValueEnd(lx *lexer) stateFn {
 func lexArrayEnd(lx *lexer) stateFn {
 	lx.ignore()
 	lx.emit(itemArrayEnd)
+	return lx.pop()
+}
+
+// lexInlineTableValue consumes one key/value pair in an inline able. It
+// assumes that '{' or ',' have already been consumed. All whitespace and
+// new lines are ignored.
+func lexInlineTableValue(lx *lexer) stateFn {
+	r := lx.next()
+	switch {
+	case isWhitespace(r) || isNL(r):
+		return lexSkip(lx, lexInlineTableValue)
+	case r == commentStart:
+		lx.push(lexInlineTableValue)
+		return lexCommentStart
+	case r == inlineTableValTerm:
+		return lx.errorf("Unexpected inline table value terminator %q.",
+			inlineTableValTerm)
+	case r == inlineTableEnd:
+		return lexInlineTableEnd
+	}
+	lx.backup()
+	lx.push(lexInlineTableValueEnd)
+	return lexKeyStart
+}
+
+// lexInlineTableValueEnd consumes the cruft between values of an inline
+// table. Namely, it ignores whitespace and expects either a ',' or a '}'.
+func lexInlineTableValueEnd(lx *lexer) stateFn {
+	r := lx.next()
+	switch {
+	case isWhitespace(r) || isNL(r):
+		return lexSkip(lx, lexInlineTableValueEnd)
+	case r == commentStart:
+		lx.push(lexInlineTableValueEnd)
+		return lexCommentStart
+	case r == inlineTableValTerm:
+		lx.ignore()
+		return lexInlineTableValue
+	case r == inlineTableEnd:
+		return lexInlineTableEnd
+	}
+	return lx.errorf("Expected an inline table value terminator %q or an "+
+		"inline table terminator %q, but got %q instead.", inlineTableValTerm,
+		inlineTableEnd, r)
+}
+
+// lexInlineTableEnd finishes the lexing of an inline table. It assumes that a '}' has
+// just been consumed.
+func lexInlineTableEnd(lx *lexer) stateFn {
+	lx.ignore()
+	lx.emit(itemInlineTableEnd)
 	return lx.pop()
 }
 
