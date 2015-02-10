@@ -234,6 +234,28 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 			types = append(types, typ)
 		}
 		return array, p.typeOfArray(types)
+	case itemInlineTable:
+		var hash = make(map[string]interface{})
+
+		for it := p.next(); it.typ != itemInlineTableEnd; it = p.next() {
+			if it.typ != itemKeyStart {
+				p.bug("Expected key start but instead found %q, around line %d",
+					it.val, p.approxLine)
+			}
+			if it.typ == itemCommentStart {
+				p.expect(itemText)
+				continue
+			}
+
+			// retrieve key
+			kname := p.next()
+			p.approxLine = kname.line
+
+			// retrieve value
+			val, _ := p.value(p.next())
+			hash[p.keyString(kname)] = val
+		}
+		return hash, tomlHash // or should this be a new toml type (tomlInnerHash)?
 	}
 	p.bug("Unexpected value type: %s", it.typ)
 	panic("unreachable")
