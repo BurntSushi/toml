@@ -424,6 +424,44 @@ name = "Rice"
 
 }
 
+func TestDecodeInlineTable(t *testing.T) {
+	inlineToml := `
+[CookieJar]
+Types = {Chocolate = "yummy", Oatmeal = "best ever"}
+
+[Seasons]
+Locations = {NY = {Temp = "not cold", Rating = 4},
+             MI = {Temp = "freezing", Rating = 9}}
+`
+	var ex struct {
+		CookieJar struct {
+			Types map[string]string
+		}
+		Seasons struct {
+			Locations map[string]struct {
+				Temp   string
+				Rating int
+			}
+		}
+	}
+
+	meta, err := Decode(inlineToml, &ex)
+	if err != nil {
+		t.Error("Failed to correctly decode inline table, err: ", err)
+	}
+	if len(ex.CookieJar.Types) != 2 || len(ex.Seasons.Locations) != 2 {
+		t.Error("Failed to correctly decode inline table, fields are missing")
+	}
+	if len(meta.keys) != 12 {
+		t.Error("Wrong # of keys when decoding inline table, expected 12, got: ",
+			len(meta.keys))
+	}
+	if len(meta.types) != 12 {
+		t.Error("Wrong # of types when decoding inline table, expected 12, got: ",
+			len(meta.types))
+	}
+}
+
 type menu struct {
 	Dishes map[string]dish
 }

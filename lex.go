@@ -29,7 +29,7 @@ const (
 	itemArrayTableEnd
 	itemKeyStart
 	itemCommentStart
-	itemInlineTable
+	itemInlineTableStart
 	itemInlineTableEnd
 )
 
@@ -389,7 +389,7 @@ func lexValue(lx *lexer) stateFn {
 		return lexArrayValue
 	case r == inlineTableStart:
 		lx.ignore()
-		lx.emit(itemInlineTable)
+		lx.emit(itemInlineTableStart)
 		return lexInlineTableValue
 	case r == stringStart:
 		if lx.accept(stringStart) {
