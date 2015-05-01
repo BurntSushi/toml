@@ -455,6 +455,20 @@ func TestEncodeArrayHashWithNormalHashOrder(t *testing.T) {
 	encodeExpected(t, "array hash with normal hash order", val, expected, nil)
 }
 
+func TestEncodeWithOmitEmpty(t *testing.T) {
+	type simple struct {
+		User string `toml:"user"`
+		Pass string `toml:"password,omitempty"`
+	}
+
+	value := simple{"Testing", ""}
+	expected := fmt.Sprintf("user = %q\n", value.User)
+	encodeExpected(t, "simple with omitempty, is empty", value, expected, nil)
+	value.Pass = "some password"
+	expected = fmt.Sprintf("user = %q\npassword = %q\n", value.User, value.Pass)
+	encodeExpected(t, "simple with omitempty, not empty", value, expected, nil)
+}
+
 func encodeExpected(
 	t *testing.T, label string, val interface{}, wantStr string, wantErr error,
 ) {
