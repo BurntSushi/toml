@@ -106,15 +106,15 @@ func (enc *Encoder) safeEncode(key Key, rv reflect.Value) (err error) {
 }
 
 func (enc *Encoder) encode(key Key, rv reflect.Value, indent ...bool) {
-	// Special case. Time needs to be in ISO8601 format.
-	// Special case. If we can marshal the type to text, then we used that.
-	// Basically, this prevents the encoder for handling these types as
-	// generic structs (or whatever the underlying type of a TextMarshaler is).
+
 	var need_indent = true
 	if len(indent) > 0 {
 		need_indent = indent[0]
 	}
-
+	// Special case. Time needs to be in ISO8601 format.
+	// Special case. If we can marshal the type to text, then we used that.
+	// Basically, this prevents the encoder for handling these types as
+	// generic structs (or whatever the underlying type of a TextMarshaler is).
 	switch rv.Interface().(type) {
 	case time.Time, TextMarshaler:
 		enc.keyEqElement(key, rv)
