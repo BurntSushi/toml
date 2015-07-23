@@ -240,11 +240,6 @@ func (enc *Encoder) eArrayOfTables(key Key, rv reflect.Value) {
 
 func (enc *Encoder) eTable(key Key, rv reflect.Value) {
 	panicIfInvalidKey(key)
-	if len(key) == 1 {
-		// Output an extra new line between top-level tables.
-		// (The newline isn't written if nothing else has been written though.)
-		enc.newline()
-	}
 	if len(key) > 0 {
 		enc.wf("%s[%s]", enc.indentStr(key), key.maybeQuotedAll())
 		enc.newline()
@@ -336,6 +331,22 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 				continue
 			}
 
+			if sft.Type.Kind() == reflect.Struct {
+				// Output an extra new line between top-level tables.
+				// (The newline isn't written if nothing else has been written though.)
+				enc.newline()
+			}
+
+			comment := sft.Tag.Get("comment")
+			if comment != "" {
+				indentLevel := len([]string(key))
+				var indentStr string
+				if indentLevel != 0 {
+					indentStr += strings.Repeat(enc.Indent, indentLevel)
+				}
+				enc.wf(indentStr+"#%s\n", comment)
+			}
+
 			keyName := sft.Tag.Get("toml")
 			if keyName == "-" {
 				continue
@@ -351,7 +362,11 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 				continue
 			}
 
+			if comment == "" {
+				enc.newline()
+			}
 			enc.encode(key.add(keyName), sf)
+
 		}
 	}
 	writeFields(fieldsDirect)
