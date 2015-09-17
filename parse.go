@@ -482,11 +482,7 @@ func (p *parser) asciiEscapeToUnicode(bs []byte) rune {
 			"lexer claims it's OK: %s", s, err)
 	}
 
-	// BUG(burntsushi)
-	// I honestly don't understand how this works. I can't seem
-	// to find a way to make this fail. I figured this would fail on invalid
-	// UTF-8 characters like U+DCFF, but it doesn't.
-	if !utf8.ValidString(string(rune(hex))) {
+	if !utf8.ValidRune(rune(hex)) {
 		p.panicf("Escaped character '\\u%s' is not valid UTF-8.", s)
 	}
 	return rune(hex)
