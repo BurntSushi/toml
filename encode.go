@@ -105,6 +105,19 @@ func (enc *Encoder) safeEncode(key Key, rv reflect.Value) (err error) {
 	return nil
 }
 
+// wrapper for Encoder.encode that writes a comment out above the field.
+// panics on error like encode.
+func (enc *Encoder) encodeCommented(key Key, rv reflect.Value, comment string) {
+	format := "\n# %s\n"
+	if !enc.hasWritten {
+		format = "# %s\n"
+	}
+	if _, err := fmt.Fprintf(enc.w, format, comment); err != nil {
+		panic(err)
+	}
+	enc.encode(key, rv)
+}
+
 func (enc *Encoder) encode(key Key, rv reflect.Value) {
 	// Special case. Time needs to be in ISO8601 format.
 	// Special case. If we can marshal the type to text, then we used that.
@@ -328,6 +341,7 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 	addFields(rt, rv, nil)
 
 	var writeFields = func(fields [][]int) {
+	OUTER:
 		for _, fieldIndex := range fields {
 			sft := rt.FieldByIndex(fieldIndex)
 			sf := rv.FieldByIndex(fieldIndex)
@@ -345,13 +359,29 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 			}
 
 			keyName, opts := getOptions(keyName)
-			if _, ok := opts["omitempty"]; ok && isEmpty(sf) {
-				continue
-			} else if _, ok := opts["omitzero"]; ok && isZero(sf) {
-				continue
+			var comment string
+			for opt := range opts {
+				switch opt {
+				case "omitempty":
+					if isEmpty(sf) {
+						continue OUTER
+					}
+				case "omitzero":
+					if isZero(sf) {
+						continue OUTER
+					}
+				case keyName:
+					continue
+				default:
+					comment = opt
+				}
 			}
 
-			enc.encode(key.add(keyName), sf)
+			if comment != "" {
+				enc.encodeCommented(key.add(keyName), sf, comment)
+			} else {
+				enc.encode(key.add(keyName), sf)
+			}
 		}
 	}
 	writeFields(fieldsDirect)

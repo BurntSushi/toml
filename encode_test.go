@@ -491,6 +491,25 @@ unsigned = 5
 	encodeExpected(t, "simple with omitzero, non-zero", value, expected, nil)
 }
 
+func TestEncodeWithComment(t *testing.T) {
+	type elephant struct {
+		Age       int `toml:"age,Elephant age in years"`
+		TuskLen   int `toml:"tusk_length,Tusk length in cm"`
+		NWrinkles int `toml:"num_wrinkles,"`
+	}
+
+	value := elephant{5, 62, 1000}
+
+	expected := `# Elephant age in years
+age = 5
+
+# Tusk length in cm
+tusk_length = 62
+num_wrinkles = 1000
+`
+	encodeExpected(t, "simple with encodeComment", value, expected, nil)
+}
+
 func encodeExpected(
 	t *testing.T, label string, val interface{}, wantStr string, wantErr error,
 ) {
