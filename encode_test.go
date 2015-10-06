@@ -497,15 +497,18 @@ func TestEncodeWithComment(t *testing.T) {
 		TuskLen   int `toml:"tusk_length,Tusk length in cm"`
 		NWrinkles int `toml:"num_wrinkles,"`
 	}
+	value := struct {
+		Elephant elephant `toml:"elephant"`
+	}{elephant{5, 62, 1000}}
 
-	value := elephant{5, 62, 1000}
+	expected := `[elephant]
 
-	expected := `# Elephant age in years
-age = 5
+  # Elephant age in years
+  age = 5
 
-# Tusk length in cm
-tusk_length = 62
-num_wrinkles = 1000
+  # Tusk length in cm
+  tusk_length = 62
+  num_wrinkles = 1000
 `
 	encodeExpected(t, "simple with encodeComment", value, expected, nil)
 }

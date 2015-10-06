@@ -108,11 +108,11 @@ func (enc *Encoder) safeEncode(key Key, rv reflect.Value) (err error) {
 // wrapper for Encoder.encode that writes a comment out above the field.
 // panics on error like encode.
 func (enc *Encoder) encodeCommented(key Key, rv reflect.Value, comment string) {
-	format := "\n# %s\n"
+	format := "\n%s# %s\n"
 	if !enc.hasWritten {
-		format = "# %s\n"
+		format = "%s# %s\n"
 	}
-	if _, err := fmt.Fprintf(enc.w, format, comment); err != nil {
+	if _, err := fmt.Fprintf(enc.w, format, enc.indentStr(key), comment); err != nil {
 		panic(err)
 	}
 	enc.encode(key, rv)
