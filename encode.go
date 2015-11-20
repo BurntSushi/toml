@@ -313,6 +313,9 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 			frv := rv.Field(i)
 			if f.Anonymous {
 				frv := eindirect(frv)
+				if !frv.IsValid() {
+					continue
+				}
 				t := frv.Type()
 				if t.Kind() != reflect.Struct {
 					encPanic(errAnonNonStruct)
