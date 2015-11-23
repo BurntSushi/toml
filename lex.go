@@ -402,10 +402,6 @@ func lexValue(lx *lexer) stateFn {
 		}
 		lx.ignore() // ignore the "'"
 		return lexRawString
-	case r == 't':
-		return lexTrue
-	case r == 'f':
-		return lexFalse
 	case r == '-':
 		return lexNumberStart
 	case isDigit(r):
@@ -414,7 +410,11 @@ func lexValue(lx *lexer) stateFn {
 	case r == '.': // special error case, be kind to users
 		return lx.errorf("Floats must start with a digit, not '.'.")
 	}
-	return lx.errorf("Expected value but found %q instead.", r)
+
+	// Assume barewords are constants so we can emit better error
+	// messages.
+	lx.backup()
+	return lexBareword
 }
 
 // lexArrayValue consumes one value in an array. It assumes that '[' or ','
@@ -738,36 +738,29 @@ func lexFloat(lx *lexer) stateFn {
 	return lx.pop()
 }
 
-// lexConst consumes the s[1:] in s. It assumes that s[0] has already been
-// consumed.
-func lexConst(lx *lexer, s string) stateFn {
-	for i := range s[1:] {
-		if r := lx.next(); r != rune(s[i+1]) {
-			return lx.errorf("Expected %q, but found %q instead.", s[:i+1],
-				s[:i]+string(r))
+// lexBareword consumes an unquoted string. The only valid barewords
+// are the 'true' and 'false' constants, others return an error.
+func lexBareword(lx *lexer) stateFn {
+	var rs []rune
+	for {
+		r := lx.next()
+		if r == eof || isWhitespace(r) || isNL(r) {
+			lx.backup()
+			break
 		}
+		rs = append(rs, r)
 	}
-	return nil
-}
 
-// lexTrue consumes the "rue" in "true". It assumes that 't' has already
-// been consumed.
-func lexTrue(lx *lexer) stateFn {
-	if fn := lexConst(lx, "true"); fn != nil {
-		return fn
+	s := string(rs)
+	if s == "true" {
+		lx.emit(itemBool)
+		return lx.pop()
+	} else if s == "false" {
+		lx.emit(itemBool)
+		return lx.pop()
 	}
-	lx.emit(itemBool)
-	return lx.pop()
-}
 
-// lexFalse consumes the "alse" in "false". It assumes that 'f' has already
-// been consumed.
-func lexFalse(lx *lexer) stateFn {
-	if fn := lexConst(lx, "false"); fn != nil {
-		return fn
-	}
-	lx.emit(itemBool)
-	return lx.pop()
+	return lx.errorf("Expected value but found '%s' instead.", s)
 }
 
 // lexCommentStart begins the lexing of a comment. It will emit
