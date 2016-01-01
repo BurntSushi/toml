@@ -272,8 +272,6 @@ func lexTableNameStart(lx *lexer) stateFn {
 		lx.ignore()
 		lx.push(lexTableNameEnd)
 		return lexValue // reuse string lexing
-	case isWhitespace(r):
-		return lexTableNameStart
 	default:
 		return lexBareTableName
 	}
