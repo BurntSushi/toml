@@ -349,7 +349,7 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 				"map": map[string]interface{}{
 					"zero": 5,
 					"arr": []map[string]int{
-						map[string]int{
+						{
 							"friend": 5,
 						},
 					},
