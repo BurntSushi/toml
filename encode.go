@@ -307,7 +307,7 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 		for i := 0; i < rt.NumField(); i++ {
 			f := rt.Field(i)
 			// skip unexporded fields
-			if f.PkgPath != "" {
+			if f.PkgPath != "" && !f.Anonymous {
 				continue
 			}
 			frv := rv.Field(i)
