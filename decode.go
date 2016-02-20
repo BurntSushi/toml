@@ -308,9 +308,8 @@ func (md *MetaData) unifySlice(data interface{}, rv reflect.Value) error {
 		return badtype("slice", data)
 	}
 	sliceLen := datav.Len()
-	if rv.IsNil() {
-		rv.Set(reflect.MakeSlice(rv.Type(), sliceLen, sliceLen))
-	}
+	rv.Set(reflect.MakeSlice(rv.Type(), sliceLen, sliceLen))
+
 	return md.unifySliceArray(datav, rv)
 }
 
