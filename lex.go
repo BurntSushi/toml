@@ -47,6 +47,7 @@ const (
 	stringEnd       = '"'
 	rawStringStart  = '\''
 	rawStringEnd    = '\''
+	utf8Bom         = '\ufeff'
 )
 
 type stateFn func(lx *lexer) stateFn
@@ -344,6 +345,8 @@ func lexBareKey(lx *lexer) stateFn {
 		lx.backup()
 		lx.emitTrim(itemText)
 		return lexKeyEnd
+	case r == utf8Bom:
+		return lexSkip(lx, lexBareKey)
 	default:
 		return lx.errorf("Bare keys cannot contain %q.", r)
 	}
