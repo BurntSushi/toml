@@ -401,7 +401,7 @@ func stripFirstNewline(s string) string {
 	if len(s) == 0 || s[0] != '\n' {
 		return s
 	}
-	return s[1:len(s)]
+	return s[1:]
 }
 
 func stripEscapedWhitespace(s string) string {
