@@ -306,19 +306,30 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 	addFields = func(rt reflect.Type, rv reflect.Value, start []int) {
 		for i := 0; i < rt.NumField(); i++ {
 			f := rt.Field(i)
-			// skip unexporded fields
+			// skip unexported fields
 			if f.PkgPath != "" && !f.Anonymous {
 				continue
 			}
 			frv := rv.Field(i)
 			if f.Anonymous {
-				frv := eindirect(frv)
-				t := frv.Type()
-				if t.Kind() != reflect.Struct {
-					encPanic(errAnonNonStruct)
+				t := f.Type
+				switch t.Kind() {
+				case reflect.Struct:
+					addFields(t, frv, f.Index)
+					continue
+				case reflect.Ptr:
+					if t.Elem().Kind() == reflect.Struct {
+						if !frv.IsNil() {
+							addFields(t.Elem(), frv.Elem(), f.Index)
+						}
+						continue
+					}
+					// Fall through to the normal field encoding logic below
+					// for non-struct anonymous fields.
 				}
-				addFields(t, frv, f.Index)
-			} else if typeIsHash(tomlTypeOfGo(frv)) {
+			}
+
+			if typeIsHash(tomlTypeOfGo(frv)) {
 				fieldsSub = append(fieldsSub, append(start, f.Index...))
 			} else {
 				fieldsDirect = append(fieldsDirect, append(start, f.Index...))
