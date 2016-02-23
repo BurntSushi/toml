@@ -379,6 +379,25 @@ func TestDecodeSizedInts(t *testing.T) {
 	}
 }
 
+func TestDecodeWithOmitEmpty(t *testing.T) {
+	type userpass struct {
+		User string `toml:"user"`
+		Pass string `toml:"password,omitempty"`
+	}
+	value := userpass{"Testing", "Filled"}
+	toml := `
+	user = "Testing"
+	password = "Filled"
+	`
+	var up userpass
+	if _, err := Decode(toml, &up); err != nil {
+		t.Fatal(err.Error())
+	}
+	if value != up {
+		t.Fatalf("Expected %#v but got %#v", value, up)
+	}
+}
+
 func TestUnmarshaler(t *testing.T) {
 
 	var tomlBlob = `
