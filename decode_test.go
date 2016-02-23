@@ -498,12 +498,17 @@ type ingredient struct {
 	Name string
 }
 
-func TestDecodeToEmptySlice(t *testing.T) {
+func TestDecodeSlices(t *testing.T) {
 	s := struct{ Test []string }{Test: []string{}}
-
-	_, err := Decode(`Test = ["test"]`, &s)
-	if err != nil {
-		t.Fatal(err)
+	if _, err := Decode(`Test = ["test"]`, &s); err != nil {
+		t.Errorf("Error decoding into empty slice: %s", err)
+	}
+	s.Test = []string{"a", "b", "c"}
+	if _, err := Decode(`Test = ["test"]`, &s); err != nil {
+		t.Errorf("Error decoding into oversized slice: %s", err)
+	}
+	if want := []string{"test"}; !reflect.DeepEqual(s.Test, want) {
+		t.Errorf("Got %v; want %v", s.Test, want)
 	}
 }
 
