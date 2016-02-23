@@ -315,6 +315,30 @@ func TestDecodeBadTimestamp(t *testing.T) {
 	}
 }
 
+func TestDecodeMultilineStrings(t *testing.T) {
+	var x struct {
+		S string
+	}
+	const s0 = `s = """
+a b \n c
+d e f
+"""`
+	if _, err := Decode(s0, &x); err != nil {
+		t.Fatal(err)
+	}
+	if want := "a b \n c\nd e f\n"; x.S != want {
+		t.Errorf("got: %q; want: %q", x.S, want)
+	}
+	const s1 = `s = """a b c\
+"""`
+	if _, err := Decode(s1, &x); err != nil {
+		t.Fatal(err)
+	}
+	if want := "a b c"; x.S != want {
+		t.Errorf("got: %q; want: %q", x.S, want)
+	}
+}
+
 type sphere struct {
 	Center [3]float64
 	Radius float64

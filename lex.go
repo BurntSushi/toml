@@ -558,7 +558,6 @@ func lexMultilineRawString(lx *lexer) stateFn {
 func lexMultilineStringEscape(lx *lexer) stateFn {
 	// Handle the special case first:
 	if isNL(lx.next()) {
-		lx.next()
 		return lexMultilineString
 	} else {
 		lx.backup()
