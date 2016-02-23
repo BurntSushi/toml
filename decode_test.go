@@ -498,6 +498,15 @@ type ingredient struct {
 	Name string
 }
 
+func TestDecodeToEmptySlice(t *testing.T) {
+	s := struct{ Test []string }{Test: []string{}}
+
+	_, err := Decode(`Test = ["test"]`, &s)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func ExampleMetaData_PrimitiveDecode() {
 	var md MetaData
 	var err error
