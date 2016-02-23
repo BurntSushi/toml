@@ -95,7 +95,7 @@ func typeFields(t reflect.Type) []field {
 				if sf.PkgPath != "" && !sf.Anonymous { // unexported
 					continue
 				}
-				name := sf.Tag.Get("toml")
+				name, _ := getOptions(sf.Tag.Get("toml"))
 				if name == "-" {
 					continue
 				}

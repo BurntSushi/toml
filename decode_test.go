@@ -583,7 +583,7 @@ ip = "10.0.0.2"
 	}
 
 	type server struct {
-		IP     string       `toml:"ip"`
+		IP     string       `toml:"ip,omitempty"`
 		Config serverConfig `toml:"config"`
 	}
 
