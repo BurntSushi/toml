@@ -302,6 +302,19 @@ Description = "da base"
 	}
 }
 
+func TestDecodeBadTimestamp(t *testing.T) {
+	var x struct {
+		T time.Time
+	}
+	for _, s := range []string{
+		"T = 123", "T = 2006-01-50T00:00:00Z", "T = 2006-01-30T00:00:00",
+	} {
+		if _, err := Decode(s, &x); err == nil {
+			t.Errorf("Expected invalid DateTime error for %q", s)
+		}
+	}
+}
+
 type sphere struct {
 	Center [3]float64
 	Radius float64

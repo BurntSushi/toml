@@ -216,7 +216,7 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 	case itemDatetime:
 		t, err := time.Parse("2006-01-02T15:04:05Z", it.val)
 		if err != nil {
-			p.bug("Expected Zulu formatted DateTime, but got '%s'.", it.val)
+			p.panicf("Invalid RFC3339 Zulu DateTime: '%s'.", it.val)
 		}
 		return t, p.typeOfPrimitive(it)
 	case itemArray:
