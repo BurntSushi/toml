@@ -506,6 +506,15 @@ func TestEncodeAnonymousStructPointerField(t *testing.T) {
 	encodeExpected(t, "non-nil anonymous struct pointer field", value, expected, nil)
 }
 
+func TestEncodeIgnoredFields(t *testing.T) {
+	type simple struct {
+		Number int `toml:"-"`
+	}
+	value := simple{}
+	expected := ""
+	encodeExpected(t, "ignored field", value, expected, nil)
+}
+
 func encodeExpected(
 	t *testing.T, label string, val interface{}, wantStr string, wantErr error,
 ) {

@@ -119,6 +119,23 @@ func TestDecodeEmbedded(t *testing.T) {
 	}
 }
 
+func TestDecodeIgnoredFields(t *testing.T) {
+	type simple struct {
+		Number int `toml:"-"`
+	}
+	const input = `
+Number = 123
+- = 234
+`
+	var s simple
+	if _, err := Decode(input, &s); err != nil {
+		t.Fatal(err)
+	}
+	if s.Number != 0 {
+		t.Errorf("got: %d; want 0", s.Number)
+	}
+}
+
 func TestTableArrays(t *testing.T) {
 	var tomlTableArrays = `
 [[albums]]
