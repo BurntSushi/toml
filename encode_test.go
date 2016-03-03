@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -563,4 +564,16 @@ func ExampleEncoder_Encode() {
 	// [hash]
 	//   key1 = "val1"
 	//   key2 = "val2"
+}
+
+func TestisEmptyBool(t *testing.T) {
+	tests := []struct {
+		input  bool
+		result bool
+	}{{true, false}, {false, true}}
+	for _, test := range tests {
+		if isEmpty(reflect.ValueOf(test.input)) != test.result {
+			t.Error("expected %s got %s", test.result, test.input)
+		}
+	}
 }

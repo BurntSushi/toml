@@ -494,6 +494,8 @@ func isEmpty(rv reflect.Value) bool {
 		if rv.Len() == 0 {
 			return true
 		}
+	case reflect.Bool:
+		return !rv.Bool()
 	}
 
 	return false
