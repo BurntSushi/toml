@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"reflect"
 	"testing"
 	"time"
 )
@@ -458,16 +457,30 @@ func TestEncodeArrayHashWithNormalHashOrder(t *testing.T) {
 
 func TestEncodeWithOmitEmpty(t *testing.T) {
 	type simple struct {
-		User string `toml:"user"`
-		Pass string `toml:"password,omitempty"`
+		Bool   bool              `toml:"bool,omitempty"`
+		String string            `toml:"string,omitempty"`
+		Array  [0]byte           `toml:"array,omitempty"`
+		Slice  []int             `toml:"slice,omitempty"`
+		Map    map[string]string `toml:"map,omitempty"`
 	}
 
-	value := simple{"Testing", ""}
-	expected := fmt.Sprintf("user = %q\n", value.User)
-	encodeExpected(t, "simple with omitempty, is empty", value, expected, nil)
-	value.Pass = "some password"
-	expected = fmt.Sprintf("user = %q\npassword = %q\n", value.User, value.Pass)
-	encodeExpected(t, "simple with omitempty, not empty", value, expected, nil)
+	var v simple
+	encodeExpected(t, "fields with omitempty are omitted when empty", v, "", nil)
+	v = simple{
+		Bool:   true,
+		String: " ",
+		Slice:  []int{2, 3, 4},
+		Map:    map[string]string{"foo": "bar"},
+	}
+	expected := `bool = true
+string = " "
+slice = [2, 3, 4]
+
+[map]
+  foo = "bar"
+`
+	encodeExpected(t, "fields with omitempty are not omitted when non-empty",
+		v, expected, nil)
 }
 
 func TestEncodeWithOmitZero(t *testing.T) {
@@ -564,16 +577,4 @@ func ExampleEncoder_Encode() {
 	// [hash]
 	//   key1 = "val1"
 	//   key2 = "val2"
-}
-
-func TestisEmptyBool(t *testing.T) {
-	tests := []struct {
-		input  bool
-		result bool
-	}{{true, false}, {false, true}}
-	for _, test := range tests {
-		if isEmpty(reflect.ValueOf(test.input)) != test.result {
-			t.Error("expected %s got %s", test.result, test.input)
-		}
-	}
 }
