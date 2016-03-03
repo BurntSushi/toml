@@ -478,9 +478,7 @@ func isZero(rv reflect.Value) bool {
 
 func isEmpty(rv reflect.Value) bool {
 	switch rv.Kind() {
-	case reflect.String:
-		return rv.String() == ""
-	case reflect.Array, reflect.Slice, reflect.Map:
+	case reflect.Array, reflect.Slice, reflect.Map, reflect.String:
 		return rv.Len() == 0
 	case reflect.Bool:
 		return !rv.Bool()
