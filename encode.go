@@ -347,15 +347,14 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 				continue
 			}
 
-			keyName := sft.Tag.Get("toml")
-			if keyName == "-" {
+			tag := sft.Tag.Get("toml")
+			if tag == "-" {
 				continue
 			}
+			keyName, opts := getOptions(tag)
 			if keyName == "" {
 				keyName = sft.Name
 			}
-
-			keyName, opts := getOptions(keyName)
 			if _, ok := opts["omitempty"]; ok && isEmpty(sf) {
 				continue
 			} else if _, ok := opts["omitzero"]; ok && isZero(sf) {

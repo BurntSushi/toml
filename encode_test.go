@@ -505,6 +505,16 @@ unsigned = 5
 	encodeExpected(t, "simple with omitzero, non-zero", value, expected, nil)
 }
 
+func TestEncodeOmitemptyWithEmptyName(t *testing.T) {
+	type simple struct {
+		S []int `toml:",omitempty"`
+	}
+	v := simple{[]int{1, 2, 3}}
+	expected := "S = [1, 2, 3]\n"
+	encodeExpected(t, "simple with omitempty, no name, non-empty field",
+		v, expected, nil)
+}
+
 func TestEncodeAnonymousStructPointerField(t *testing.T) {
 	type Sub struct{}
 	type simple struct {
