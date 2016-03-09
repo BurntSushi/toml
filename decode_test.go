@@ -523,16 +523,31 @@ type ingredient struct {
 }
 
 func TestDecodeSlices(t *testing.T) {
-	s := struct{ Test []string }{Test: []string{}}
-	if _, err := Decode(`Test = ["test"]`, &s); err != nil {
-		t.Errorf("Error decoding into empty slice: %s", err)
+	type T struct {
+		S []string
 	}
-	s.Test = []string{"a", "b", "c"}
-	if _, err := Decode(`Test = ["test"]`, &s); err != nil {
-		t.Errorf("Error decoding into oversized slice: %s", err)
-	}
-	if want := []string{"test"}; !reflect.DeepEqual(s.Test, want) {
-		t.Errorf("Got %v; want %v", s.Test, want)
+	for i, tt := range []struct {
+		v     T
+		input string
+		want  T
+	}{
+		{T{}, "", T{}},
+		{T{[]string{}}, "", T{[]string{}}},
+		{T{[]string{"a", "b"}}, "", T{[]string{"a", "b"}}},
+		{T{}, "S = []", T{[]string{}}},
+		{T{[]string{}}, "S = []", T{[]string{}}},
+		{T{[]string{"a", "b"}}, "S = []", T{[]string{}}},
+		{T{}, `S = ["x"]`, T{[]string{"x"}}},
+		{T{[]string{}}, `S = ["x"]`, T{[]string{"x"}}},
+		{T{[]string{"a", "b"}}, `S = ["x"]`, T{[]string{"x"}}},
+	} {
+		if _, err := Decode(tt.input, &tt.v); err != nil {
+			t.Errorf("[%d] %s", i, err)
+			continue
+		}
+		if !reflect.DeepEqual(tt.v, tt.want) {
+			t.Errorf("[%d] got %#v; want %#v", i, tt.v, tt.want)
+		}
 	}
 }
 
