@@ -555,6 +555,9 @@ func TestDecodePrimitive(t *testing.T) {
 	type S struct {
 		P Primitive
 	}
+	type T struct {
+		S []int
+	}
 	slicep := func(s []int) *[]int { return &s }
 	arrayp := func(a [2]int) *[2]int { return &a }
 	mapp := func(m map[string]int) *map[string]int { return &m }
@@ -582,6 +585,14 @@ func TestDecodePrimitive(t *testing.T) {
 		{mapp(nil), "[P]\na = 2", mapp(map[string]int{"a": 2})},
 		{mapp(map[string]int{}), "[P]\na = 2", mapp(map[string]int{"a": 2})},
 		{mapp(map[string]int{"a": 1, "b": 3}), "[P]\na = 2", mapp(map[string]int{"a": 2, "b": 3})},
+
+		// structs
+		{&T{nil}, "[P]", &T{nil}},
+		{&T{[]int{}}, "[P]", &T{[]int{}}},
+		{&T{[]int{1, 2, 3}}, "[P]", &T{[]int{1, 2, 3}}},
+		{&T{nil}, "[P]\nS = [1,2]", &T{[]int{1, 2}}},
+		{&T{[]int{}}, "[P]\nS = [1,2]", &T{[]int{1, 2}}},
+		{&T{[]int{1, 2, 3}}, "[P]\nS = [1,2]", &T{[]int{1, 2}}},
 	} {
 		var s S
 		md, err := Decode(tt.input, &s)

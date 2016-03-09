@@ -225,6 +225,9 @@ func (md *MetaData) unify(data interface{}, rv reflect.Value) error {
 func (md *MetaData) unifyStruct(mapping interface{}, rv reflect.Value) error {
 	tmap, ok := mapping.(map[string]interface{})
 	if !ok {
+		if mapping == nil {
+			return nil
+		}
 		return mismatch(rv, "map", mapping)
 	}
 
