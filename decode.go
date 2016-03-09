@@ -267,6 +267,9 @@ func (md *MetaData) unifyStruct(mapping interface{}, rv reflect.Value) error {
 func (md *MetaData) unifyMap(mapping interface{}, rv reflect.Value) error {
 	tmap, ok := mapping.(map[string]interface{})
 	if !ok {
+		if tmap == nil {
+			return nil
+		}
 		return badtype("map", mapping)
 	}
 	if rv.IsNil() {
@@ -292,6 +295,9 @@ func (md *MetaData) unifyMap(mapping interface{}, rv reflect.Value) error {
 func (md *MetaData) unifyArray(data interface{}, rv reflect.Value) error {
 	datav := reflect.ValueOf(data)
 	if datav.Kind() != reflect.Slice {
+		if !datav.IsValid() {
+			return nil
+		}
 		return badtype("slice", data)
 	}
 	sliceLen := datav.Len()
@@ -305,6 +311,9 @@ func (md *MetaData) unifyArray(data interface{}, rv reflect.Value) error {
 func (md *MetaData) unifySlice(data interface{}, rv reflect.Value) error {
 	datav := reflect.ValueOf(data)
 	if datav.Kind() != reflect.Slice {
+		if !datav.IsValid() {
+			return nil
+		}
 		return badtype("slice", data)
 	}
 	n := datav.Len()

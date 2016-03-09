@@ -551,6 +551,54 @@ func TestDecodeSlices(t *testing.T) {
 	}
 }
 
+func TestDecodePrimitive(t *testing.T) {
+	type S struct {
+		P Primitive
+	}
+	slicep := func(s []int) *[]int { return &s }
+	arrayp := func(a [2]int) *[2]int { return &a }
+	mapp := func(m map[string]int) *map[string]int { return &m }
+	for i, tt := range []struct {
+		v     interface{}
+		input string
+		want  interface{}
+	}{
+		// slices
+		{slicep(nil), "", slicep(nil)},
+		{slicep([]int{}), "", slicep([]int{})},
+		{slicep([]int{1, 2, 3}), "", slicep([]int{1, 2, 3})},
+		{slicep(nil), "P = [1,2]", slicep([]int{1, 2})},
+		{slicep([]int{}), "P = [1,2]", slicep([]int{1, 2})},
+		{slicep([]int{1, 2, 3}), "P = [1,2]", slicep([]int{1, 2})},
+
+		// arrays
+		{arrayp([2]int{2, 3}), "", arrayp([2]int{2, 3})},
+		{arrayp([2]int{2, 3}), "P = [3,4]", arrayp([2]int{3, 4})},
+
+		// maps
+		{mapp(nil), "", mapp(nil)},
+		{mapp(map[string]int{}), "", mapp(map[string]int{})},
+		{mapp(map[string]int{"a": 1}), "", mapp(map[string]int{"a": 1})},
+		{mapp(nil), "[P]\na = 2", mapp(map[string]int{"a": 2})},
+		{mapp(map[string]int{}), "[P]\na = 2", mapp(map[string]int{"a": 2})},
+		{mapp(map[string]int{"a": 1, "b": 3}), "[P]\na = 2", mapp(map[string]int{"a": 2, "b": 3})},
+	} {
+		var s S
+		md, err := Decode(tt.input, &s)
+		if err != nil {
+			t.Errorf("[%d] Decode error: %s", i, err)
+			continue
+		}
+		if err := md.PrimitiveDecode(s.P, tt.v); err != nil {
+			t.Errorf("[%d] PrimitiveDecode error: %s", i, err)
+			continue
+		}
+		if !reflect.DeepEqual(tt.v, tt.want) {
+			t.Errorf("[%d] got %#v; want %#v", i, tt.v, tt.want)
+		}
+	}
+}
+
 func ExampleMetaData_PrimitiveDecode() {
 	var md MetaData
 	var err error
