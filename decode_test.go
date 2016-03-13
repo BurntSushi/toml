@@ -424,6 +424,32 @@ name = "Rice"
 
 }
 
+func TestDecodeWithComment(t *testing.T) {
+	type elephant struct {
+		Age       int `toml:"age,Elephant age in years"`
+		TuskLen   int `toml:"tusk_length,Tusk length in cm"`
+		NWrinkles int `toml:"num_wrinkles,"`
+	}
+	e := elephant{}
+	var tomlBlob = `
+	# Hello world
+	age = 5
+
+	tusk_length = 10
+	num_wrinkles = 15
+	`
+
+	if _, err := Decode(tomlBlob, &e); err != nil {
+		log.Fatal(err)
+	}
+
+	exp := elephant{5, 10, 15}
+
+	if e != exp {
+		t.Errorf("wrong elephant: got %#v, want %#v", e, exp)
+	}
+}
+
 type menu struct {
 	Dishes map[string]dish
 }
