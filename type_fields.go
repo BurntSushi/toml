@@ -9,6 +9,7 @@ package toml
 import (
 	"reflect"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -95,7 +96,7 @@ func typeFields(t reflect.Type) []field {
 				if sf.PkgPath != "" { // unexported
 					continue
 				}
-				name := sf.Tag.Get("toml")
+				name := strings.Split(sf.Tag.Get("toml"), ",")[0]
 				if name == "-" {
 					continue
 				}
