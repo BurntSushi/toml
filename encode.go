@@ -315,10 +315,16 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 				t := f.Type
 				switch t.Kind() {
 				case reflect.Struct:
-					addFields(t, frv, f.Index)
-					continue
+					// Treat anonymous struct fields with
+					// tag names as though they are not
+					// anonymous, like encoding/json does.
+					if getOptions(f.Tag).name == "" {
+						addFields(t, frv, f.Index)
+						continue
+					}
 				case reflect.Ptr:
-					if t.Elem().Kind() == reflect.Struct {
+					if t.Elem().Kind() == reflect.Struct &&
+						getOptions(f.Tag).name == "" {
 						if !frv.IsNil() {
 							addFields(t.Elem(), frv.Elem(), f.Index)
 						}
@@ -347,17 +353,18 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 				continue
 			}
 
-			tag := sft.Tag.Get("toml")
-			if tag == "-" {
+			opts := getOptions(sft.Tag)
+			if opts.skip {
 				continue
 			}
-			keyName, opts := getOptions(tag)
-			if keyName == "" {
-				keyName = sft.Name
+			keyName := sft.Name
+			if opts.name != "" {
+				keyName = opts.name
 			}
-			if _, ok := opts["omitempty"]; ok && isEmpty(sf) {
+			if opts.omitempty && isEmpty(sf) {
 				continue
-			} else if _, ok := opts["omitzero"]; ok && isZero(sf) {
+			}
+			if opts.omitzero && isZero(sf) {
 				continue
 			}
 
@@ -451,17 +458,30 @@ func tomlArrayType(rv reflect.Value) tomlType {
 	return firstType
 }
 
-func getOptions(keyName string) (string, map[string]struct{}) {
-	opts := make(map[string]struct{})
-	ss := strings.Split(keyName, ",")
-	name := ss[0]
-	if len(ss) > 1 {
-		for _, opt := range ss {
-			opts[opt] = struct{}{}
+type tagOptions struct {
+	skip      bool // "-"
+	name      string
+	omitempty bool
+	omitzero  bool
+}
+
+func getOptions(tag reflect.StructTag) tagOptions {
+	t := tag.Get("toml")
+	if t == "-" {
+		return tagOptions{skip: true}
+	}
+	var opts tagOptions
+	parts := strings.Split(t, ",")
+	opts.name = parts[0]
+	for _, s := range parts[1:] {
+		switch s {
+		case "omitempty":
+			opts.omitempty = true
+		case "omitzero":
+			opts.omitzero = true
 		}
 	}
-
-	return name, opts
+	return opts
 }
 
 func isZero(rv reflect.Value) bool {
