@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -103,6 +104,10 @@ func (md *MetaData) PrimitiveDecode(primValue Primitive, v interface{}) error {
 // This decoder will not handle cyclic types. If a cyclic type is passed,
 // `Decode` will not terminate.
 func Decode(data string, v interface{}) (MetaData, error) {
+	inputStru := reflect.ValueOf(v)
+	if inputStru.Kind() != reflect.Ptr {
+		return MetaData{}, errors.New("The second para should passed in a pointer")
+	}
 	p, err := parse(data)
 	if err != nil {
 		return MetaData{}, err
@@ -111,7 +116,7 @@ func Decode(data string, v interface{}) (MetaData, error) {
 		p.mapping, p.types, p.ordered,
 		make(map[string]bool, len(p.ordered)), nil,
 	}
-	return md, md.unify(p.mapping, rvalue(v))
+	return md, md.unify(p.mapping, indirect(inputStru))
 }
 
 // DecodeFile is just like Decode, except it will automatically read the
