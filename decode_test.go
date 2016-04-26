@@ -180,6 +180,49 @@ name = "Born in the USA"
 	}
 }
 
+func TestTableNesting(t *testing.T) {
+	for _, tt := range []struct {
+		t    string
+		want []string
+	}{
+		{"[a.b.c]", []string{"a", "b", "c"}},
+		{`[a."b.c"]`, []string{"a", "b.c"}},
+		{`[a.'b.c']`, []string{"a", "b.c"}},
+		{`[a.' b ']`, []string{"a", " b "}},
+		{"[ d.e.f ]", []string{"d", "e", "f"}},
+		{"[ g . h . i ]", []string{"g", "h", "i"}},
+		{`[ j . "ʞ" . 'l' ]`, []string{"j", "ʞ", "l"}},
+	} {
+		var m map[string]interface{}
+		if _, err := Decode(tt.t, &m); err != nil {
+			t.Errorf("Decode(%q): got error: %s", tt.t, err)
+			continue
+		}
+		if keys := extractNestedKeys(m); !reflect.DeepEqual(keys, tt.want) {
+			t.Errorf("Decode(%q): got nested keys %#v; want %#v",
+				tt.t, keys, tt.want)
+		}
+	}
+}
+
+func extractNestedKeys(v map[string]interface{}) []string {
+	var result []string
+	for {
+		if len(v) != 1 {
+			return result
+		}
+		for k, m := range v {
+			result = append(result, k)
+			var ok bool
+			v, ok = m.(map[string]interface{})
+			if !ok {
+				return result
+			}
+		}
+
+	}
+}
+
 // Case insensitive matching tests.
 // A bit more comprehensive than needed given the current implementation,
 // but implementations change.

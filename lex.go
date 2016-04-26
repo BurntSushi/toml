@@ -167,6 +167,19 @@ func (lx *lexer) peek() rune {
 	return r
 }
 
+// skip ignores all input that matches the given predicate.
+func (lx *lexer) skip(pred func(rune) bool) {
+	for {
+		r := lx.next()
+		if pred(r) {
+			continue
+		}
+		lx.backup()
+		lx.ignore()
+		return
+	}
+}
+
 // errorf stops all lexing by emitting an error and returning `nil`.
 // Note that any value that is a character is escaped if it's a special
 // character (new lines, tabs, etc.).
@@ -262,6 +275,7 @@ func lexArrayTableEnd(lx *lexer) stateFn {
 }
 
 func lexTableNameStart(lx *lexer) stateFn {
+	lx.skip(isWhitespace)
 	switch r := lx.peek(); {
 	case r == tableEnd || r == eof:
 		return lx.errorf("Unexpected end of table name. (Table names cannot " +
@@ -278,24 +292,22 @@ func lexTableNameStart(lx *lexer) stateFn {
 	}
 }
 
-// lexTableName lexes the name of a table. It assumes that at least one
+// lexBareTableName lexes the name of a table. It assumes that at least one
 // valid character for the table has already been read.
 func lexBareTableName(lx *lexer) stateFn {
-	switch r := lx.next(); {
-	case isBareKeyChar(r):
+	r := lx.next()
+	if isBareKeyChar(r) {
 		return lexBareTableName
-	case r == tableSep || r == tableEnd:
-		lx.backup()
-		lx.emitTrim(itemText)
-		return lexTableNameEnd
-	default:
-		return lx.errorf("Bare keys cannot contain %q.", r)
 	}
+	lx.backup()
+	lx.emit(itemText)
+	return lexTableNameEnd
 }
 
 // lexTableNameEnd reads the end of a piece of a table name, optionally
 // consuming whitespace.
 func lexTableNameEnd(lx *lexer) stateFn {
+	lx.skip(isWhitespace)
 	switch r := lx.next(); {
 	case isWhitespace(r):
 		return lexTableNameEnd
@@ -339,11 +351,12 @@ func lexBareKey(lx *lexer) stateFn {
 	case isBareKeyChar(r):
 		return lexBareKey
 	case isWhitespace(r):
-		lx.emitTrim(itemText)
+		lx.backup()
+		lx.emit(itemText)
 		return lexKeyEnd
 	case r == keySep:
 		lx.backup()
-		lx.emitTrim(itemText)
+		lx.emit(itemText)
 		return lexKeyEnd
 	default:
 		return lx.errorf("Bare keys cannot contain %q.", r)
