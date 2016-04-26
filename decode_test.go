@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -365,6 +366,22 @@ func TestDecodeLargeIntoSmallInt(t *testing.T) {
 	var tab table
 	if _, err := Decode(`value = 500`, &tab); err == nil {
 		t.Fatal("Expected integer out-of-bounds error.")
+	}
+}
+
+func TestDecodeBadValues(t *testing.T) {
+	for _, tt := range []struct {
+		v    interface{}
+		want string
+	}{
+		{3, "non-pointer type"},
+		{(*int)(nil), "nil"},
+	} {
+		_, err := Decode(`x = 3`, tt.v)
+		if err == nil || !strings.Contains(err.Error(), tt.want) {
+			t.Errorf("Decode(%v): got %q; want error containing %q",
+				tt.v, err, tt.want)
+		}
 	}
 }
 

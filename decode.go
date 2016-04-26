@@ -103,6 +103,13 @@ func (md *MetaData) PrimitiveDecode(primValue Primitive, v interface{}) error {
 // This decoder will not handle cyclic types. If a cyclic type is passed,
 // `Decode` will not terminate.
 func Decode(data string, v interface{}) (MetaData, error) {
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Ptr {
+		return MetaData{}, e("Decode of non-pointer type %s", reflect.TypeOf(v))
+	}
+	if rv.IsNil() {
+		return MetaData{}, e("Decode of nil %s", reflect.TypeOf(v))
+	}
 	p, err := parse(data)
 	if err != nil {
 		return MetaData{}, err
@@ -111,7 +118,7 @@ func Decode(data string, v interface{}) (MetaData, error) {
 		p.mapping, p.types, p.ordered,
 		make(map[string]bool, len(p.ordered)), nil,
 	}
-	return md, md.unify(p.mapping, rvalue(v))
+	return md, md.unify(p.mapping, indirect(rv))
 }
 
 // DecodeFile is just like Decode, except it will automatically read the
