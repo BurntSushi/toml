@@ -178,10 +178,18 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 		}
 		p.bug("Expected boolean value, but got '%s'.", it.val)
 	case itemInteger:
-		num, err := strconv.ParseInt(it.val, 10, 64)
+		if !numUnderscoresOK(it.val) {
+			p.panicf("Invalid integer %q: underscores must be surrounded by digits",
+				it.val)
+		}
+		val := strings.Replace(it.val, "_", "", -1)
+		num, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
-			// See comment below for floats describing why we make a
-			// distinction between a bug and a user error.
+			// Distinguish integer values. Normally, it'd be a bug if the lexer
+			// provides an invalid integer, but it's possible that the number is
+			// out of range of valid values (which the lexer cannot determine).
+			// So mark the former as a bug but the latter as a legitimate user
+			// error.
 			if e, ok := err.(*strconv.NumError); ok &&
 				e.Err == strconv.ErrRange {
 
@@ -193,22 +201,37 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 		}
 		return num, p.typeOfPrimitive(it)
 	case itemFloat:
-		num, err := strconv.ParseFloat(it.val, 64)
+		parts := strings.FieldsFunc(it.val, func(r rune) bool {
+			switch r {
+			case '.', 'e', 'E':
+				return true
+			}
+			return false
+		})
+		for _, part := range parts {
+			if !numUnderscoresOK(part) {
+				p.panicf("Invalid float %q: underscores must be "+
+					"surrounded by digits", it.val)
+			}
+		}
+		if !numPeriodsOK(it.val) {
+			// As a special case, numbers like '123.' or '1.e2',
+			// which are valid as far as Go/strconv are concerned,
+			// must be rejected because TOML says that a fractional
+			// part consists of '.' followed by 1+ digits.
+			p.panicf("Invalid float %q: '.' must be followed "+
+				"by one or more digits", it.val)
+		}
+		val := strings.Replace(it.val, "_", "", -1)
+		num, err := strconv.ParseFloat(val, 64)
 		if err != nil {
-			// Distinguish float values. Normally, it'd be a bug if the lexer
-			// provides an invalid float, but it's possible that the float is
-			// out of range of valid values (which the lexer cannot determine).
-			// So mark the former as a bug but the latter as a legitimate user
-			// error.
-			//
-			// This is also true for integers.
 			if e, ok := err.(*strconv.NumError); ok &&
 				e.Err == strconv.ErrRange {
 
 				p.panicf("Float '%s' is out of the range of 64-bit "+
 					"IEEE-754 floating-point numbers.", it.val)
 			} else {
-				p.bug("Expected float value, but got '%s'.", it.val)
+				p.panicf("Invalid float value: %q", it.val)
 			}
 		}
 		return num, p.typeOfPrimitive(it)
@@ -236,6 +259,35 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 	}
 	p.bug("Unexpected value type: %s", it.typ)
 	panic("unreachable")
+}
+
+// numUnderscoresOK checks whether each underscore in s is surrounded by
+// characters that are not underscores.
+func numUnderscoresOK(s string) bool {
+	accept := false
+	for _, r := range s {
+		if r == '_' {
+			if !accept {
+				return false
+			}
+			accept = false
+			continue
+		}
+		accept = true
+	}
+	return accept
+}
+
+// numPeriodsOK checks whether every period in s is followed by a digit.
+func numPeriodsOK(s string) bool {
+	period := false
+	for _, r := range s {
+		if period && !isDigit(r) {
+			return false
+		}
+		period = r == '.'
+	}
+	return !period
 }
 
 // establishContext sets the current context of the parser,

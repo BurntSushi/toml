@@ -417,7 +417,7 @@ func lexValue(lx *lexer) stateFn {
 		}
 		lx.ignore() // ignore the "'"
 		return lexRawString
-	case '-':
+	case '+', '-':
 		return lexNumberStart
 	case '.': // special error case, be kind to users
 		return lx.errorf("Floats must start with a digit, not '.'.")
@@ -636,33 +636,39 @@ func lexLongUnicodeEscape(lx *lexer) stateFn {
 	return lx.pop()
 }
 
-// lexNumberOrDateStart consumes either a (positive) integer, float or
-// datetime. It assumes that NO negative sign has been consumed.
+// lexNumberOrDateStart consumes either an integer, a float, or datetime.
 func lexNumberOrDateStart(lx *lexer) stateFn {
 	r := lx.next()
-	if !isDigit(r) {
-		if r == '.' {
-			return lx.errorf("Floats must start with a digit, not '.'.")
-		} else {
-			return lx.errorf("Expected a digit but got %q.", r)
-		}
+	if isDigit(r) {
+		return lexNumberOrDate
 	}
-	return lexNumberOrDate
+	switch r {
+	case '_':
+		return lexNumber
+	case 'e', 'E':
+		return lexFloat
+	case '.':
+		return lx.errorf("Floats must start with a digit, not '.'.")
+	}
+	return lx.errorf("Expected a digit but got %q.", r)
 }
 
-// lexNumberOrDate consumes either a (positive) integer, float or datetime.
+// lexNumberOrDate consumes either an integer, float or datetime.
 func lexNumberOrDate(lx *lexer) stateFn {
 	r := lx.next()
-	switch {
-	case r == '-':
+	if isDigit(r) {
+		return lexNumberOrDate
+	}
+	switch r {
+	case '-':
 		if lx.pos-lx.start != 5 {
 			return lx.errorf("All ISO8601 dates must be in full Zulu form.")
 		}
 		return lexDateAfterYear
-	case isDigit(r):
-		return lexNumberOrDate
-	case r == '.':
-		return lexFloatStart
+	case '_':
+		return lexNumber
+	case '.', 'e', 'E':
+		return lexFloat
 	}
 
 	lx.backup()
@@ -697,12 +703,11 @@ func lexDateAfterYear(lx *lexer) stateFn {
 	return lx.pop()
 }
 
-// lexNumberStart consumes either an integer or a float. It assumes that
-// a negative sign has already been read, but that *no* digits have been
-// consumed. lexNumberStart will move to the appropriate integer or float
-// states.
+// lexNumberStart consumes either an integer or a float. It assumes that a sign
+// has already been read, but that *no* digits have been consumed.
+// lexNumberStart will move to the appropriate integer or float states.
 func lexNumberStart(lx *lexer) stateFn {
-	// we MUST see a digit. Even floats have to start with a digit.
+	// We MUST see a digit. Even floats have to start with a digit.
 	r := lx.next()
 	if !isDigit(r) {
 		if r == '.' {
@@ -717,11 +722,14 @@ func lexNumberStart(lx *lexer) stateFn {
 // lexNumber consumes an integer or a float after seeing the first digit.
 func lexNumber(lx *lexer) stateFn {
 	r := lx.next()
-	switch {
-	case isDigit(r):
+	if isDigit(r) {
 		return lexNumber
-	case r == '.':
-		return lexFloatStart
+	}
+	switch r {
+	case '_':
+		return lexNumber
+	case '.', 'e', 'E':
+		return lexFloat
 	}
 
 	lx.backup()
@@ -729,22 +737,16 @@ func lexNumber(lx *lexer) stateFn {
 	return lx.pop()
 }
 
-// lexFloatStart starts the consumption of digits of a float after a '.'.
-// Namely, at least one digit is required.
-func lexFloatStart(lx *lexer) stateFn {
-	r := lx.next()
-	if !isDigit(r) {
-		return lx.errorf("Floats must have a digit after the '.', but got "+
-			"%q instead.", r)
-	}
-	return lexFloat
-}
-
-// lexFloat consumes the digits of a float after a '.'.
-// Assumes that one digit has been consumed after a '.' already.
+// lexFloat consumes the elements of a float. It allows any sequence of
+// float-like characters, so floats emitted by the lexer are only a first
+// approximation and must be validated by the parser.
 func lexFloat(lx *lexer) stateFn {
 	r := lx.next()
 	if isDigit(r) {
+		return lexFloat
+	}
+	switch r {
+	case '_', '.', '-', '+', 'e', 'E':
 		return lexFloat
 	}
 

@@ -3,6 +3,7 @@ package toml
 import (
 	"fmt"
 	"log"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -408,22 +409,6 @@ func TestDecodeLargeIntoSmallInt(t *testing.T) {
 	}
 }
 
-func TestDecodeBadValues(t *testing.T) {
-	for _, tt := range []struct {
-		v    interface{}
-		want string
-	}{
-		{3, "non-pointer type"},
-		{(*int)(nil), "nil"},
-	} {
-		_, err := Decode(`x = 3`, tt.v)
-		if err == nil || !strings.Contains(err.Error(), tt.want) {
-			t.Errorf("Decode(%v): got %q; want error containing %q",
-				tt.v, err, tt.want)
-		}
-	}
-}
-
 func TestDecodeSizedInts(t *testing.T) {
 	type table struct {
 		U8  uint8
@@ -456,6 +441,111 @@ func TestDecodeSizedInts(t *testing.T) {
 	}
 	if answer != tab {
 		t.Fatalf("Expected %#v but got %#v", answer, tab)
+	}
+}
+
+func TestDecodeInts(t *testing.T) {
+	for _, tt := range []struct {
+		s    string
+		want int64
+	}{
+		{"0", 0},
+		{"+99", 99},
+		{"-10", -10},
+		{"1_234_567", 1234567},
+		{"1_2_3_4", 1234},
+		{"-9_223_372_036_854_775_808", math.MinInt64},
+		{"9_223_372_036_854_775_807", math.MaxInt64},
+	} {
+		var x struct{ N int64 }
+		input := "n = " + tt.s
+		if _, err := Decode(input, &x); err != nil {
+			t.Errorf("Decode(%q): got error: %s", input, err)
+			continue
+		}
+		if x.N != tt.want {
+			t.Errorf("Decode(%q): got %d; want %d", input, x.N, tt.want)
+		}
+	}
+}
+
+func TestDecodeFloats(t *testing.T) {
+	for _, tt := range []struct {
+		s    string
+		want float64
+	}{
+		{"+1.0", 1},
+		{"3.1415", 3.1415},
+		{"-0.01", -0.01},
+		{"5e+22", 5e22},
+		{"1e6", 1e6},
+		{"-2E-2", -2e-2},
+		{"6.626e-34", 6.626e-34},
+		{"9_224_617.445_991_228_313", 9224617.445991228313},
+		{"9_876.54_32e1_0", 9876.5432e10},
+	} {
+		var x struct{ N float64 }
+		input := "n = " + tt.s
+		if _, err := Decode(input, &x); err != nil {
+			t.Errorf("Decode(%q): got error: %s", input, err)
+			continue
+		}
+		if x.N != tt.want {
+			t.Errorf("Decode(%q): got %d; want %d", input, x.N, tt.want)
+		}
+	}
+}
+
+func TestDecodeMalformedNumbers(t *testing.T) {
+	for _, tt := range []struct {
+		s    string
+		want string
+	}{
+		{"++99", "Expected a digit"},
+		{"0..1", "must be followed by one or more digits"},
+		{"0.1.2", "Invalid float value"},
+		{"1e2.3", "Invalid float value"},
+		{"1e2e3", "Invalid float value"},
+		{"_123", "Expected value"},
+		{"123_", "surrounded by digits"},
+		{"1._23", "surrounded by digits"},
+		{"1e__23", "surrounded by digits"},
+		{"123.", "must be followed by one or more digits"},
+		{"1.e2", "must be followed by one or more digits"},
+	} {
+		var x struct{ N interface{} }
+		input := "n = " + tt.s
+		_, err := Decode(input, &x)
+		if err == nil {
+			t.Errorf("Decode(%q): got nil, want error containing %q",
+				input, tt.want)
+			continue
+		}
+		if !strings.Contains(err.Error(), tt.want) {
+			t.Errorf("Decode(%q): got %q, want error containing %q",
+				input, err, tt.want)
+		}
+	}
+}
+
+func TestDecodeBadValues(t *testing.T) {
+	for _, tt := range []struct {
+		v    interface{}
+		want string
+	}{
+		{3, "non-pointer type"},
+		{(*int)(nil), "nil"},
+	} {
+		_, err := Decode(`x = 3`, tt.v)
+		if err == nil {
+			t.Errorf("Decode(%v): got nil; want error containing %q",
+				tt.v, tt.want)
+			continue
+		}
+		if !strings.Contains(err.Error(), tt.want) {
+			t.Errorf("Decode(%v): got %q; want error containing %q",
+				tt.v, err, tt.want)
+		}
 	}
 }
 
