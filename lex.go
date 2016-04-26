@@ -661,10 +661,7 @@ func lexNumberOrDate(lx *lexer) stateFn {
 	}
 	switch r {
 	case '-':
-		if lx.pos-lx.start != 5 {
-			return lx.errorf("All ISO8601 dates must be in full Zulu form.")
-		}
-		return lexDateAfterYear
+		return lexDatetime
 	case '_':
 		return lexNumber
 	case '.', 'e', 'E':
@@ -676,29 +673,19 @@ func lexNumberOrDate(lx *lexer) stateFn {
 	return lx.pop()
 }
 
-// lexDateAfterYear consumes a full Zulu Datetime in ISO8601 format.
-// It assumes that "YYYY-" has already been consumed.
-func lexDateAfterYear(lx *lexer) stateFn {
-	formats := []rune{
-		// digits are '0'.
-		// everything else is direct equality.
-		'0', '0', '-', '0', '0',
-		'T',
-		'0', '0', ':', '0', '0', ':', '0', '0',
-		'Z',
+// lexDatetime consumes a Datetime, to a first approximation.
+// The parser validates that it matches one of the accepted formats.
+func lexDatetime(lx *lexer) stateFn {
+	r := lx.next()
+	if isDigit(r) {
+		return lexDatetime
 	}
-	for _, f := range formats {
-		r := lx.next()
-		if f == '0' {
-			if !isDigit(r) {
-				return lx.errorf("Expected digit in ISO8601 datetime, "+
-					"but found %q instead.", r)
-			}
-		} else if f != r {
-			return lx.errorf("Expected %q in ISO8601 datetime, "+
-				"but found %q instead.", f, r)
-		}
+	switch r {
+	case '-', 'T', ':', '.', 'Z':
+		return lexDatetime
 	}
+
+	lx.backup()
 	lx.emit(itemDatetime)
 	return lx.pop()
 }

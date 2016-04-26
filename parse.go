@@ -236,9 +236,22 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 		}
 		return num, p.typeOfPrimitive(it)
 	case itemDatetime:
-		t, err := time.Parse("2006-01-02T15:04:05Z", it.val)
-		if err != nil {
-			p.panicf("Invalid RFC3339 Zulu DateTime: '%s'.", it.val)
+		var t time.Time
+		var ok bool
+		var err error
+		for _, format := range []string{
+			"2006-01-02T15:04:05Z07:00",
+			"2006-01-02T15:04:05",
+			"2006-01-02",
+		} {
+			t, err = time.ParseInLocation(format, it.val, time.Local)
+			if err == nil {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			p.panicf("Invalid TOML Datetime: %q.", it.val)
 		}
 		return t, p.typeOfPrimitive(it)
 	case itemArray:

@@ -343,14 +343,54 @@ Description = "da base"
 	}
 }
 
-func TestDecodeBadTimestamp(t *testing.T) {
-	var x struct {
-		T time.Time
-	}
-	for _, s := range []string{
-		"T = 123", "T = 2006-01-50T00:00:00Z", "T = 2006-01-30T00:00:00",
+func TestDecodeDatetime(t *testing.T) {
+	const noTimestamp = "2006-01-02T15:04:05"
+	for _, tt := range []struct {
+		s      string
+		t      string
+		format string
+	}{
+		{"1979-05-27T07:32:00Z", "1979-05-27T07:32:00Z", time.RFC3339},
+		{"1979-05-27T00:32:00-07:00", "1979-05-27T00:32:00-07:00", time.RFC3339},
+		{
+			"1979-05-27T00:32:00.999999-07:00",
+			"1979-05-27T00:32:00.999999-07:00",
+			time.RFC3339,
+		},
+		{"1979-05-27T07:32:00", "1979-05-27T07:32:00", noTimestamp},
+		{
+			"1979-05-27T00:32:00.999999",
+			"1979-05-27T00:32:00.999999",
+			noTimestamp,
+		},
+		{"1979-05-27", "1979-05-27T00:00:00", noTimestamp},
 	} {
-		if _, err := Decode(s, &x); err == nil {
+		var x struct{ D time.Time }
+		input := "d = " + tt.s
+		if _, err := Decode(input, &x); err != nil {
+			t.Errorf("Decode(%q): got error: %s", input, err)
+			continue
+		}
+		want, err := time.ParseInLocation(tt.format, tt.t, time.Local)
+		if err != nil {
+			panic(err)
+		}
+		if !x.D.Equal(want) {
+			t.Errorf("Decode(%q): got %s; want %s", input, x.D, want)
+		}
+	}
+}
+
+func TestDecodeBadDatetime(t *testing.T) {
+	var x struct{ T time.Time }
+	for _, s := range []string{
+		"123",
+		"2006-01-50T00:00:00Z",
+		"2006-01-30T00:00",
+		"2006-01-30T",
+	} {
+		input := "T = " + s
+		if _, err := Decode(input, &x); err == nil {
 			t.Errorf("Expected invalid DateTime error for %q", s)
 		}
 	}
