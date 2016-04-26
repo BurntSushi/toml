@@ -2,7 +2,6 @@ package toml
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -81,7 +80,7 @@ func (p *parser) next() item {
 }
 
 func (p *parser) bug(format string, v ...interface{}) {
-	log.Panicf("BUG: %s\n\n", fmt.Sprintf(format, v...))
+	panic(fmt.Sprintf("BUG: "+format+"\n\n", v...))
 }
 
 func (p *parser) expect(typ itemType) item {

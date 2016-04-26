@@ -9,10 +9,6 @@ import (
 	"time"
 )
 
-func init() {
-	log.SetFlags(0)
-}
-
 func TestDecodeSimple(t *testing.T) {
 	var testSimple = `
 age = 250
@@ -454,7 +450,7 @@ name = "Rice"
 `
 	m := &menu{}
 	if _, err := Decode(tomlBlob, m); err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 	if len(m.Dishes) != 2 {
@@ -490,7 +486,7 @@ name = "Rice"
 	// test on a value - must be passed as *
 	o := menu{}
 	if _, err := Decode(tomlBlob, &o); err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 }

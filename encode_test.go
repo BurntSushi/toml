@@ -36,7 +36,7 @@ func TestEncodeRoundTrip(t *testing.T) {
 	}
 	var outputs Config
 	if _, err := Decode(firstBuffer.String(), &outputs); err != nil {
-		log.Printf("Could not decode:\n-----\n%s\n-----\n",
+		t.Logf("Could not decode:\n-----\n%s\n-----\n",
 			firstBuffer.String())
 		t.Fatal(err)
 	}
