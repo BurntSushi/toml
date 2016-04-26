@@ -707,7 +707,7 @@ func lexNumber(lx *lexer) stateFn {
 	switch {
 	case isDigit(r):
 		return lexNumber
-	case r == '.':
+	case r == '.' || isExponent(r):
 		return lexFloatStart
 	}
 
@@ -716,22 +716,22 @@ func lexNumber(lx *lexer) stateFn {
 	return lx.pop()
 }
 
-// lexFloatStart starts the consumption of digits of a float after a '.'.
+// lexFloatStart starts the consumption of digits of a float after a '.' or 'e' or 'E'.
 // Namely, at least one digit is required.
 func lexFloatStart(lx *lexer) stateFn {
 	r := lx.next()
-	if !isDigit(r) {
+	if !isDigit(r) && !isExponent(r) {
 		return lx.errorf("Floats must have a digit after the '.', but got "+
 			"%q instead.", r)
 	}
 	return lexFloat
 }
 
-// lexFloat consumes the digits of a float after a '.'.
+// lexFloat consumes the digits of a float after a '.' or 'e' or 'E'.
 // Assumes that one digit has been consumed after a '.' already.
 func lexFloat(lx *lexer) stateFn {
 	r := lx.next()
-	if isDigit(r) {
+	if isDigit(r) || isExponent(r) {
 		return lexFloat
 	}
 
@@ -801,6 +801,10 @@ func isNL(r rune) bool {
 
 func isDigit(r rune) bool {
 	return r >= '0' && r <= '9'
+}
+
+func isExponent(r rune) bool {
+	return r == 'e' || r == 'E'
 }
 
 func isHexadecimal(r rune) bool {

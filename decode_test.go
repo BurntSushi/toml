@@ -17,6 +17,7 @@ kait = "brady"
 now = 1987-07-05T05:45:00Z
 yesOrNo = true
 pi = 3.14
+exp = 1.42e66
 colors = [
 	["red", "green", "blue"],
 	["cyan", "magenta", "yellow", "black"],
@@ -35,6 +36,7 @@ cauchy = "cat 2"
 		Age     int
 		Colors  [][]string
 		Pi      float64
+		Exp     float64
 		YesOrNo bool
 		Now     time.Time
 		Andrew  string
@@ -59,6 +61,7 @@ cauchy = "cat 2"
 		Now:     now,
 		YesOrNo: true,
 		Pi:      3.14,
+		Exp:     1.42e66,
 		Colors: [][]string{
 			{"red", "green", "blue"},
 			{"cyan", "magenta", "yellow", "black"},
