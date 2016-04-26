@@ -3,6 +3,7 @@ package toml
 import (
 	"fmt"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -371,16 +372,19 @@ func lexValue(lx *lexer) stateFn {
 	// In array syntax, the array states are responsible for ignoring new
 	// lines.
 	r := lx.next()
-	if isWhitespace(r) {
-		return lexSkip(lx, lexValue)
-	}
-
 	switch {
-	case r == arrayStart:
+	case isWhitespace(r):
+		return lexSkip(lx, lexValue)
+	case isDigit(r):
+		lx.backup() // avoid an extra state and use the same as above
+		return lexNumberOrDateStart
+	}
+	switch r {
+	case arrayStart:
 		lx.ignore()
 		lx.emit(itemArray)
 		return lexArrayValue
-	case r == stringStart:
+	case stringStart:
 		if lx.accept(stringStart) {
 			if lx.accept(stringStart) {
 				lx.ignore() // Ignore """
@@ -390,7 +394,7 @@ func lexValue(lx *lexer) stateFn {
 		}
 		lx.ignore() // ignore the '"'
 		return lexString
-	case r == rawStringStart:
+	case rawStringStart:
 		if lx.accept(rawStringStart) {
 			if lx.accept(rawStringStart) {
 				lx.ignore() // Ignore """
@@ -400,19 +404,20 @@ func lexValue(lx *lexer) stateFn {
 		}
 		lx.ignore() // ignore the "'"
 		return lexRawString
-	case r == '-':
+	case '-':
 		return lexNumberStart
-	case isDigit(r):
-		lx.backup() // avoid an extra state and use the same as above
-		return lexNumberOrDateStart
-	case r == '.': // special error case, be kind to users
+	case '.': // special error case, be kind to users
 		return lx.errorf("Floats must start with a digit, not '.'.")
 	}
-
-	// Assume barewords are constants so we can emit better error
-	// messages.
-	lx.backup()
-	return lexBareword
+	if unicode.IsLetter(r) {
+		// Be permissive here; lexBool will give a nice error if the
+		// user wrote something like
+		//   x = foo
+		// (i.e. not 'true' or 'false' but is something else word-like.)
+		lx.backup()
+		return lexBool
+	}
+	return lx.errorf("Expected value but found %q instead.", r)
 }
 
 // lexArrayValue consumes one value in an array. It assumes that '[' or ','
@@ -735,9 +740,8 @@ func lexFloat(lx *lexer) stateFn {
 	return lx.pop()
 }
 
-// lexBareword consumes an unquoted string. The only valid barewords
-// are the 'true' and 'false' constants, others return an error.
-func lexBareword(lx *lexer) stateFn {
+// lexBool consumes a bool string: 'true' or 'false.
+func lexBool(lx *lexer) stateFn {
 	var rs []rune
 	for {
 		r := lx.next()
@@ -747,17 +751,13 @@ func lexBareword(lx *lexer) stateFn {
 		}
 		rs = append(rs, r)
 	}
-
 	s := string(rs)
-	if s == "true" {
-		lx.emit(itemBool)
-		return lx.pop()
-	} else if s == "false" {
+	switch s {
+	case "true", "false":
 		lx.emit(itemBool)
 		return lx.pop()
 	}
-
-	return lx.errorf("Expected value but found '%s' instead.", s)
+	return lx.errorf("Expected value but found %q instead.", s)
 }
 
 // lexCommentStart begins the lexing of a comment. It will emit
