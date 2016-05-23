@@ -38,6 +38,12 @@ var quotedReplacer = strings.NewReplacer(
 	"\\", "\\\\",
 )
 
+// Marshaler is the interface implemented by objects that can marshal
+// themselves to a TOML representation.
+type Marshaler interface {
+	MarshalTOML() ([]byte, error)
+}
+
 // Encoder controls the encoding of Go values to a TOML document to some
 // io.Writer.
 //
@@ -106,6 +112,10 @@ func (enc *Encoder) safeEncode(key Key, rv reflect.Value) (err error) {
 }
 
 func (enc *Encoder) encode(key Key, rv reflect.Value) {
+	if _, ok := rv.Interface().(Marshaler); ok {
+		rv = marshalDecode(rv)
+	}
+
 	// Special case. Time needs to be in ISO8601 format.
 	// Special case. If we can marshal the type to text, then we used that.
 	// Basically, this prevents the encoder for handling these types as
@@ -253,6 +263,10 @@ func (enc *Encoder) eTable(key Key, rv reflect.Value) {
 }
 
 func (enc *Encoder) eMapOrStruct(key Key, rv reflect.Value) {
+	if _, ok := rv.Interface().(Marshaler); ok {
+		rv = marshalDecode(rv)
+	}
+
 	switch rv := eindirect(rv); rv.Kind() {
 	case reflect.Map:
 		enc.eMap(key, rv)
@@ -535,6 +549,21 @@ func (enc *Encoder) indentStr(key Key) string {
 
 func encPanic(err error) {
 	panic(tomlEncodeError{err})
+}
+
+func marshalDecode(rv reflect.Value) reflect.Value {
+	buf, err := rv.Interface().(Marshaler).MarshalTOML()
+	if err != nil {
+		encPanic(err)
+	}
+
+	v := map[string]interface{}{}
+	_, err = Decode(string(buf), &v)
+	if err != nil {
+		encPanic(err)
+	}
+
+	return reflect.ValueOf(v)
 }
 
 func eindirect(v reflect.Value) reflect.Value {

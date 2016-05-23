@@ -531,6 +531,83 @@ func TestEncodeAnonymousStruct(t *testing.T) {
 	encodeExpected(t, "embedded anonymous tagged struct", v1, expected, nil)
 }
 
+type withMarshalTOML struct{}
+
+func (withMarshalTOML) MarshalTOML() ([]byte, error) {
+	return []byte("x = 1\ny = 1\n"), nil
+}
+
+func TestEncodeMarshalerAnonymousStruct(t *testing.T) {
+	type Inner struct {
+		N int
+		withMarshalTOML
+	}
+	type Outer0 struct{ Inner }
+	type Outer1 struct {
+		Inner `toml:"inner"`
+		X     int
+	}
+
+	v0 := Inner{}
+	expected := "x = 1\ny = 1\n"
+	encodeExpected(t, "embedded struct with MarshalTOML", v0, expected, nil)
+
+	v1 := Outer0{Inner{}}
+	expected = "x = 1\ny = 1\n"
+	encodeExpected(t, "embedded anonymous untagged struct with MarshalTOML", v1, expected, nil)
+
+	v2 := Outer1{Inner{}, 3}
+	expected = "x = 1\ny = 1\n"
+	encodeExpected(t, "embedded anonymous tagged struct with MarshalTOML", v2, expected, nil)
+}
+
+func TestEncodeMarshalerField(t *testing.T) {
+	type Inner struct {
+		withMarshalTOML
+		N int
+		Z int
+	}
+	type Outer struct {
+		A     int
+		Field Inner
+	}
+	type Outer1 struct {
+		B   int
+		Ins []Inner `toml:"slice"`
+	}
+
+	v0 := Outer{
+		A:     1,
+		Field: Inner{},
+	}
+	expected := `A = 1
+
+[Field]
+  x = 1
+  y = 1
+`
+	encodeExpected(t, "struct field with MarshalTOML", v0, expected, nil)
+
+	v1 := Outer1{
+		B: 1,
+		Ins: []Inner{
+			Inner{},
+			Inner{},
+		},
+	}
+	expected = `B = 1
+
+[[slice]]
+  x = 1
+  y = 1
+
+[[slice]]
+  x = 1
+  y = 1
+`
+	encodeExpected(t, "struct slice field with MarshalTOML", v1, expected, nil)
+}
+
 func TestEncodeAnonymousStructPointerField(t *testing.T) {
 	type Inner struct{ N int }
 	type Outer0 struct{ *Inner }
