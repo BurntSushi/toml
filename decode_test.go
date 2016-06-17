@@ -531,7 +531,11 @@ func TestDecodeFloats(t *testing.T) {
 			continue
 		}
 		if x.N != tt.want {
+<<<<<<< HEAD
 			t.Errorf("Decode(%q): got %f; want %f", input, x.N, tt.want)
+=======
+			t.Errorf("Decode(%q): got %f; want %d", input, x.N, tt.want)
+>>>>>>> fork/fix-canset-error
 		}
 	}
 }
