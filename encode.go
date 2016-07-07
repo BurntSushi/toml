@@ -160,7 +160,7 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 		// Special case time.Time as a primitive. Has to come before
 		// TextMarshaler below because time.Time implements
 		// encoding.TextMarshaler, but we need to always use UTC.
-		enc.wf(v.In(time.FixedZone("UTC", 0)).Format("2006-01-02T15:04:05Z"))
+		enc.wf(v.UTC().Format("2006-01-02T15:04:05Z"))
 		return
 	case TextMarshaler:
 		// Special case. Use text marshaler if it's available for this value.
