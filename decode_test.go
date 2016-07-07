@@ -573,7 +573,7 @@ func TestDecodeBadValues(t *testing.T) {
 		v    interface{}
 		want string
 	}{
-		{3, "non-pointer type"},
+		{3, "non-pointer int"},
 		{(*int)(nil), "nil"},
 	} {
 		_, err := Decode(`x = 3`, tt.v)
