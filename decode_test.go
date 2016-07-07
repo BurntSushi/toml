@@ -77,42 +77,52 @@ cauchy = "cat 2"
 func TestDecodeEmbedded(t *testing.T) {
 	type Dog struct{ Name string }
 	type Age int
+	type cat struct{ Name string }
 
-	tests := map[string]struct {
+	for _, test := range []struct {
+		label       string
 		input       string
 		decodeInto  interface{}
 		wantDecoded interface{}
 	}{
-		"embedded struct": {
+		{
+			label:       "embedded struct",
 			input:       `Name = "milton"`,
 			decodeInto:  &struct{ Dog }{},
 			wantDecoded: &struct{ Dog }{Dog{"milton"}},
 		},
-		"embedded non-nil pointer to struct": {
+		{
+			label:       "embedded non-nil pointer to struct",
 			input:       `Name = "milton"`,
 			decodeInto:  &struct{ *Dog }{},
 			wantDecoded: &struct{ *Dog }{&Dog{"milton"}},
 		},
-		"embedded nil pointer to struct": {
+		{
+			label:       "embedded nil pointer to struct",
 			input:       ``,
 			decodeInto:  &struct{ *Dog }{},
 			wantDecoded: &struct{ *Dog }{nil},
 		},
-		"embedded int": {
+		{
+			label:       "unexported embedded struct",
+			input:       `Name = "socks"`,
+			decodeInto:  &struct{ cat }{},
+			wantDecoded: &struct{ cat }{cat{"socks"}},
+		},
+		{
+			label:       "embedded int",
 			input:       `Age = -5`,
 			decodeInto:  &struct{ Age }{},
 			wantDecoded: &struct{ Age }{-5},
 		},
-	}
-
-	for label, test := range tests {
+	} {
 		_, err := Decode(test.input, test.decodeInto)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if !reflect.DeepEqual(test.wantDecoded, test.decodeInto) {
 			t.Errorf("%s: want decoded == %+v, got %+v",
-				label, test.wantDecoded, test.decodeInto)
+				test.label, test.wantDecoded, test.decodeInto)
 		}
 	}
 }

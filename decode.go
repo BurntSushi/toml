@@ -480,7 +480,7 @@ func rvalue(v interface{}) reflect.Value {
 // interest to us (like encoding.TextUnmarshaler).
 func indirect(v reflect.Value) reflect.Value {
 	if v.Kind() != reflect.Ptr {
-		if v.CanAddr() {
+		if v.CanSet() {
 			pv := v.Addr()
 			if _, ok := pv.Interface().(TextUnmarshaler); ok {
 				return pv
