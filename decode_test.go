@@ -531,7 +531,7 @@ func TestDecodeFloats(t *testing.T) {
 			continue
 		}
 		if x.N != tt.want {
-			t.Errorf("Decode(%q): got %d; want %d", input, x.N, tt.want)
+			t.Errorf("Decode(%q): got %f; want %f", input, x.N, tt.want)
 		}
 	}
 }
@@ -1275,4 +1275,67 @@ type cable struct {
 
 func (c *cable) Name() string {
 	return fmt.Sprintf("CABLE: %s", c.ID)
+}
+
+// This is the test to verify pull/139
+func TestUnexportedFix(t *testing.T) {
+	var testData = `
+age = 250
+andrew = "gallant"
+kait = "brady"
+
+[cables.8mm]
+Type = "uncoated, FC wire rope (IPS)"
+ID = "5/8 inch"
+Length = 500
+Rating = 37.9
+
+[cables.13mm]
+Type = "uncoated, FC wire rope (IPS)"
+ID = "1/2 inch"
+Length = 500
+Rating = 95.2
+`
+	type items struct {
+		Cables map[string]*cable
+	}
+
+	type Data struct {
+		Age    int
+		Andrew string
+		Kait   string
+		items
+	}
+
+	var val Data
+	_, err := Decode(testData, &val)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var expected = Data{
+		Age:    250,
+		Andrew: "gallant",
+		Kait:   "brady",
+		items: items{
+			Cables: map[string]*cable{
+				"8mm": &cable{
+					Type:   "uncoated, FC wire rope (IPS)",
+					ID:     "5/8 inch",
+					Length: 500,
+					Rating: 37.9,
+				},
+				"13mm": &cable{
+					Type:   "uncoated, FC wire rope (IPS)",
+					ID:     "1/2 inch",
+					Length: 500,
+					Rating: 95.2,
+				},
+			},
+		},
+	}
+	if !reflect.DeepEqual(val, expected) {
+		t.Fatalf("Expected\n-----\n%#v\n-----\nbut got\n-----\n%#v\n",
+			expected, val)
+	}
 }
