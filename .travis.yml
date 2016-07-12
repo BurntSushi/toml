@@ -1,7 +1,7 @@
 language: go
 go:
-  - 1.1
-  - 1.2
+  - 1.5
+  - 1.6
   - tip
 install:
   - go install ./...
@@ -9,4 +9,3 @@ install:
 script:
   - export PATH="$PATH:$HOME/gopath/bin"
   - make test
-
