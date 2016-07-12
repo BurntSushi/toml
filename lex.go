@@ -577,11 +577,10 @@ func lexMultilineStringEscape(lx *lexer) stateFn {
 	// Handle the special case first:
 	if isNL(lx.next()) {
 		return lexMultilineString
-	} else {
-		lx.backup()
-		lx.push(lexMultilineString)
-		return lexStringEscape(lx)
 	}
+	lx.backup()
+	lx.push(lexMultilineString)
+	return lexStringEscape(lx)
 }
 
 func lexStringEscape(lx *lexer) stateFn {
@@ -699,9 +698,8 @@ func lexNumberStart(lx *lexer) stateFn {
 	if !isDigit(r) {
 		if r == '.' {
 			return lx.errorf("Floats must start with a digit, not '.'.")
-		} else {
-			return lx.errorf("Expected a digit but got %q.", r)
 		}
+		return lx.errorf("Expected a digit but got %q.", r)
 	}
 	return lexNumber
 }
