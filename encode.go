@@ -399,9 +399,8 @@ func tomlTypeOfGo(rv reflect.Value) tomlType {
 	case reflect.Array, reflect.Slice:
 		if typeEqual(tomlHash, tomlArrayType(rv)) {
 			return tomlArrayHash
-		} else {
-			return tomlArray
 		}
+		return tomlArray
 	case reflect.Ptr, reflect.Interface:
 		return tomlTypeOfGo(rv.Elem())
 	case reflect.String:
