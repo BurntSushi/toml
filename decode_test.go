@@ -1053,7 +1053,7 @@ rating = 3.1
 
 	// 	// NOTE the example below contains detailed type casting to show how
 	// 	// the 'data' is retrieved. In operational use, a type cast wrapper
-	// 	// may be prefered e.g.
+	// 	// may be preferred e.g.
 	// 	//
 	// 	// func AsMap(v interface{}) (map[string]interface{}, error) {
 	// 	// 		return v.(map[string]interface{})
@@ -1180,7 +1180,7 @@ func (o *order) UnmarshalTOML(data interface{}) error {
 
 	// NOTE the example below contains detailed type casting to show how
 	// the 'data' is retrieved. In operational use, a type cast wrapper
-	// may be prefered e.g.
+	// may be preferred e.g.
 	//
 	// func AsMap(v interface{}) (map[string]interface{}, error) {
 	// 		return v.(map[string]interface{})
