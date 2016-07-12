@@ -827,13 +827,7 @@ func (itype itemType) String() string {
 		return "EOF"
 	case itemText:
 		return "Text"
-	case itemString:
-		return "String"
-	case itemRawString:
-		return "String"
-	case itemMultilineString:
-		return "String"
-	case itemRawMultilineString:
+	case itemString, itemRawString, itemMultilineString, itemRawMultilineString:
 		return "String"
 	case itemBool:
 		return "Bool"
