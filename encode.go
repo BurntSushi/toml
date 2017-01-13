@@ -105,7 +105,12 @@ func (enc *Encoder) safeEncode(key Key, rv reflect.Value) (err error) {
 	return nil
 }
 
-func (enc *Encoder) encode(key Key, rv reflect.Value) {
+func (enc *Encoder) encode(key Key, rv reflect.Value, indent ...bool) {
+
+	var need_indent = true
+	if len(indent) > 0 {
+		need_indent = indent[0]
+	}
 	// Special case. Time needs to be in ISO8601 format.
 	// Special case. If we can marshal the type to text, then we used that.
 	// Basically, this prevents the encoder for handling these types as
@@ -139,14 +144,14 @@ func (enc *Encoder) encode(key Key, rv reflect.Value) {
 		if rv.IsNil() {
 			return
 		}
-		enc.eTable(key, rv)
+		enc.eTable(key, rv, need_indent)
 	case reflect.Ptr:
 		if rv.IsNil() {
 			return
 		}
 		enc.encode(key, rv.Elem())
 	case reflect.Struct:
-		enc.eTable(key, rv)
+		enc.eTable(key, rv, need_indent)
 	default:
 		panic(e("unsupported type for key '%s': %s", key, k))
 	}
@@ -238,14 +243,14 @@ func (enc *Encoder) eArrayOfTables(key Key, rv reflect.Value) {
 	}
 }
 
-func (enc *Encoder) eTable(key Key, rv reflect.Value) {
+func (enc *Encoder) eTable(key Key, rv reflect.Value, need_indent bool) {
 	panicIfInvalidKey(key)
-	if len(key) == 1 {
+	if len(key) == 1 && need_indent {
 		// Output an extra new line between top-level tables.
 		// (The newline isn't written if nothing else has been written though.)
 		enc.newline()
 	}
-	if len(key) > 0 {
+	if len(key) > 0 && need_indent {
 		enc.wf("%s[%s]", enc.indentStr(key), key.maybeQuotedAll())
 		enc.newline()
 	}
@@ -368,7 +373,12 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 				continue
 			}
 
-			enc.encode(key.add(keyName), sf)
+			if keyName == "*" {
+				enc.encode(key, sf, false)
+			} else {
+				enc.encode(key.add(keyName), sf)
+			}
+
 		}
 	}
 	writeFields(fieldsDirect)
