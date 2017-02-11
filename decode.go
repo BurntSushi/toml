@@ -123,6 +123,23 @@ func Decode(data string, v interface{}) (MetaData, error) {
 	return md, md.unify(p.mapping, indirect(rv))
 }
 
+// Works like Decode but skips parsing and directly decodes the mapping to the
+// interface v. Useful if the mapping was parsed by another library or from some
+// other intermediate source.
+func DecodeMap(mapping map[string]interface{}, v interface{}) error {
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Ptr {
+		return e("Decode of non-pointer type %s", reflect.TypeOf(v))
+	}
+	if rv.IsNil() {
+		return e("Decode of nil %s", reflect.TypeOf(v))
+	}
+	md := MetaData{
+		decoded: make(map[string]bool),
+	}
+	return md.unify(mapping, indirect(rv))
+}
+
 // DecodeFile is just like Decode, except it will automatically read the
 // contents of the file at `fpath` and decode it for you.
 func DecodeFile(fpath string, v interface{}) (MetaData, error) {
