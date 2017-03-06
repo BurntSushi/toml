@@ -186,7 +186,7 @@ func (lx *lexer) skip(pred func(rune) bool) {
 
 // errorf stops all lexing by emitting an error and returning `nil`.
 // Note that any value that is a character is escaped if it's a special
-// character (new lines, tabs, etc.).
+// character (newlines, tabs, etc.).
 func (lx *lexer) errorf(format string, values ...interface{}) stateFn {
 	lx.items <- item{
 		itemError,
@@ -226,12 +226,12 @@ func lexTop(lx *lexer) stateFn {
 
 // lexTopEnd is entered whenever a top-level item has been consumed. (A value
 // or a table.) It must see only whitespace, and will turn back to lexTop
-// upon a new line. If it sees EOF, it will quit the lexer successfully.
+// upon a newline. If it sees EOF, it will quit the lexer successfully.
 func lexTopEnd(lx *lexer) stateFn {
 	r := lx.next()
 	switch {
 	case r == commentStart:
-		// a comment will read to a new line for us.
+		// a comment will read to a newline for us.
 		lx.push(lexTop)
 		return lexCommentStart
 	case isWhitespace(r):
@@ -385,7 +385,7 @@ func lexKeyEnd(lx *lexer) stateFn {
 // lexValue will ignore whitespace.
 // After a value is lexed, the last state on the next is popped and returned.
 func lexValue(lx *lexer) stateFn {
-	// We allow whitespace to precede a value, but NOT new lines.
+	// We allow whitespace to precede a value, but NOT newlines.
 	// In array syntax, the array states are responsible for ignoring new
 	// lines.
 	r := lx.next()
@@ -442,7 +442,7 @@ func lexValue(lx *lexer) stateFn {
 }
 
 // lexArrayValue consumes one value in an array. It assumes that '[' or ','
-// have already been consumed. All whitespace and new lines are ignored.
+// have already been consumed. All whitespace and newlines are ignored.
 func lexArrayValue(lx *lexer) stateFn {
 	r := lx.next()
 	switch {
@@ -494,7 +494,7 @@ func lexArrayEnd(lx *lexer) stateFn {
 
 // lexInlineTableValue consumes one key/value pair in an inline able. It
 // assumes that '{' or ',' have already been consumed. All whitespace and
-// new lines are ignored.
+// newlines are ignored.
 func lexInlineTableValue(lx *lexer) stateFn {
 	r := lx.next()
 	switch {
@@ -826,7 +826,7 @@ func lexCommentStart(lx *lexer) stateFn {
 }
 
 // lexComment lexes an entire comment. It assumes that '#' has been consumed.
-// It will consume *up to* the first new line character, and pass control
+// It will consume *up to* the first newline character, and pass control
 // back to the last state on the stack.
 func lexComment(lx *lexer) stateFn {
 	r := lx.peek()
