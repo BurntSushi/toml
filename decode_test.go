@@ -675,7 +675,7 @@ name = "Rice"
 }
 
 func TestDecodeInlineTable(t *testing.T) {
-	inlineToml := `
+	input := `
 [CookieJar]
 Types = {Chocolate = "yummy", Oatmeal = "best ever"}
 
@@ -683,32 +683,54 @@ Types = {Chocolate = "yummy", Oatmeal = "best ever"}
 Locations = {NY = {Temp = "not cold", Rating = 4},
              MI = {Temp = "freezing", Rating = 9}}
 `
-	var ex struct {
-		CookieJar struct {
-			Types map[string]string
-		}
-		Seasons struct {
-			Locations map[string]struct {
-				Temp   string
-				Rating int
-			}
-		}
+	type cookieJar struct {
+		Types map[string]string
 	}
+	type properties struct {
+		Temp   string
+		Rating int
+	}
+	type seasons struct {
+		Locations map[string]properties
+	}
+	type wrapper struct {
+		CookieJar cookieJar
+		Seasons   seasons
+	}
+	var got wrapper
 
-	meta, err := Decode(inlineToml, &ex)
+	meta, err := Decode(input, &got)
 	if err != nil {
-		t.Error("Failed to correctly decode inline table, err: ", err)
+		t.Fatal(err)
 	}
-	if len(ex.CookieJar.Types) != 2 || len(ex.Seasons.Locations) != 2 {
-		t.Error("Failed to correctly decode inline table, fields are missing")
+	want := wrapper{
+		CookieJar: cookieJar{
+			Types: map[string]string{
+				"Chocolate": "yummy",
+				"Oatmeal":   "best ever",
+			},
+		},
+		Seasons: seasons{
+			Locations: map[string]properties{
+				"NY": {
+					Temp:   "not cold",
+					Rating: 4,
+				},
+				"MI": {
+					Temp:   "freezing",
+					Rating: 9,
+				},
+			},
+		},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("after decode, got:\n\n%#v\n\nwant:\n\n%#v", got, want)
 	}
 	if len(meta.keys) != 12 {
-		t.Error("Wrong # of keys when decoding inline table, expected 12, got: ",
-			len(meta.keys))
+		t.Errorf("after decode, got %d meta keys; want 12", len(meta.keys))
 	}
 	if len(meta.types) != 12 {
-		t.Error("Wrong # of types when decoding inline table, expected 12, got: ",
-			len(meta.types))
+		t.Errorf("after decode, got %d meta types; want 12", len(meta.types))
 	}
 }
 
