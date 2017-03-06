@@ -454,6 +454,8 @@ func lexArrayValue(lx *lexer) stateFn {
 	case r == comma:
 		return lx.errorf("unexpected comma")
 	case r == arrayEnd:
+		// NOTE(caleb): The spec isn't clear about whether you can have
+		// a trailing comma or not, so we'll allow it.
 		return lexArrayEnd
 	}
 
@@ -462,8 +464,9 @@ func lexArrayValue(lx *lexer) stateFn {
 	return lexValue
 }
 
-// lexArrayValueEnd consumes the cruft between values of an array. Namely,
-// it ignores whitespace and expects either a ',' or a ']'.
+// lexArrayValueEnd consumes everything between the end of an array value and
+// the next value (or the end of the array): it ignores whitespace and newlines
+// and expects either a ',' or a ']'.
 func lexArrayValueEnd(lx *lexer) stateFn {
 	r := lx.next()
 	switch {
@@ -484,22 +487,23 @@ func lexArrayValueEnd(lx *lexer) stateFn {
 	)
 }
 
-// lexArrayEnd finishes the lexing of an array. It assumes that a ']' has
-// just been consumed.
+// lexArrayEnd finishes the lexing of an array.
+// It assumes that a ']' has just been consumed.
 func lexArrayEnd(lx *lexer) stateFn {
 	lx.ignore()
 	lx.emit(itemArrayEnd)
 	return lx.pop()
 }
 
-// lexInlineTableValue consumes one key/value pair in an inline able. It
-// assumes that '{' or ',' have already been consumed. All whitespace and
-// newlines are ignored.
+// lexInlineTableValue consumes one key/value pair in an inline table.
+// It assumes that '{' or ',' have already been consumed. Whitespace is ignored.
 func lexInlineTableValue(lx *lexer) stateFn {
 	r := lx.next()
 	switch {
-	case isWhitespace(r) || isNL(r):
+	case isWhitespace(r):
 		return lexSkip(lx, lexInlineTableValue)
+	case isNL(r):
+		return lx.errorf("newlines not allowed within inline tables")
 	case r == commentStart:
 		lx.push(lexInlineTableValue)
 		return lexCommentStart
@@ -513,13 +517,16 @@ func lexInlineTableValue(lx *lexer) stateFn {
 	return lexKeyStart
 }
 
-// lexInlineTableValueEnd consumes the cruft between values of an inline
-// table. Namely, it ignores whitespace and expects either a ',' or a '}'.
+// lexInlineTableValueEnd consumes everything between the end of an inline table
+// key/value pair and the next pair (or the end of the table):
+// it ignores whitespace and expects either a ',' or a '}'.
 func lexInlineTableValueEnd(lx *lexer) stateFn {
 	r := lx.next()
 	switch {
-	case isWhitespace(r) || isNL(r):
+	case isWhitespace(r):
 		return lexSkip(lx, lexInlineTableValueEnd)
+	case isNL(r):
+		return lx.errorf("newlines not allowed within inline tables")
 	case r == commentStart:
 		lx.push(lexInlineTableValueEnd)
 		return lexCommentStart
@@ -533,8 +540,8 @@ func lexInlineTableValueEnd(lx *lexer) stateFn {
 		"but got %q instead", inlineTableEnd, r)
 }
 
-// lexInlineTableEnd finishes the lexing of an inline table. It assumes that a '}' has
-// just been consumed.
+// lexInlineTableEnd finishes the lexing of an inline table.
+// It assumes that a '}' has just been consumed.
 func lexInlineTableEnd(lx *lexer) stateFn {
 	lx.ignore()
 	lx.emit(itemInlineTableEnd)

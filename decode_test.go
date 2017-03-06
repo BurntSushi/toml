@@ -680,8 +680,7 @@ func TestDecodeInlineTable(t *testing.T) {
 Types = {Chocolate = "yummy", Oatmeal = "best ever"}
 
 [Seasons]
-Locations = {NY = {Temp = "not cold", Rating = 4},
-             MI = {Temp = "freezing", Rating = 9}}
+Locations = {NY = {Temp = "not cold", Rating = 4}, MI = {Temp = "freezing", Rating = 9}}
 `
 	type cookieJar struct {
 		Types map[string]string
@@ -731,6 +730,32 @@ Locations = {NY = {Temp = "not cold", Rating = 4},
 	}
 	if len(meta.types) != 12 {
 		t.Errorf("after decode, got %d meta types; want 12", len(meta.types))
+	}
+}
+
+func TestDecodeMalformedInlineTable(t *testing.T) {
+	for _, tt := range []struct {
+		s    string
+		want string
+	}{
+		{"{,}", "unexpected comma"},
+		{"{x = 3 y = 4}", "expected a comma or an inline table terminator"},
+		{"{x=3,,y=4}", "unexpected comma"},
+		{"{x=3,\ny=4}", "newlines not allowed"},
+		{"{x=3\n,y=4}", "newlines not allowed"},
+	} {
+		var x struct{ A map[string]int }
+		input := "a = " + tt.s
+		_, err := Decode(input, &x)
+		if err == nil {
+			t.Errorf("Decode(%q): got nil, want error containing %q",
+				input, tt.want)
+			continue
+		}
+		if !strings.Contains(err.Error(), tt.want) {
+			t.Errorf("Decode(%q): got %q, want error containing %q",
+				input, err, tt.want)
+		}
 	}
 }
 
