@@ -551,12 +551,12 @@ func TestDecodeMalformedNumbers(t *testing.T) {
 		s    string
 		want string
 	}{
-		{"++99", "Expected a digit"},
+		{"++99", "expected a digit"},
 		{"0..1", "must be followed by one or more digits"},
 		{"0.1.2", "Invalid float value"},
 		{"1e2.3", "Invalid float value"},
 		{"1e2e3", "Invalid float value"},
-		{"_123", "Expected value"},
+		{"_123", "expected value"},
 		{"123_", "surrounded by digits"},
 		{"1._23", "surrounded by digits"},
 		{"1e__23", "surrounded by digits"},

@@ -35,24 +35,23 @@ const (
 )
 
 const (
-	eof                = 0
-	tableStart         = '['
-	tableEnd           = ']'
-	arrayTableStart    = '['
-	arrayTableEnd      = ']'
-	tableSep           = '.'
-	keySep             = '='
-	arrayStart         = '['
-	arrayEnd           = ']'
-	arrayValTerm       = ','
-	commentStart       = '#'
-	stringStart        = '"'
-	stringEnd          = '"'
-	rawStringStart     = '\''
-	rawStringEnd       = '\''
-	inlineTableStart   = '{'
-	inlineTableEnd     = '}'
-	inlineTableValTerm = ','
+	eof              = 0
+	comma            = ','
+	tableStart       = '['
+	tableEnd         = ']'
+	arrayTableStart  = '['
+	arrayTableEnd    = ']'
+	tableSep         = '.'
+	keySep           = '='
+	arrayStart       = '['
+	arrayEnd         = ']'
+	commentStart     = '#'
+	stringStart      = '"'
+	stringEnd        = '"'
+	rawStringStart   = '\''
+	rawStringEnd     = '\''
+	inlineTableStart = '{'
+	inlineTableEnd   = '}'
 )
 
 type stateFn func(lx *lexer) stateFn
@@ -108,7 +107,7 @@ func (lx *lexer) push(state stateFn) {
 
 func (lx *lexer) pop() stateFn {
 	if len(lx.stack) == 0 {
-		return lx.errorf("BUG in lexer: no states to pop.")
+		return lx.errorf("BUG in lexer: no states to pop")
 	}
 	last := lx.stack[len(lx.stack)-1]
 	lx.stack = lx.stack[0 : len(lx.stack)-1]
@@ -212,7 +211,7 @@ func lexTop(lx *lexer) stateFn {
 		return lexTableStart
 	case eof:
 		if lx.pos > lx.start {
-			return lx.errorf("Unexpected EOF.")
+			return lx.errorf("unexpected EOF")
 		}
 		lx.emit(itemEOF)
 		return nil
@@ -244,8 +243,8 @@ func lexTopEnd(lx *lexer) stateFn {
 		lx.ignore()
 		return lexTop
 	}
-	return lx.errorf("Expected a top-level item to end with a new line, "+
-		"comment or EOF, but got %q instead.", r)
+	return lx.errorf("expected a top-level item to end with a newline, "+
+		"comment, or EOF, but got %q instead", r)
 }
 
 // lexTable lexes the beginning of a table. Namely, it makes sure that
@@ -272,8 +271,8 @@ func lexTableEnd(lx *lexer) stateFn {
 
 func lexArrayTableEnd(lx *lexer) stateFn {
 	if r := lx.next(); r != arrayTableEnd {
-		return lx.errorf("Expected end of table array name delimiter %q, "+
-			"but got %q instead.", arrayTableEnd, r)
+		return lx.errorf("expected end of table array name delimiter %q, "+
+			"but got %q instead", arrayTableEnd, r)
 	}
 	lx.emit(itemArrayTableEnd)
 	return lexTopEnd
@@ -283,11 +282,11 @@ func lexTableNameStart(lx *lexer) stateFn {
 	lx.skip(isWhitespace)
 	switch r := lx.peek(); {
 	case r == tableEnd || r == eof:
-		return lx.errorf("Unexpected end of table name. (Table names cannot " +
-			"be empty.)")
+		return lx.errorf("unexpected end of table name " +
+			"(table names cannot be empty)")
 	case r == tableSep:
-		return lx.errorf("Unexpected table separator. (Table names cannot " +
-			"be empty.)")
+		return lx.errorf("unexpected table separator " +
+			"(table names cannot be empty)")
 	case r == stringStart || r == rawStringStart:
 		lx.ignore()
 		lx.push(lexTableNameEnd)
@@ -322,8 +321,8 @@ func lexTableNameEnd(lx *lexer) stateFn {
 	case r == tableEnd:
 		return lx.pop()
 	default:
-		return lx.errorf("Expected '.' or ']' to end table name, but got %q "+
-			"instead.", r)
+		return lx.errorf("expected '.' or ']' to end table name, "+
+			"but got %q instead", r)
 	}
 }
 
@@ -333,7 +332,7 @@ func lexKeyStart(lx *lexer) stateFn {
 	r := lx.peek()
 	switch {
 	case r == keySep:
-		return lx.errorf("Unexpected key separator %q.", keySep)
+		return lx.errorf("unexpected key separator %q", keySep)
 	case isWhitespace(r) || isNL(r):
 		lx.next()
 		return lexSkip(lx, lexKeyStart)
@@ -364,7 +363,7 @@ func lexBareKey(lx *lexer) stateFn {
 		lx.emit(itemText)
 		return lexKeyEnd
 	default:
-		return lx.errorf("Bare keys cannot contain %q.", r)
+		return lx.errorf("bare keys cannot contain %q", r)
 	}
 }
 
@@ -377,7 +376,7 @@ func lexKeyEnd(lx *lexer) stateFn {
 	case isWhitespace(r):
 		return lexSkip(lx, lexKeyEnd)
 	default:
-		return lx.errorf("Expected key separator %q, but got %q instead.",
+		return lx.errorf("expected key separator %q, but got %q instead",
 			keySep, r)
 	}
 }
@@ -429,7 +428,7 @@ func lexValue(lx *lexer) stateFn {
 	case '+', '-':
 		return lexNumberStart
 	case '.': // special error case, be kind to users
-		return lx.errorf("Floats must start with a digit, not '.'.")
+		return lx.errorf("floats must start with a digit, not '.'")
 	}
 	if unicode.IsLetter(r) {
 		// Be permissive here; lexBool will give a nice error if the
@@ -439,7 +438,7 @@ func lexValue(lx *lexer) stateFn {
 		lx.backup()
 		return lexBool
 	}
-	return lx.errorf("Expected value but found %q instead.", r)
+	return lx.errorf("expected value but found %q instead", r)
 }
 
 // lexArrayValue consumes one value in an array. It assumes that '[' or ','
@@ -452,9 +451,8 @@ func lexArrayValue(lx *lexer) stateFn {
 	case r == commentStart:
 		lx.push(lexArrayValue)
 		return lexCommentStart
-	case r == arrayValTerm:
-		return lx.errorf("Unexpected array value terminator %q.",
-			arrayValTerm)
+	case r == comma:
+		return lx.errorf("unexpected comma")
 	case r == arrayEnd:
 		return lexArrayEnd
 	}
@@ -474,14 +472,16 @@ func lexArrayValueEnd(lx *lexer) stateFn {
 	case r == commentStart:
 		lx.push(lexArrayValueEnd)
 		return lexCommentStart
-	case r == arrayValTerm:
+	case r == comma:
 		lx.ignore()
 		return lexArrayValue // move on to the next value
 	case r == arrayEnd:
 		return lexArrayEnd
 	}
-	return lx.errorf("Expected an array value terminator %q or an array "+
-		"terminator %q, but got %q instead.", arrayValTerm, arrayEnd, r)
+	return lx.errorf(
+		"expected a comma or array terminator %q, but got %q instead",
+		arrayEnd, r,
+	)
 }
 
 // lexArrayEnd finishes the lexing of an array. It assumes that a ']' has
@@ -503,9 +503,8 @@ func lexInlineTableValue(lx *lexer) stateFn {
 	case r == commentStart:
 		lx.push(lexInlineTableValue)
 		return lexCommentStart
-	case r == inlineTableValTerm:
-		return lx.errorf("Unexpected inline table value terminator %q.",
-			inlineTableValTerm)
+	case r == comma:
+		return lx.errorf("unexpected comma")
 	case r == inlineTableEnd:
 		return lexInlineTableEnd
 	}
@@ -524,15 +523,14 @@ func lexInlineTableValueEnd(lx *lexer) stateFn {
 	case r == commentStart:
 		lx.push(lexInlineTableValueEnd)
 		return lexCommentStart
-	case r == inlineTableValTerm:
+	case r == comma:
 		lx.ignore()
 		return lexInlineTableValue
 	case r == inlineTableEnd:
 		return lexInlineTableEnd
 	}
-	return lx.errorf("Expected an inline table value terminator %q or an "+
-		"inline table terminator %q, but got %q instead.", inlineTableValTerm,
-		inlineTableEnd, r)
+	return lx.errorf("expected a comma or an inline table terminator %q, "+
+		"but got %q instead", inlineTableEnd, r)
 }
 
 // lexInlineTableEnd finishes the lexing of an inline table. It assumes that a '}' has
@@ -549,7 +547,7 @@ func lexString(lx *lexer) stateFn {
 	r := lx.next()
 	switch {
 	case isNL(r):
-		return lx.errorf("Strings cannot contain new lines.")
+		return lx.errorf("strings cannot contain newlines")
 	case r == '\\':
 		lx.push(lexString)
 		return lexStringEscape
@@ -595,7 +593,7 @@ func lexRawString(lx *lexer) stateFn {
 	r := lx.next()
 	switch {
 	case isNL(r):
-		return lx.errorf("Strings cannot contain new lines.")
+		return lx.errorf("strings cannot contain newlines")
 	case r == rawStringEnd:
 		lx.backup()
 		lx.emit(itemRawString)
@@ -665,10 +663,9 @@ func lexStringEscape(lx *lexer) stateFn {
 	case 'U':
 		return lexLongUnicodeEscape
 	}
-	return lx.errorf("Invalid escape character %q. Only the following "+
+	return lx.errorf("invalid escape character %q; only the following "+
 		"escape characters are allowed: "+
-		"\\b, \\t, \\n, \\f, \\r, \\\", \\/, \\\\, "+
-		"\\uXXXX and \\UXXXXXXXX.", r)
+		`\b, \t, \n, \f, \r, \", \\, \uXXXX, and \UXXXXXXXX`, r)
 }
 
 func lexShortUnicodeEscape(lx *lexer) stateFn {
@@ -676,8 +673,8 @@ func lexShortUnicodeEscape(lx *lexer) stateFn {
 	for i := 0; i < 4; i++ {
 		r = lx.next()
 		if !isHexadecimal(r) {
-			return lx.errorf("Expected four hexadecimal digits after '\\u', "+
-				"but got '%s' instead.", lx.current())
+			return lx.errorf(`expected four hexadecimal digits after '\u', `+
+				"but got %q instead", lx.current())
 		}
 	}
 	return lx.pop()
@@ -688,8 +685,8 @@ func lexLongUnicodeEscape(lx *lexer) stateFn {
 	for i := 0; i < 8; i++ {
 		r = lx.next()
 		if !isHexadecimal(r) {
-			return lx.errorf("Expected eight hexadecimal digits after '\\U', "+
-				"but got '%s' instead.", lx.current())
+			return lx.errorf(`expected eight hexadecimal digits after '\U', `+
+				"but got %q instead", lx.current())
 		}
 	}
 	return lx.pop()
@@ -707,9 +704,9 @@ func lexNumberOrDateStart(lx *lexer) stateFn {
 	case 'e', 'E':
 		return lexFloat
 	case '.':
-		return lx.errorf("Floats must start with a digit, not '.'.")
+		return lx.errorf("floats must start with a digit, not '.'")
 	}
-	return lx.errorf("Expected a digit but got %q.", r)
+	return lx.errorf("expected a digit but got %q", r)
 }
 
 // lexNumberOrDate consumes either an integer, float or datetime.
@@ -757,9 +754,9 @@ func lexNumberStart(lx *lexer) stateFn {
 	r := lx.next()
 	if !isDigit(r) {
 		if r == '.' {
-			return lx.errorf("Floats must start with a digit, not '.'.")
+			return lx.errorf("floats must start with a digit, not '.'")
 		}
-		return lx.errorf("Expected a digit but got %q.", r)
+		return lx.errorf("expected a digit but got %q", r)
 	}
 	return lexNumber
 }
@@ -817,7 +814,7 @@ func lexBool(lx *lexer) stateFn {
 		lx.emit(itemBool)
 		return lx.pop()
 	}
-	return lx.errorf("Expected value but found %q instead.", s)
+	return lx.errorf("expected value but found %q instead", s)
 }
 
 // lexCommentStart begins the lexing of a comment. It will emit
