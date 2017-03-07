@@ -60,10 +60,17 @@ type lexer struct {
 	input string
 	start int
 	pos   int
-	width int
 	line  int
 	state stateFn
 	items chan item
+
+	// Allow for backing up up to three runes.
+	// This is necessary because TOML contains 3-rune tokens (""" and ''').
+	prevWidths [3]int
+	nprev      int // how many of prevWidths are in use
+	// If we emit an eof, we can still back up, but it is not OK to call
+	// next again.
+	atEOF bool
 
 	// A stack of state functions used to maintain context.
 	// The idea is to reuse parts of the state machine in various places.
@@ -92,7 +99,7 @@ func (lx *lexer) nextItem() item {
 
 func lex(input string) *lexer {
 	lx := &lexer{
-		input: input + "\n",
+		input: input,
 		state: lexTop,
 		line:  1,
 		items: make(chan item, 10),
@@ -129,16 +136,25 @@ func (lx *lexer) emitTrim(typ itemType) {
 }
 
 func (lx *lexer) next() (r rune) {
+	if lx.atEOF {
+		panic("next called after EOF")
+	}
 	if lx.pos >= len(lx.input) {
-		lx.width = 0
+		lx.atEOF = true
 		return eof
 	}
 
 	if lx.input[lx.pos] == '\n' {
 		lx.line++
 	}
-	r, lx.width = utf8.DecodeRuneInString(lx.input[lx.pos:])
-	lx.pos += lx.width
+	lx.prevWidths[2] = lx.prevWidths[1]
+	lx.prevWidths[1] = lx.prevWidths[0]
+	if lx.nprev < 3 {
+		lx.nprev++
+	}
+	r, w := utf8.DecodeRuneInString(lx.input[lx.pos:])
+	lx.prevWidths[0] = w
+	lx.pos += w
 	return r
 }
 
@@ -147,9 +163,20 @@ func (lx *lexer) ignore() {
 	lx.start = lx.pos
 }
 
-// backup steps back one rune. Can be called only once per call of next.
+// backup steps back one rune. Can be called only twice between calls to next.
 func (lx *lexer) backup() {
-	lx.pos -= lx.width
+	if lx.atEOF {
+		lx.atEOF = false
+		return
+	}
+	if lx.nprev < 1 {
+		panic("backed up too far")
+	}
+	w := lx.prevWidths[0]
+	lx.prevWidths[0] = lx.prevWidths[1]
+	lx.prevWidths[1] = lx.prevWidths[2]
+	lx.nprev--
+	lx.pos -= w
 	if lx.pos < len(lx.input) && lx.input[lx.pos] == '\n' {
 		lx.line--
 	}
@@ -202,7 +229,6 @@ func lexTop(lx *lexer) stateFn {
 	if isWhitespace(r) || isNL(r) {
 		return lexSkip(lx, lexTop)
 	}
-
 	switch r {
 	case commentStart:
 		lx.push(lexTop)
@@ -240,8 +266,8 @@ func lexTopEnd(lx *lexer) stateFn {
 		lx.ignore()
 		return lexTop
 	case r == eof:
-		lx.ignore()
-		return lexTop
+		lx.emit(itemEOF)
+		return nil
 	}
 	return lx.errorf("expected a top-level item to end with a newline, "+
 		"comment, or EOF, but got %q instead", r)
@@ -386,8 +412,7 @@ func lexKeyEnd(lx *lexer) stateFn {
 // After a value is lexed, the last state on the next is popped and returned.
 func lexValue(lx *lexer) stateFn {
 	// We allow whitespace to precede a value, but NOT newlines.
-	// In array syntax, the array states are responsible for ignoring new
-	// lines.
+	// In array syntax, the array states are responsible for ignoring newlines.
 	r := lx.next()
 	switch {
 	case isWhitespace(r):
@@ -553,6 +578,8 @@ func lexInlineTableEnd(lx *lexer) stateFn {
 func lexString(lx *lexer) stateFn {
 	r := lx.next()
 	switch {
+	case r == eof:
+		return lx.errorf("unexpected EOF")
 	case isNL(r):
 		return lx.errorf("strings cannot contain newlines")
 	case r == '\\':
@@ -571,11 +598,12 @@ func lexString(lx *lexer) stateFn {
 // lexMultilineString consumes the inner contents of a string. It assumes that
 // the beginning '"""' has already been consumed and ignored.
 func lexMultilineString(lx *lexer) stateFn {
-	r := lx.next()
-	switch {
-	case r == '\\':
+	switch lx.next() {
+	case eof:
+		return lx.errorf("unexpected EOF")
+	case '\\':
 		return lexMultilineStringEscape
-	case r == stringEnd:
+	case stringEnd:
 		if lx.accept(stringEnd) {
 			if lx.accept(stringEnd) {
 				lx.backup()
@@ -599,6 +627,8 @@ func lexMultilineString(lx *lexer) stateFn {
 func lexRawString(lx *lexer) stateFn {
 	r := lx.next()
 	switch {
+	case r == eof:
+		return lx.errorf("unexpected EOF")
 	case isNL(r):
 		return lx.errorf("strings cannot contain newlines")
 	case r == rawStringEnd:
@@ -612,12 +642,13 @@ func lexRawString(lx *lexer) stateFn {
 }
 
 // lexMultilineRawString consumes a raw string. Nothing can be escaped in such
-// a string. It assumes that the beginning "'" has already been consumed and
+// a string. It assumes that the beginning "'''" has already been consumed and
 // ignored.
 func lexMultilineRawString(lx *lexer) stateFn {
-	r := lx.next()
-	switch {
-	case r == rawStringEnd:
+	switch lx.next() {
+	case eof:
+		return lx.errorf("unexpected EOF")
+	case rawStringEnd:
 		if lx.accept(rawStringEnd) {
 			if lx.accept(rawStringEnd) {
 				lx.backup()

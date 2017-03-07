@@ -891,6 +891,25 @@ func TestDecodePrimitive(t *testing.T) {
 	}
 }
 
+func TestDecodeErrors(t *testing.T) {
+	for _, s := range []string{
+		`x="`,
+		`x='`,
+		`x='''`,
+
+		// Cases found by fuzzing in
+		// https://github.com/BurntSushi/toml/issues/155.
+		`""�`,   // used to panic with index out of range
+		`e="""`, // used to hang
+	} {
+		var x struct{}
+		_, err := Decode(s, &x)
+		if err == nil {
+			t.Errorf("Decode(%q): got nil error", s)
+		}
+	}
+}
+
 func ExampleMetaData_PrimitiveDecode() {
 	var md MetaData
 	var err error
