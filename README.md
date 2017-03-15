@@ -11,7 +11,7 @@ Spec: https://github.com/mojombo/toml
 Compatible with TOML version
 [v0.4.0](https://github.com/toml-lang/toml/blob/master/versions/en/toml-v0.4.0.md)
 
-Documentation: http://godoc.org/github.com/BurntSushi/toml
+Documentation: https://godoc.org/github.com/BurntSushi/toml
 
 Installation:
 
@@ -26,8 +26,7 @@ go get github.com/BurntSushi/toml/cmd/tomlv
 tomlv some-toml-file.toml
 ```
 
-[![Build status](https://api.travis-ci.org/BurntSushi/toml.png)](https://travis-ci.org/BurntSushi/toml)
-
+[![Build Status](https://travis-ci.org/BurntSushi/toml.svg?branch=master)](https://travis-ci.org/BurntSushi/toml) [![GoDoc](https://godoc.org/github.com/BurntSushi/toml?status.svg)](https://godoc.org/github.com/BurntSushi/toml)
 
 ### Testing
 
