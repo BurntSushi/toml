@@ -6,7 +6,7 @@ packages. This package also supports the `encoding.TextUnmarshaler` and
 `encoding.TextMarshaler` interfaces so that you can define custom data
 representations. (There is an example of this below.)
 
-Spec: https://github.com/mojombo/toml
+Spec: https://github.com/toml-lang/toml
 
 Compatible with TOML version
 [v0.4.0](https://github.com/toml-lang/toml/blob/master/versions/en/toml-v0.4.0.md)
