@@ -733,6 +733,33 @@ Locations = {NY = {Temp = "not cold", Rating = 4}, MI = {Temp = "freezing", Rati
 	}
 }
 
+func TestDecodeInlineTableArray(t *testing.T) {
+	type point struct {
+		X, Y, Z int
+	}
+	var got struct {
+		Points []point
+	}
+	// Example inline table array from the spec.
+	const in = `
+points = [ { x = 1, y = 2, z = 3 },
+           { x = 7, y = 8, z = 9 },
+           { x = 2, y = 4, z = 8 } ]
+
+`
+	if _, err := Decode(in, &got); err != nil {
+		t.Fatal(err)
+	}
+	want := []point{
+		{X: 1, Y: 2, Z: 3},
+		{X: 7, Y: 8, Z: 9},
+		{X: 2, Y: 4, Z: 8},
+	}
+	if !reflect.DeepEqual(got.Points, want) {
+		t.Errorf("got %#v; want %#v", got.Points, want)
+	}
+}
+
 func TestDecodeMalformedInlineTable(t *testing.T) {
 	for _, tt := range []struct {
 		s    string
