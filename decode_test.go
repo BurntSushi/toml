@@ -937,6 +937,34 @@ func TestDecodeErrors(t *testing.T) {
 	}
 }
 
+// Test for https://github.com/BurntSushi/toml/pull/166.
+func TestDecodeBoolArray(t *testing.T) {
+	for _, tt := range []struct {
+		s    string
+		got  interface{}
+		want interface{}
+	}{
+		{
+			"a = [true, false]",
+			&struct{ A []bool }{},
+			&struct{ A []bool }{[]bool{true, false}},
+		},
+		{
+			"a = {a = true, b = false}",
+			&struct{ A map[string]bool }{},
+			&struct{ A map[string]bool }{map[string]bool{"a": true, "b": false}},
+		},
+	} {
+		if _, err := Decode(tt.s, tt.got); err != nil {
+			t.Errorf("Decode(%q): %s", tt.s, err)
+			continue
+		}
+		if !reflect.DeepEqual(tt.got, tt.want) {
+			t.Errorf("Decode(%q): got %#v; want %#v", tt.s, tt.got, tt.want)
+		}
+	}
+}
+
 func ExampleMetaData_PrimitiveDecode() {
 	var md MetaData
 	var err error
