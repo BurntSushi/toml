@@ -325,6 +325,13 @@ func (md *MetaData) unifySlice(data interface{}, rv reflect.Value) error {
 	if datav.Kind() != reflect.Slice {
 		if !datav.IsValid() {
 			return nil
+		} else if _, ok := data.(map[string]interface{}); ok {
+			rv2 := reflect.MakeSlice(rv.Type(), 1, 1)
+			if err := md.unifyStruct(data, rv2.Index(0)); err != nil {
+				return err
+			}
+			rv.Set(rv2)
+			return nil
 		}
 		return badtype("slice", data)
 	}
