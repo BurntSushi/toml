@@ -1445,3 +1445,56 @@ type cable struct {
 func (c *cable) Name() string {
 	return fmt.Sprintf("CABLE: %s", c.ID)
 }
+
+func TestDecodeSchema(t *testing.T) {
+	var data = `
+	# This is a TOML document. Boom.
+	[servers]
+
+	crash = "crash"
+
+	  [servers.alpha]
+	  IP = "10.0.0.1"
+	  DC = "eqdc10"
+
+	  [servers.beta]
+	  IP2 = "10.0.0.2"
+	  DC2 = "eqdc10"
+
+	`
+
+	type tomlConfig struct {
+		Servers map[string]interface{}
+	}
+
+	type Server1 struct {
+		IP string
+		DC string
+	}
+
+	type Server2 struct {
+		IP2 string
+		DC2 string
+	}
+
+	var c tomlConfig
+	c.Servers = map[string]interface{}{"alpha": Server1{}, "beta": (*Server2)(nil)}
+
+	if _, err := Decode(data, &c); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, ok := c.Servers["alpha"].(Server1); !ok {
+		t.Fatalf("Servers[alpha] is a %T but expected Server1", c.Servers["alpha"])
+	}
+
+	if _, ok := c.Servers["beta"].(*Server2); !ok {
+		t.Fatalf("Servers[beta] is a %T but expected *Server2", c.Servers["beta"])
+	}
+
+	c.Servers = map[string]interface{}{"crash": Server1{}}
+
+	if _, err := Decode(data, &c); err == nil {
+		t.Fatal("Expected type mismatch error between Servers[crash] in config and in input")
+	}
+}
