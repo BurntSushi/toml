@@ -265,7 +265,7 @@ func (enc *Encoder) eMapOrStruct(key Key, rv reflect.Value) {
 
 func (enc *Encoder) eMap(key Key, rv reflect.Value) {
 	rt := rv.Type()
-	if rt.Key().Kind() != reflect.String {
+	if rt.Key().Kind() != reflect.String && rt.Key().Kind() != reflect.Interface {
 		encPanic(errNonString)
 	}
 
@@ -273,7 +273,10 @@ func (enc *Encoder) eMap(key Key, rv reflect.Value) {
 	// underneath this key first, before writing sub-structs or sub-maps.
 	var mapKeysDirect, mapKeysSub []string
 	for _, mapKey := range rv.MapKeys() {
-		k := mapKey.String()
+		k, ok := mapKey.Interface().(string)
+		if !ok {
+			encPanic(errNonString)
+		}
 		if typeIsHash(tomlTypeOfGo(rv.MapIndex(mapKey))) {
 			mapKeysSub = append(mapKeysSub, k)
 		} else {

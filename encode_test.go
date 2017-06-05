@@ -251,6 +251,17 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 			},
 			wantOutput: "b = 1\n\n[a]\n  Int = 2\n",
 		},
+		"map with interface{} key type": {
+			input: map[interface{}]interface{}{
+				"a": map[interface{}]interface{}{"b": 1},
+				"c": 2,
+			},
+			wantOutput: "c = 2\n\n[a]\n  b = 1\n",
+		},
+		"(error) map with interface{} key type, with non-string key": {
+			input:     map[interface{}]string{true: ""},
+			wantError: errNonString,
+		},
 		"nested map": {
 			input: map[string]map[string]int{
 				"a": {"b": 1},
