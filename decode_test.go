@@ -932,6 +932,38 @@ func TestDecodePrimitive(t *testing.T) {
 	}
 }
 
+func TestDecodeCompositeObject(t *testing.T) {
+	type T struct {
+		B int
+		C int
+	}
+
+	for i, tt := range []struct {
+		v     interface{}
+		input string
+		want  interface{}
+	}{
+		// map
+		{&map[string]map[string]int{"a": {"b": 1, "c": 2}}, "[a]\nb = 3", &map[string]map[string]int{"a": {"b": 3, "c": 2}}},
+		{&map[string]map[string]int{"a": {}}, "[a]\nb = 3", &map[string]map[string]int{"a": {"b": 3}}},
+		{&map[string]map[string]int{}, "[a]\nb = 3", &map[string]map[string]int{"a": {"b": 3}}},
+		// struct
+		{&map[string]*T{"a": {B: 1, C: 2}}, "[a]\nB = 3", &map[string]*T{"a": {B: 3, C: 2}}},
+		{&map[string]*T{"a": {}}, "[a]\nB = 3", &map[string]*T{"a": {B: 3}}},
+		{&map[string]*T{}, "[a]\nB = 3", &map[string]*T{"a": {B: 3}}},
+	} {
+		_, err := Decode("[a]\nb = 3", tt.v)
+		if err != nil {
+			t.Errorf("[%d] Decode error: %s", i, err)
+			continue
+		}
+		if !reflect.DeepEqual(tt.v, tt.want) {
+			t.Errorf("[%d] got %#v; want %#v", i, tt.v, tt.want)
+			continue
+		}
+	}
+}
+
 func TestDecodeErrors(t *testing.T) {
 	for _, s := range []string{
 		`x="`,

@@ -290,16 +290,20 @@ func (md *MetaData) unifyMap(mapping interface{}, rv reflect.Value) error {
 	for k, v := range tmap {
 		md.decoded[md.context.add(k).String()] = true
 		md.context = append(md.context, k)
-
-		rvkey := indirect(reflect.New(rv.Type().Key()))
-		rvval := reflect.Indirect(reflect.New(rv.Type().Elem()))
+		rvkey := reflect.ValueOf(k)
+		rvval := reflect.Indirect(rv.MapIndex(rvkey))
+		created := false
+		if !isComposite(rvval) {
+			created = true
+			rvval = reflect.Indirect(reflect.New(rv.Type().Elem()))
+		}
 		if err := md.unify(v, rvval); err != nil {
 			return err
 		}
 		md.context = md.context[0 : len(md.context)-1]
-
-		rvkey.SetString(k)
-		rv.SetMapIndex(rvkey, rvval)
+		if created {
+			rv.SetMapIndex(rvkey, rvval)
+		}
 	}
 	return nil
 }
@@ -499,6 +503,14 @@ func isUnifiable(rv reflect.Value) bool {
 		return true
 	}
 	if _, ok := rv.Interface().(TextUnmarshaler); ok {
+		return true
+	}
+	return false
+}
+
+func isComposite(rv reflect.Value) bool {
+	switch rv.Kind() {
+	case reflect.Struct, reflect.Map:
 		return true
 	}
 	return false
