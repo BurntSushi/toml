@@ -15,6 +15,7 @@ import (
 
 var (
 	flagTypes = false
+	getValue  = ""
 )
 
 func init() {
@@ -22,6 +23,9 @@ func init() {
 
 	flag.BoolVar(&flagTypes, "types", flagTypes,
 		"When set, the types of every defined key will be shown.")
+
+	flag.StringVar(&getValue, "get", getValue,
+		"When set will attempt to retrieve the value of the key specified.")
 
 	flag.Usage = usage
 	flag.Parse()
@@ -48,6 +52,10 @@ func main() {
 		if flagTypes {
 			printTypes(md)
 		}
+
+		if getValue != "" {
+			getVal(getValue, md, tmp)
+		}
 	}
 }
 
@@ -58,4 +66,31 @@ func printTypes(md toml.MetaData) {
 			strings.Repeat("    ", len(key)-1), key, md.Type(key...))
 	}
 	tabw.Flush()
+}
+
+func getVal(value string, md toml.MetaData, data interface{}) {
+	var val interface{}
+	var typedData map[string]interface{}
+
+	typedData, ok := data.(map[string]interface{})
+	if !ok {
+		fmt.Println("We had an unexpected error. Possible the toml is malformed?")
+		os.Exit(1)
+	}
+
+	split := strings.Split(value, ".")
+	for _, s := range split {
+		val = typedData[s]
+
+		if maybeTyped, ok := val.(map[string]interface{}); ok {
+			typedData = maybeTyped
+		}
+	}
+
+	if val == nil {
+		fmt.Println("no key with that name exists")
+		os.Exit(0)
+	}
+
+	fmt.Println(val)
 }
