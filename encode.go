@@ -244,7 +244,10 @@ func (enc *Encoder) eTable(key Key, rv reflect.Value) {
 		// Output an extra newline between top-level tables.
 		// (The newline isn't written if nothing else has been written though.)
 		enc.newline()
+	} else if rv := eindirect(rv); rv.Kind() == reflect.Map {
+		enc.newline()
 	}
+
 	if len(key) > 0 {
 		enc.wf("%s[%s]", enc.indentStr(key), key.maybeQuotedAll())
 		enc.newline()
