@@ -368,11 +368,19 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 				continue
 			}
 
+			enc.addComment(key.add(keyName), sft.Tag)
 			enc.encode(key.add(keyName), sf)
 		}
 	}
 	writeFields(fieldsDirect)
 	writeFields(fieldsSub)
+}
+
+func (enc *Encoder) addComment(key Key, tag reflect.StructTag) {
+	if s, ok := tag.Lookup("desc"); ok {
+		enc.wf("%s#%s\n", enc.indentStr(key), s)
+		enc.hasWritten = false
+	}
 }
 
 // tomlTypeName returns the TOML type name of the Go value's type. It is
