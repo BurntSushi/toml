@@ -393,7 +393,7 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 				Float float64 `desc:"a float"`
 				Bool  bool    `desc:"a bool"`
 			}{0, 0.0, false},
-			wantOutput: "#an integer\nInt1 = 0\n#a float\nFloat = 0.0\n#a bool\nBool = false\n",
+			wantOutput: "# an integer\nInt1 = 0\n# a float\nFloat = 0.0\n# a bool\nBool = false\n",
 		},
 		"embedded struct with comments": {
 			input: struct {
@@ -405,19 +405,19 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 				Name  string `desc:"my name"`
 				Value int    `desc:"my value"`
 			}{"hello", 10}},
-			wantOutput: "#parent\n[Parent]\n  #my name\n  Name = \"hello\"\n  #my value\n  Value = 10\n",
+			wantOutput: "# parent\n[Parent]\n  # my name\n  Name = \"hello\"\n  # my value\n  Value = 10\n",
 		},
 		"slice with comments": {
 			input: struct {
 				Primes []int `desc:"prime numbers"`
 			}{[]int{1, 2, 3, 5, 7}},
-			wantOutput: "#prime numbers\nPrimes = [1, 2, 3, 5, 7]\n",
+			wantOutput: "# prime numbers\nPrimes = [1, 2, 3, 5, 7]\n",
 		},
 		"map with comments": {
 			input: struct {
 				Library map[string]interface{} `desc:"a library"`
 			}{map[string]interface{}{"name":"hello", "age": 99}},
-			wantOutput: "#a library\n[Library]\n  age = 99\n  name = \"hello\"\n",
+			wantOutput: "# a library\n[Library]\n  age = 99\n  name = \"hello\"\n",
 		},
 		"2 layer embedded struct with comments": {
 			input: struct {
@@ -427,7 +427,7 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 						} `desc:"child struct"`
 					} `desc:"parent struct"`
 			}	{},
-			wantOutput: "#parent struct\n[Parent]\n  #child struct\n  [Parent.Child]\n    #child int\n    Int = 0\n",
+			wantOutput: "# parent struct\n[Parent]\n  # child struct\n  [Parent.Child]\n    # child int\n    Int = 0\n",
 		},
 	}
 	for label, test := range tests {

@@ -378,7 +378,7 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 
 func (enc *Encoder) addComment(key Key, tag reflect.StructTag) {
 	if s := tag.Get("desc"); s != "" {
-		enc.wf("%s#%s\n", enc.indentStr(key), s)
+		enc.wf("%s# %s\n", enc.indentStr(key), s)
 		enc.hasWritten = false
 	}
 }
