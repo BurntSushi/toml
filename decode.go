@@ -222,7 +222,7 @@ func (md *MetaData) unify(data interface{}, rv reflect.Value) error {
 		if rv.NumMethod() > 0 {
 			return e("unsupported type %s", rv.Type())
 		}
-		return md.unifyAnything(data, rv)
+		return md.unify(data, indirect(rv))
 	case reflect.Float32:
 		fallthrough
 	case reflect.Float64:
@@ -432,11 +432,6 @@ func (md *MetaData) unifyBool(data interface{}, rv reflect.Value) error {
 		return nil
 	}
 	return badtype("boolean", data)
-}
-
-func (md *MetaData) unifyAnything(data interface{}, rv reflect.Value) error {
-	rv.Set(reflect.ValueOf(data))
-	return nil
 }
 
 func (md *MetaData) unifyText(data interface{}, v TextUnmarshaler) error {
