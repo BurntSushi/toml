@@ -11,7 +11,7 @@ import (
 )
 
 func e(format string, args ...interface{}) error {
-	return fmt.Errorf("toml: "+format, args...)
+	return fmt.Errorf(format, args...)
 }
 
 // Unmarshaler is the interface implemented by objects that can unmarshal a
@@ -120,7 +120,11 @@ func Decode(data string, v interface{}) (MetaData, error) {
 		p.mapping, p.types, p.ordered,
 		make(map[string]bool, len(p.ordered)), nil,
 	}
-	return md, md.unify(p.mapping, indirect(rv))
+
+	if err := md.unify(p.mapping, indirect(rv)); err != nil {
+		return md, fmt.Errorf("toml: parsed '%s': %s", md.context.String(), err)
+	}
+	return md, nil
 }
 
 // DecodeFile is just like Decode, except it will automatically read the
