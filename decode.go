@@ -10,8 +10,16 @@ import (
 	"time"
 )
 
+type tomlError struct {
+	s string
+}
+
+func (e *tomlError) Error() string {
+	return "toml: " + e.s
+}
+
 func e(format string, args ...interface{}) error {
-	return fmt.Errorf(format, args...)
+	return &tomlError{fmt.Sprintf(format, args...)}
 }
 
 // Unmarshaler is the interface implemented by objects that can unmarshal a
@@ -122,9 +130,17 @@ func Decode(data string, v interface{}) (MetaData, error) {
 	}
 
 	if err := md.unify(p.mapping, indirect(rv)); err != nil {
-		return md, fmt.Errorf("toml: parsed '%s': %s", md.context.String(), err)
+		ctx := fmt.Sprintf("parsed '%s': ", md.context.String())
+		switch t := err.(type) {
+		case *tomlError:
+			t.s = ctx + t.s
+		default:
+			err = &tomlError{ctx + err.Error()}
+		}
+		return md, err
 	}
-	return md, nil
+
+	return md, err
 }
 
 // DecodeFile is just like Decode, except it will automatically read the
