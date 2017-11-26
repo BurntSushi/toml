@@ -712,7 +712,8 @@ func lexShortUnicodeEscape(lx *lexer) stateFn {
 		r = lx.next()
 		if !isHexadecimal(r) {
 			return lx.errorf(`expected four hexadecimal digits after '\u', `+
-				"but got %q instead", lx.current())
+				"but got %q instead"+`Maybe you want to escape '\' to '\\'`+
+				` or you can use '/' instead.`, lx.current())
 		}
 	}
 	return lx.pop()
@@ -724,7 +725,8 @@ func lexLongUnicodeEscape(lx *lexer) stateFn {
 		r = lx.next()
 		if !isHexadecimal(r) {
 			return lx.errorf(`expected eight hexadecimal digits after '\U', `+
-				"but got %q instead", lx.current())
+				"but got %q instead"+`Maybe you want to escape '\' to '\\'`+
+				` or you can use '/' instead.`, lx.current())
 		}
 	}
 	return lx.pop()
