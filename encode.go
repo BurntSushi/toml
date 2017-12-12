@@ -148,7 +148,7 @@ func (enc *Encoder) encode(key Key, rv reflect.Value) {
 	case reflect.Struct:
 		enc.eTable(key, rv)
 	default:
-		panic(e("unsupported type for key '%s': %s", key, k))
+		encPanic(e("unsupported type for key '%s': %s", key, k))
 	}
 }
 
@@ -191,7 +191,7 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 	case reflect.String:
 		enc.writeQuoted(rv.String())
 	default:
-		panic(e("unexpected primitive type: %s", rv.Kind()))
+		encPanic(e("unexpected primitive type: %s", rv.Kind()))
 	}
 }
 
@@ -259,7 +259,7 @@ func (enc *Encoder) eMapOrStruct(key Key, rv reflect.Value) {
 	case reflect.Struct:
 		enc.eStruct(key, rv)
 	default:
-		panic("eTable: unhandled reflect.Value Kind: " + rv.Kind().String())
+		encPanic(e("eTable: unhandled reflect.Value Kind: " + rv.Kind().String()))
 	}
 }
 
@@ -417,7 +417,7 @@ func tomlTypeOfGo(rv reflect.Value) tomlType {
 			return tomlHash
 		}
 	default:
-		panic("unexpected reflect.Kind: " + rv.Kind().String())
+		panic(tomlEncodeError{e("unexpected reflect.Kind: " + rv.Kind().String())})
 	}
 }
 
