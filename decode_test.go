@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"math"
@@ -977,6 +978,173 @@ func TestDecodeBoolArray(t *testing.T) {
 			t.Errorf("Decode(%q): got %#v; want %#v", tt.s, tt.got, tt.want)
 		}
 	}
+}
+
+// Test for https://github.com/BurntSushi/toml/issues/63.
+func TestDecodeEncodeDecodePrimitive(t *testing.T) {
+	t.Run("simple struct", func(t *testing.T) {
+		type TestStruct struct {
+			Data  Primitive
+			DataA int
+			DataB string
+		}
+
+		input := `
+Data = ["Foo","Bar"]
+DataA = 1
+DataB = "bbb"
+	`
+
+		// First pass
+		result1 := TestStruct{}
+		md1, err := Decode(input, &result1)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if result1.DataA != 1 || result1.DataB != "bbb" {
+			t.Fatalf("Unexpected unmarshaled values. %v", result1)
+		}
+
+		dataValue1 := []string{}
+		err = md1.PrimitiveDecode(result1.Data, &dataValue1)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if dataValue1[0] != "Foo" {
+			t.Fatalf("Unexpected value of Data")
+		}
+
+		buf1 := bytes.Buffer{}
+		if err := NewEncoder(&buf1).Encode(result1); err != nil {
+			log.Fatal(err)
+		}
+
+		input = buf1.String()
+
+		if !strings.Contains(input, "Foo") {
+			t.Fatalf("Current input does not contain Foo\n%s", input)
+		}
+
+		// Second pass
+		result2 := TestStruct{}
+		md2, err := Decode(input, &result2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if result2.DataA != 1 || result2.DataB != "bbb" {
+			t.Fatalf("Unexpected unmarshaled values. %v", result2)
+		}
+
+		dataValue2 := []string{}
+		err = md2.PrimitiveDecode(result2.Data, &dataValue2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if dataValue2[0] != "Foo" {
+			t.Fatalf("Unexpected value of Data")
+		}
+	})
+
+	t.Run("embedded struct", func(t *testing.T) {
+		input := `
+# Some comments.
+ip = "10.0.0.1"
+description = "Ignoring description"
+port = 8000
+
+	[config]
+	Ports = [ 8001, 8002 ]
+	Location = "Toronto"
+`
+
+		type server struct {
+			IP     string
+			Port   int
+			Config struct {
+				Ports    *Primitive
+				Location string
+			}
+			Description Primitive
+		}
+
+		var result1 server
+		md1, err := Decode(input, &result1)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if result1.IP != "10.0.0.1" || result1.Config.Location != "Toronto" || result1.Port != 8000 {
+			log.Fatal("Unexpected values of IP or Config.Location or Port")
+		}
+
+		dataValue1 := []int{}
+		err = md1.PrimitiveDecode(*result1.Config.Ports, &dataValue1)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if dataValue1[0] != 8001 || dataValue1[1] != 8002 {
+			t.Fatalf("Unexpected value of config.Ports")
+		}
+
+		descriptionValue1 := ""
+		err = md1.PrimitiveDecode(result1.Description, &descriptionValue1)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if descriptionValue1 != "Ignoring description" {
+			t.Fatalf("Unexpected Description")
+		}
+
+		buf1 := bytes.Buffer{}
+		if err := NewEncoder(&buf1).Encode(result1); err != nil {
+			log.Fatal(err)
+		}
+
+		input = buf1.String()
+
+		if !strings.Contains(input, "8001, 8002") {
+			t.Fatalf("Current input does not contain 8001, 8002\n%s", input)
+		}
+
+		// Second pass
+		var result2 server
+		md2, err := Decode(input, &result2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if result1.IP != "10.0.0.1" || result1.Config.Location != "Toronto" || result1.Port != 8000 {
+			log.Fatal("Unexpected values of IP or Config.Location")
+		}
+
+		dataValue2 := []int{}
+		err = md2.PrimitiveDecode(*result2.Config.Ports, &dataValue2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if dataValue1[0] != 8001 || dataValue1[1] != 8002 {
+			t.Fatalf("Unexpected value of config.Ports")
+		}
+
+		descriptionValue2 := ""
+		err = md1.PrimitiveDecode(result1.Description, &descriptionValue2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if descriptionValue2 != "Ignoring description" {
+			t.Fatalf("Unexpected Description")
+		}
+	})
+
 }
 
 func ExampleMetaData_PrimitiveDecode() {

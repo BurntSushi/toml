@@ -146,7 +146,13 @@ func (enc *Encoder) encode(key Key, rv reflect.Value) {
 		}
 		enc.encode(key, rv.Elem())
 	case reflect.Struct:
-		enc.eTable(key, rv)
+		switch p := rv.Interface().(type) {
+		case Primitive:
+			prv := eindirect(reflect.ValueOf(p.undecoded))
+			enc.encode(key, prv)
+		default:
+			enc.eTable(key, rv)
+		}
 	default:
 		panic(e("unsupported type for key '%s': %s", key, k))
 	}
