@@ -20,6 +20,9 @@ nowEast = 2017-06-22T16:15:21+08:00
 nowWest = 2017-06-22T02:14:36-06:00
 yesOrNo = true
 pi = 3.14
+hexNumber = 0x12345678
+octNumber = 0o1234567
+binNumber = 0b10101010
 colors = [
 	["red", "green", "blue"],
 	["cyan", "magenta", "yellow", "black"],
@@ -35,16 +38,19 @@ cauchy = "cat 2"
 		Cauchy string
 	}
 	type simple struct {
-		Age     int
-		Colors  [][]string
-		Pi      float64
-		YesOrNo bool
-		Now     time.Time
-		NowEast time.Time
-		NowWest time.Time
-		Andrew  string
-		Kait    string
-		My      map[string]cats
+		Age       int
+		HexNumber int
+		OctNumber int
+		BinNumber int
+		Colors    [][]string
+		Pi        float64
+		YesOrNo   bool
+		Now       time.Time
+		NowEast   time.Time
+		NowWest   time.Time
+		Andrew    string
+		Kait      string
+		My        map[string]cats
 	}
 
 	var val simple
@@ -66,14 +72,17 @@ cauchy = "cat 2"
 		panic(err)
 	}
 	var answer = simple{
-		Age:     250,
-		Andrew:  "gallant",
-		Kait:    "brady",
-		Now:     now,
-		NowEast: nowEast,
-		NowWest: nowWest,
-		YesOrNo: true,
-		Pi:      3.14,
+		Age:       250,
+		HexNumber: 0x12345678,
+		OctNumber: 01234567,
+		BinNumber: 0xaa,
+		Andrew:    "gallant",
+		Kait:      "brady",
+		Now:       now,
+		NowEast:   nowEast,
+		NowWest:   nowWest,
+		YesOrNo:   true,
+		Pi:        3.14,
 		Colors: [][]string{
 			{"red", "green", "blue"},
 			{"cyan", "magenta", "yellow", "black"},
