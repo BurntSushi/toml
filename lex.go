@@ -414,6 +414,23 @@ func lexValue(lx *lexer) stateFn {
 	// We allow whitespace to precede a value, but NOT newlines.
 	// In array syntax, the array states are responsible for ignoring newlines.
 	r := lx.next()
+
+	// Strictly speaking, TOML doesn't permit leading zeros.
+	// When started with 0, it shall be either 0 as a value,
+	// hexadecimal (0x...), octal (0o...), or binary (0b...).
+	if r == '0' {
+		r := lx.next()
+		switch r {
+		case 'x':
+			return lexHexadecimal
+		case 'o':
+			return lexOctal
+		case 'b':
+			return lexBinary
+		}
+		lx.backup() // None of above
+	}
+
 	switch {
 	case isWhitespace(r):
 		return lexSkip(lx, lexValue)
@@ -817,6 +834,36 @@ func lexNumber(lx *lexer) stateFn {
 	return lx.pop()
 }
 
+func lexHexadecimal(lx *lexer) stateFn {
+	r := lx.next()
+	if isHexadecimal(r) || r == '_' {
+		return lexHexadecimal
+	}
+	lx.backup()
+	lx.emit(itemInteger)
+	return lx.pop()
+}
+
+func lexOctal(lx *lexer) stateFn {
+	r := lx.next()
+	if isOctal(r) || r == '_' {
+		return lexOctal
+	}
+	lx.backup()
+	lx.emit(itemInteger)
+	return lx.pop()
+}
+
+func lexBinary(lx *lexer) stateFn {
+	r := lx.next()
+	if isBinary(r) || r == '_' {
+		return lexBinary
+	}
+	lx.backup()
+	lx.emit(itemInteger)
+	return lx.pop()
+}
+
 // lexFloat consumes the elements of a float. It allows any sequence of
 // float-like characters, so floats emitted by the lexer are only a first
 // approximation and must be validated by the parser.
@@ -902,6 +949,14 @@ func isHexadecimal(r rune) bool {
 	return (r >= '0' && r <= '9') ||
 		(r >= 'a' && r <= 'f') ||
 		(r >= 'A' && r <= 'F')
+}
+
+func isOctal(r rune) bool {
+	return r >= '0' && r <= '7'
+}
+
+func isBinary(r rune) bool {
+	return r == '0' || r == '1'
 }
 
 func isBareKeyChar(r rune) bool {

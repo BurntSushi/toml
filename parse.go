@@ -183,7 +183,16 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 				it.val)
 		}
 		val := strings.Replace(it.val, "_", "", -1)
-		num, err := strconv.ParseInt(val, 10, 64)
+
+		base := 0
+		if strings.HasPrefix(val, "0o") {
+			val = strings.TrimPrefix(val, "0o")
+			base = 8
+		} else if strings.HasPrefix(val, "0b") {
+			val = strings.TrimPrefix(val, "0b")
+			base = 2
+		}
+		num, err := strconv.ParseInt(val, base, 64)
 		if err != nil {
 			// Distinguish integer values. Normally, it'd be a bug if the lexer
 			// provides an invalid integer, but it's possible that the number is
