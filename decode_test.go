@@ -24,6 +24,9 @@ colors = [
 	["red", "green", "blue"],
 	["cyan", "magenta", "yellow", "black"],
 ]
+hexValue = 0xff00ff
+octValue = 0o1234567
+binaryValue = 0b110011
 
 [My.Cats]
 plato = "cat 1"
@@ -35,16 +38,19 @@ cauchy = "cat 2"
 		Cauchy string
 	}
 	type simple struct {
-		Age     int
-		Colors  [][]string
-		Pi      float64
-		YesOrNo bool
-		Now     time.Time
-		NowEast time.Time
-		NowWest time.Time
-		Andrew  string
-		Kait    string
-		My      map[string]cats
+		Age         int
+		Colors      [][]string
+		Pi          float64
+		YesOrNo     bool
+		Now         time.Time
+		NowEast     time.Time
+		NowWest     time.Time
+		Andrew      string
+		Kait        string
+		My          map[string]cats
+		HexValue    int
+		OctValue    int
+		BinaryValue int
 	}
 
 	var val simple
@@ -81,6 +87,9 @@ cauchy = "cat 2"
 		My: map[string]cats{
 			"Cats": {Plato: "cat 1", Cauchy: "cat 2"},
 		},
+		HexValue:    0xff00ff,
+		OctValue:    01234567,
+		BinaryValue: 0x33, // 0b110011 -> 0x33 -> 51
 	}
 	if !reflect.DeepEqual(val, answer) {
 		t.Fatalf("Expected\n-----\n%#v\n-----\nbut got\n-----\n%#v\n",

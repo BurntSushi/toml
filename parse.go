@@ -182,8 +182,29 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 			p.panicf("Invalid integer %q: underscores must be surrounded by digits",
 				it.val)
 		}
+
 		val := strings.Replace(it.val, "_", "", -1)
-		num, err := strconv.ParseInt(val, 10, 64)
+
+		// decimal base by default
+		base := 10
+		if len(val) > 2 && val[0] == '0' {
+			switch val[1] {
+			case 'x':
+				base = 16
+			case 'b':
+				base = 2
+			case 'o':
+				base = 8
+			}
+		}
+
+		if base != 10 {
+			// the base has been modified
+			// so we trim the prefix off here
+			val = val[2:]
+		}
+
+		num, err := strconv.ParseInt(val, base, 64)
 		if err != nil {
 			// Distinguish integer values. Normally, it'd be a bug if the lexer
 			// provides an invalid integer, but it's possible that the number is

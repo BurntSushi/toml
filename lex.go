@@ -414,6 +414,21 @@ func lexValue(lx *lexer) stateFn {
 	// We allow whitespace to precede a value, but NOT newlines.
 	// In array syntax, the array states are responsible for ignoring newlines.
 	r := lx.next()
+
+	// 0x, 0o, 0b.
+	if r == '0' {
+		prefix := lx.next()
+		switch prefix {
+		case 'x':
+			return lexHexadecimal
+		case 'b':
+			return lexBinary
+		case 'o':
+			return lexOctal
+		}
+		lx.backup()
+	}
+
 	switch {
 	case isWhitespace(r):
 		return lexSkip(lx, lexValue)
@@ -767,6 +782,36 @@ func lexNumberOrDate(lx *lexer) stateFn {
 	return lx.pop()
 }
 
+func lexHexadecimal(lx *lexer) stateFn {
+	r := lx.next()
+	if isHexadecimal(r) || r == '_' {
+		return lexHexadecimal
+	}
+	lx.backup()
+	lx.emit(itemInteger)
+	return lx.pop()
+}
+
+func lexOctal(lx *lexer) stateFn {
+	r := lx.next()
+	if isOctal(r) || r == '_' {
+		return lexOctal
+	}
+	lx.backup()
+	lx.emit(itemInteger)
+	return lx.pop()
+}
+
+func lexBinary(lx *lexer) stateFn {
+	r := lx.next()
+	if isBinary(r) || r == '_' {
+		return lexBinary
+	}
+	lx.backup()
+	lx.emit(itemInteger)
+	return lx.pop()
+}
+
 // lexDatetime consumes a Datetime, to a first approximation.
 // The parser validates that it matches one of the accepted formats.
 func lexDatetime(lx *lexer) stateFn {
@@ -902,6 +947,14 @@ func isHexadecimal(r rune) bool {
 	return (r >= '0' && r <= '9') ||
 		(r >= 'a' && r <= 'f') ||
 		(r >= 'A' && r <= 'F')
+}
+
+func isBinary(r rune) bool {
+	return r == '0' || r == '1'
+}
+
+func isOctal(r rune) bool {
+	return (r >= '0' && r <= '7')
 }
 
 func isBareKeyChar(r rune) bool {
