@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -8,6 +9,12 @@ import (
 	"reflect"
 	"strings"
 	"time"
+)
+
+type tomlDecodeError struct{ error }
+
+var (
+	errNonStringKey = errors.New("toml: cannot decode map with non-string key")
 )
 
 func e(format string, args ...interface{}) error {
@@ -298,6 +305,9 @@ func (md *MetaData) unifyMap(mapping interface{}, rv reflect.Value) error {
 		}
 		md.context = md.context[0 : len(md.context)-1]
 
+		if rvkey.Kind() != reflect.String {
+			decPanic(errNonStringKey)
+		}
 		rvkey.SetString(k)
 		rv.SetMapIndex(rvkey, rvval)
 	}
@@ -506,4 +516,8 @@ func isUnifiable(rv reflect.Value) bool {
 
 func badtype(expected string, data interface{}) error {
 	return e("cannot load TOML value of type %T into a Go %s", data, expected)
+}
+
+func decPanic(err error) {
+	panic(tomlDecodeError{err})
 }

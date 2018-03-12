@@ -1459,3 +1459,51 @@ type cable struct {
 func (c *cable) Name() string {
 	return fmt.Sprintf("CABLE: %s", c.ID)
 }
+
+func TestDecodeInvalidMapKey(t *testing.T) {
+	for _, test := range []struct {
+		input         string
+		decodeInto    interface{}
+		wantDecoded   interface{}
+		expectedPanic *tomlDecodeError
+	}{
+		{
+			input: `
+			[keyVal]
+			key = 10
+			`,
+			decodeInto: &struct{ KeyVal map[string]int }{},
+			wantDecoded: &struct{ KeyVal map[string]int }{
+				KeyVal: map[string]int{"key": 10},
+			},
+		},
+		{
+			input: `
+			[keyVal]
+			1 = 10
+			`,
+			decodeInto:    &struct{ KeyVal map[int]int }{},
+			wantDecoded:   &struct{ KeyVal map[int]int }{KeyVal: map[int]int{}},
+			expectedPanic: &tomlDecodeError{errNonStringKey},
+		},
+	} {
+		if test.expectedPanic != nil {
+			defer func() {
+				err := recover()
+				if !reflect.DeepEqual(err, *test.expectedPanic) {
+					t.Errorf("want panic == %+v, got %+v",
+						test.expectedPanic, err)
+				}
+			}()
+		}
+
+		_, err := Decode(test.input, test.decodeInto)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(test.wantDecoded, test.decodeInto) {
+			t.Errorf("want decoded == %+v, got %+v",
+				test.wantDecoded, test.decodeInto)
+		}
+	}
+}
