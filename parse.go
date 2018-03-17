@@ -240,7 +240,7 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 		var ok bool
 		var err error
 		for _, format := range []string{
-			"2006-01-02T15:04:05Z07:00",
+			time.RFC3339Nano,
 			"2006-01-02T15:04:05",
 			"2006-01-02",
 		} {
