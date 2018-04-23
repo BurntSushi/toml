@@ -2,6 +2,7 @@ package toml
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -318,9 +319,12 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 	panic("unreachable")
 }
 
+var re = regexp.MustCompile("^0[xbo]")
+
 // numUnderscoresOK checks whether each underscore in s is surrounded by
 // characters that are not underscores.
 func numUnderscoresOK(s string) bool {
+	s = re.ReplaceAllString(s, "")
 	accept := false
 	for _, r := range s {
 		if r == '_' {
