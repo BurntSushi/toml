@@ -95,6 +95,7 @@ func typeFields(t reflect.Type) []field {
 				if sf.PkgPath != "" && !sf.Anonymous { // unexported
 					continue
 				}
+
 				opts := getOptions(sf.Tag)
 				if opts.skip {
 					continue

@@ -105,6 +105,38 @@ func (enc *Encoder) safeEncode(key Key, rv reflect.Value) (err error) {
 	return nil
 }
 
+// wrapper for Encoder.encode that writes a comment out above the field.
+// panics on error like encode.
+func (enc *Encoder) encodeCommented(key Key, rv reflect.Value, comment string, commented bool) {
+	if comment != "" || commented {
+		if comment == "" {
+			comment = "# "
+		}
+
+		var format string
+		if enc.hasWritten {
+			format += "\n"
+		}
+
+		format += "%s"
+		if !strings.HasPrefix(comment, "#") {
+			format += "# "
+		}
+
+		format += "%s\n"
+
+		if comment != "" {
+			comment = strings.Replace(comment, "\n", "\n"+enc.indentStr(key)+"# ", -1)
+		}
+
+		if _, err := fmt.Fprintf(enc.w, format, enc.indentStr(key), comment); err != nil {
+			panic(err)
+		}
+	}
+
+	enc.encode(key, rv)
+}
+
 func (enc *Encoder) encode(key Key, rv reflect.Value) {
 	// Special case. Time needs to be in ISO8601 format.
 	// Special case. If we can marshal the type to text, then we used that.
@@ -357,6 +389,7 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 			if opts.skip {
 				continue
 			}
+
 			keyName := sft.Name
 			if opts.name != "" {
 				keyName = opts.name
@@ -368,9 +401,10 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 				continue
 			}
 
-			enc.encode(key.add(keyName), sf)
+			enc.encodeCommented(key.add(keyName), sf, opts.comment, opts.commented)
 		}
 	}
+
 	writeFields(fieldsDirect)
 	writeFields(fieldsSub)
 }
@@ -462,6 +496,8 @@ type tagOptions struct {
 	name      string
 	omitempty bool
 	omitzero  bool
+	comment   string
+	commented bool
 }
 
 func getOptions(tag reflect.StructTag) tagOptions {
@@ -469,6 +505,7 @@ func getOptions(tag reflect.StructTag) tagOptions {
 	if t == "-" {
 		return tagOptions{skip: true}
 	}
+
 	var opts tagOptions
 	parts := strings.Split(t, ",")
 	opts.name = parts[0]
@@ -480,6 +517,10 @@ func getOptions(tag reflect.StructTag) tagOptions {
 			opts.omitzero = true
 		}
 	}
+
+	opts.commented, _ = strconv.ParseBool(tag.Get("commented"))
+	opts.comment = tag.Get("comment")
+
 	return opts
 }
 
