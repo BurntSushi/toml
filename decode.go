@@ -505,5 +505,6 @@ func isUnifiable(rv reflect.Value) bool {
 }
 
 func badtype(expected string, data interface{}) error {
-	return e("cannot load TOML value of type %T into a Go %s", data, expected)
+	return e("cannot load TOML value '%v' of type %T into a Go %s",
+		data, data, expected)
 }
