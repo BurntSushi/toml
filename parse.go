@@ -458,10 +458,8 @@ func (p *parser) setValue(key string, value interface{}) {
 // Note that if `key` is empty, then the type given will be applied to the
 // current context (which is either a table or an array of tables).
 func (p *parser) setType(key string, typ tomlType) {
-	keyContext := make(Key, 0, len(p.context)+1)
-	for _, k := range p.context {
-		keyContext = append(keyContext, k)
-	}
+	keyContext := make(Key, len(p.context)+1)
+	copy(keyContext, p.context)
 	if len(key) > 0 { // allow type setting for hashes
 		keyContext = append(keyContext, key)
 	}
