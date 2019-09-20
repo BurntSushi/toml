@@ -319,14 +319,14 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value) {
 					// tag names as though they are not
 					// anonymous, like encoding/json does.
 					if getOptions(f.Tag).name == "" {
-						addFields(t, frv, f.Index)
+						addFields(t, frv, append(start, f.Index...))
 						continue
 					}
 				case reflect.Ptr:
 					if t.Elem().Kind() == reflect.Struct &&
 						getOptions(f.Tag).name == "" {
 						if !frv.IsNil() {
-							addFields(t.Elem(), frv.Elem(), f.Index)
+							addFields(t.Elem(), frv.Elem(), append(start, f.Index...))
 						}
 						continue
 					}
