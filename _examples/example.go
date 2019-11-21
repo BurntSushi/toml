@@ -1,10 +1,9 @@
 package main
 
 import (
-	toml "BurntSushi"
 	"fmt"
+	"github.com/BurntSushi/toml"
 	"time"
-
 )
 
 type tomlConfig struct {

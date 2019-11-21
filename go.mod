@@ -1,3 +1,3 @@
-module BurntSushi
+module github.com/BurntSushi/toml
 
 go 1.13
