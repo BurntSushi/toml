@@ -2,6 +2,7 @@
 package main
 
 import (
+	toml "BurntSushi"
 	"flag"
 	"fmt"
 	"log"
@@ -10,7 +11,6 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/BurntSushi/toml"
 )
 
 var (

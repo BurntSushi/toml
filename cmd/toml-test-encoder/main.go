@@ -3,6 +3,7 @@
 package main
 
 import (
+	toml "BurntSushi"
 	"encoding/json"
 	"flag"
 	"log"
@@ -11,7 +12,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/BurntSushi/toml"
 )
 
 func init() {
