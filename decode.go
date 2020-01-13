@@ -422,6 +422,14 @@ func (md *MetaData) unifyInt(data interface{}, rv reflect.Value) error {
 			panic("unreachable")
 		}
 		return nil
+	} else if d, ok := data.(string); ok {
+		if rv.Type().String() == "time.Duration" {
+			duration, err := time.ParseDuration(d)
+			if err != nil {
+				return e("value %s is invalid format for time.Duration")
+			}
+			rv.SetInt(int64(duration))
+		}
 	}
 	return badtype("integer", data)
 }
