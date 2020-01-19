@@ -429,8 +429,8 @@ func (md *MetaData) unifyInt(data interface{}, rv reflect.Value) error {
 				return e("value %s is invalid format for time.Duration")
 			}
 			rv.SetInt(int64(duration))
+			return nil
 		}
-		return nil
 	}
 	return badtype("integer", data)
 }
