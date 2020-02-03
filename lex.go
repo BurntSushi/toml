@@ -944,9 +944,9 @@ func (itype itemType) String() string {
 		return "ArrayEnd"
 	case itemCommentStart:
 		return "CommentStart"
-	case inlineTableStart:
+	case itemInlineTableStart:
 		return "InlineTableStart"
-	case inlineTableEnd:
+	case itemInlineTableEnd:
 		return "InlineTableEnd"
 	}
 	panic(fmt.Sprintf("BUG: Unknown type '%d'.", int(itype)))
