@@ -932,16 +932,20 @@ func (itype itemType) String() string {
 		return "Float"
 	case itemDatetime:
 		return "DateTime"
-	case itemTableStart:
-		return "TableStart"
-	case itemTableEnd:
-		return "TableEnd"
-	case itemKeyStart:
-		return "KeyStart"
 	case itemArray:
 		return "Array"
 	case itemArrayEnd:
 		return "ArrayEnd"
+	case itemTableStart:
+		return "TableStart"
+	case itemTableEnd:
+		return "TableEnd"
+	case itemArrayTableStart:
+		return "ArrayTableStart"
+	case itemArrayTableEnd:
+		return "ArrayTableEnd"
+	case itemKeyStart:
+		return "KeyStart"
 	case itemCommentStart:
 		return "CommentStart"
 	case itemInlineTableStart:
