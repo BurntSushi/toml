@@ -208,11 +208,11 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 			p.panicf("Invalid integer %q: underscores must be surrounded by digits",
 				it.val)
 		}
-		val := strings.Replace(it.val, "_", "", -1)
 		if numHasLeadingZero(it.val) {
 			p.panicf("Invalid integer %q: cannot have leading zeroes", it.val)
 		}
-		num, err := strconv.ParseInt(val, 10, 64)
+
+		num, err := strconv.ParseInt(it.val, 0, 64)
 		if err != nil {
 			// Distinguish integer values. Normally, it'd be a bug if the lexer
 			// provides an invalid integer, but it's possible that the number is
@@ -341,10 +341,10 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 	panic("unreachable")
 }
 
-// numHasLeadingZero checks if this number has leading zeroes, allowing for '0'
-// and +/- signs.
+// numHasLeadingZero checks if this number has leading zeroes, allowing for '0',
+// +/- signs, and base prefixes.
 func numHasLeadingZero(s string) bool {
-	if len(s) > 1 && s[0] == '0' { // >1 to allow "0"
+	if len(s) > 1 && s[0] == '0' && isDigit(rune(s[1])) { // >1 to allow "0"
 		return true
 	}
 	if len(s) > 2 && (s[0] == '-' || s[0] == '+') && s[1] == '0' {
@@ -362,10 +362,15 @@ func numUnderscoresOK(s string) bool {
 			if !accept {
 				return false
 			}
-			accept = false
-			continue
 		}
-		accept = true
+
+		// isHexadecimal is a superset of all the permissable characters
+		// surrounding an underscore.
+		if isHexadecimal(r) {
+			accept = true
+		} else {
+			accept = false;
+		}
 	}
 	return accept
 }

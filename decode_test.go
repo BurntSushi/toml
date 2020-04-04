@@ -560,6 +560,11 @@ func TestDecodeInts(t *testing.T) {
 		{"1_2_3_4", 1234},
 		{"-9_223_372_036_854_775_808", math.MinInt64},
 		{"9_223_372_036_854_775_807", math.MaxInt64},
+		{"0xdead_BEEF", 0xdeadbeef},
+		{"0x12345", 0x12345},
+		{"0x0987", 0x987},
+		{"0b1101", 0xd},
+		{"0o777", 0x1ff},
 	} {
 		var x struct{ N int64 }
 		input := "n = " + tt.s
@@ -583,6 +588,7 @@ func TestDecodeFloats(t *testing.T) {
 		{"+1.0", 1},
 		{"3.1415", 3.1415},
 		{"-0.01", -0.01},
+		{"0.1", 0.1},
 		{"5e+22", 5e22},
 		{"1e6", 1e6},
 		{"-2E-2", -2e-2},
@@ -615,16 +621,23 @@ func TestDecodeMalformedNumbers(t *testing.T) {
 		{"1e2e3", "Invalid float value"},
 		{"_123", "expected value"},
 		{"123_", "surrounded by digits"},
+		{"0b0_", "surrounded by digits"},
 		{"1._23", "surrounded by digits"},
 		{"1e__23", "surrounded by digits"},
 		{"123.", "must be followed by one or more digits"},
 		{"1.e2", "must be followed by one or more digits"},
+		{"00", "cannot have leading zeroes"},
 		{"01", "cannot have leading zeroes"},
 		{"+01", "cannot have leading zeroes"},
 		{"-01", "cannot have leading zeroes"},
 		{"01.2", "cannot have leading zeroes"},
 		{"-01.2", "cannot have leading zeroes"},
 		{"+01.2", "cannot have leading zeroes"},
+		{"0x_d00d", "invalid digit following hexadecimal base designator"},
+		{"0b_0", "invalid digit following binary base designator"},
+		{"0z", "but got 'z' instead"},
+		{"+0x3", "sign cannot be used"},
+		{"-0xf00", "sign cannot be used"},
 	} {
 		t.Run(tt.s, func(t *testing.T) {
 			var x struct{ N interface{} }

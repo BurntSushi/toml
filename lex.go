@@ -450,8 +450,8 @@ func lexValue(lx *lexer) stateFn {
 		}
 		lx.ignore() // ignore the "'"
 		return lexRawString
-	case '+', '-':
-		return lexNumberStart
+	case '-', '+':
+		return lexDecimalNumberStart
 	case '.': // special error case, be kind to users
 		return lx.errorf("floats must start with a digit, not '.'")
 	}
@@ -730,21 +730,25 @@ func lexLongUnicodeEscape(lx *lexer) stateFn {
 	return lx.pop()
 }
 
-// lexNumberOrDateStart consumes either an integer, a float, or datetime.
+// lexNumberOrDateStart processes the first character of a value which begins
+// with a digit. It exists to catch values starting with '0', so that
+// lexBaseNumberOrDate can differentiate base prefixed integers from other
+// types.
 func lexNumberOrDateStart(lx *lexer) stateFn {
 	r := lx.next()
-	if isDigit(r) {
-		return lexNumberOrDate
-	}
 	switch r {
-	case '_':
-		return lexNumber
-	case 'e', 'E':
-		return lexFloat
-	case '.':
-		return lx.errorf("floats must start with a digit, not '.'")
+	case '0':
+		return lexBaseNumberOrDate
 	}
-	return lx.errorf("expected a digit but got %q", r)
+
+	if !isDigit(r) {
+		// The only way to reach this state is if the value starts
+		// with a digit, so specifically treat anything else as an
+		// error.
+		return lx.errorf("expected a digit but got %q", r)
+	}
+
+	return lexNumberOrDate
 }
 
 // lexNumberOrDate consumes either an integer, float or datetime.
@@ -754,10 +758,10 @@ func lexNumberOrDate(lx *lexer) stateFn {
 		return lexNumberOrDate
 	}
 	switch r {
-	case '-':
+	case '-', ':':
 		return lexDatetime
 	case '_':
-		return lexNumber
+		return lexDecimalNumber
 	case '.', 'e', 'E':
 		return lexFloat
 	}
@@ -784,32 +788,134 @@ func lexDatetime(lx *lexer) stateFn {
 	return lx.pop()
 }
 
-// lexNumberStart consumes either an integer or a float. It assumes that a sign
-// has already been read, but that *no* digits have been consumed.
-// lexNumberStart will move to the appropriate integer or float states.
-func lexNumberStart(lx *lexer) stateFn {
-	// We MUST see a digit. Even floats have to start with a digit.
+// lexHexInteger consumes a hexadecimal integer after seeing the '0x' prefix.
+func lexHexInteger(lx *lexer) stateFn {
 	r := lx.next()
-	if !isDigit(r) {
-		if r == '.' {
-			return lx.errorf("floats must start with a digit, not '.'")
-		}
-		return lx.errorf("expected a digit but got %q", r)
-	}
-	return lexNumber
-}
-
-// lexNumber consumes an integer or a float after seeing the first digit.
-func lexNumber(lx *lexer) stateFn {
-	r := lx.next()
-	if isDigit(r) {
-		return lexNumber
+	if isHexadecimal(r) {
+		return lexHexInteger
 	}
 	switch r {
 	case '_':
-		return lexNumber
+		return lexHexInteger
+	}
+
+	lx.backup()
+	lx.emit(itemInteger)
+	return lx.pop()
+}
+
+// lexOctalInteger consumes an octal integer after seeing the '0o' prefix.
+func lexOctalInteger(lx *lexer) stateFn {
+	r := lx.next()
+	if isOctal(r) {
+		return lexOctalInteger
+	}
+	switch r {
+	case '_':
+		return lexOctalInteger
+	}
+
+	lx.backup()
+	lx.emit(itemInteger)
+	return lx.pop()
+}
+
+// lexBinaryInteger consumes a binary integer after seeing the '0b' prefix.
+func lexBinaryInteger(lx *lexer) stateFn {
+	r := lx.next()
+	if isBinary(r) {
+		return lexBinaryInteger
+	}
+	switch r {
+	case '_':
+		return lexBinaryInteger
+	}
+
+	lx.backup()
+	lx.emit(itemInteger)
+	return lx.pop()
+}
+
+// lexDecimalNumber consumes a decimal float or integer.
+func lexDecimalNumber(lx *lexer) stateFn {
+	r := lx.next()
+	if isDigit(r) {
+		return lexDecimalNumber
+	}
+	switch r {
 	case '.', 'e', 'E':
 		return lexFloat
+	case '_':
+		return lexDecimalNumber
+	}
+
+	lx.backup()
+	lx.emit(itemInteger)
+	return lx.pop()
+}
+
+// lexDecimalNumber consumes the first digit of a number beginning with a sign.
+// It assumes the sign has already been consumed. Values which start with a sign
+// are only allowed to be decimal integers or floats.
+func lexDecimalNumberStart(lx *lexer) stateFn {
+	r := lx.next()
+	// special error cases to give users better error messages
+	switch r {
+	case '0':
+		// possibly surprising element of the spec
+		p := lx.peek()
+		switch p {
+		case 'b', 'o', 'x':
+			return lx.errorf("sign cannot be used with base designator")
+		}
+	case '.':
+		return lx.errorf("floats must start with a digit, not '.'")
+	}
+
+	if isDigit(r) {
+		return lexDecimalNumber
+	}
+
+	return lx.errorf("expected a digit but got %q", r)
+}
+
+
+// lexBaseNumberOrDate differentiates between the possible values which
+// start with '0'. It assumes that before reaching this state, the initial '0'
+// has been consumed.
+func lexBaseNumberOrDate(lx *lexer) stateFn {
+	r := lx.next()
+	// Note: All datetimes start with at least two digits, so we don't
+	// handle date characters (':', '-', etc.) here.
+	if isDigit(r) {
+		return lexNumberOrDate
+	}
+	switch r {
+	case '_':
+		// Can only be decimal, because there can't be an underscore
+		// between the '0' and the base designator, and dates can't
+		// contain underscores.
+		return lexDecimalNumber
+	case '.', 'e', 'E':
+		return lexFloat
+	case 'b':
+		r = lx.peek()
+		if !isBinary(r) {
+			lx.errorf("invalid digit following binary base designator: %q", r)
+		}
+		return lexBinaryInteger
+	case 'o':
+		r = lx.peek()
+		if !isOctal(r) {
+			lx.errorf("invalid digit following octal base designator: %q", r)
+		}
+		return lexOctalInteger
+	case 'x':
+		r = lx.peek()
+		if !isHexadecimal(r) {
+			lx.errorf("invalid digit following hexadecimal base designator: %q", r)
+		}
+		return lexHexInteger
 	}
 
 	lx.backup()
@@ -900,6 +1006,14 @@ func isHexadecimal(r rune) bool {
 	return (r >= '0' && r <= '9') ||
 		(r >= 'a' && r <= 'f') ||
 		(r >= 'A' && r <= 'F')
+}
+
+func isOctal(r rune) bool {
+	return r >= '0' && r <= '7'
+}
+
+func isBinary(r rune) bool {
+	return r == '0' || r == '1'
 }
 
 func isBareKeyChar(r rune) bool {
