@@ -756,9 +756,12 @@ func lexNumberOrDate(lx *lexer) stateFn {
 	switch r {
 	case '-':
 		return lexDatetime
-	case '_':
+	case '_','x','X','b','B','a','A','c','C','d','D','f','F':
 		return lexNumber
 	case '.', 'e', 'E':
+		if lx.input[lx.start]=='0'{
+			return lexNumber
+		}
 		return lexFloat
 	}
 
@@ -806,9 +809,12 @@ func lexNumber(lx *lexer) stateFn {
 		return lexNumber
 	}
 	switch r {
-	case '_':
+	case '_','x','X','b','B','a','A','c','C','d','D','f','F':
 		return lexNumber
 	case '.', 'e', 'E':
+		if lx.input[lx.pos]=='0'{
+			return lexNumber
+		}
 		return lexFloat
 	}
 

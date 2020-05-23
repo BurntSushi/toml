@@ -183,7 +183,22 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 				it.val)
 		}
 		val := strings.Replace(it.val, "_", "", -1)
-		num, err := strconv.ParseInt(val, 10, 64)
+		base:=10
+		if strings.HasPrefix(val,"0x")|| strings.HasPrefix(val,"0X") {
+			if len(val)==2 {
+				p.bug("Expected hexadecimal integer value, but got only '%s'.", it.val)
+			}
+			val=val[2:]
+			base=16
+		}
+		if strings.HasPrefix(val,"0b")|| strings.HasPrefix(val,"0B") {
+			if len(val)==2 {
+				p.bug("Expected binary integer value, but got only '%s'.", it.val)
+			}
+			val=val[2:]
+			base=2
+		}
+		num, err := strconv.ParseInt(val, base, 64)
 		if err != nil {
 			// Distinguish integer values. Normally, it'd be a bug if the lexer
 			// provides an invalid integer, but it's possible that the number is

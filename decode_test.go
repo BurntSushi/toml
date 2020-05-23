@@ -13,6 +13,8 @@ import (
 func TestDecodeSimple(t *testing.T) {
 	var testSimple = `
 age = 250
+hexAge = 0xFA
+binaryAge = 0B11111010
 andrew = "gallant"
 kait = "brady"
 now = 1987-07-05T05:45:00Z
@@ -36,6 +38,8 @@ cauchy = "cat 2"
 	}
 	type simple struct {
 		Age     int
+		BinaryAge int
+		HexAge int
 		Colors  [][]string
 		Pi      float64
 		YesOrNo bool
@@ -67,6 +71,8 @@ cauchy = "cat 2"
 	}
 	var answer = simple{
 		Age:     250,
+		BinaryAge: 250,
+		HexAge: 250,
 		Andrew:  "gallant",
 		Kait:    "brady",
 		Now:     now,
