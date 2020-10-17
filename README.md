@@ -1,3 +1,24 @@
+# THIS PROJECT IS UNMAINTAINED
+
+The last commit to this repo before writing this message occurred over two
+years ago. While it was never my intention to abandon this package, it's clear
+that I have.
+
+While many issues and PRs have piled up, the most significant short-coming
+of this library at present is that it has fallen behind the upstream TOML
+specification.
+
+Many folks are still using this package, and so long as you're happy, there's
+no pressing reason to switch to something else. With that said, it would
+probably be wise to organize around an existing alternative or fork this
+project and update it.
+
+I have no plans on handing ownership of this project over to someone else,
+unless that someone can meet an extremely high bar that inspires confidence
+that the project will be in good hands. In particular, I've had mostly poor
+(but not always) experiences with handing maintenance of a project over to
+someone else.
+
 ## TOML parser and encoder for Go with reflection
 
 TOML stands for Tom's Obvious, Minimal Language. This Go package provides a
