@@ -389,7 +389,7 @@ func lexBareKey(lx *lexer) stateFn {
 		lx.emit(itemText)
 		return lexKeyEnd
 	default:
-		return lx.errorf("bare keys cannot contain %q", r)
+		return lx.errorf("bare keys cannot contain %q (check encoding)", r)
 	}
 }
 
