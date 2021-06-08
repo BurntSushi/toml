@@ -1,10 +1,12 @@
+TOML_TESTDIR?=tests
+
 install:
 	go install ./...
 
 test: install
-	go test -v
-	toml-test toml-test-decoder
-	toml-test -encoder toml-test-encoder
+	go test -v ./...
+	toml-test -testdir="${TOML_TESTDIR}"          toml-test-decoder
+	toml-test -testdir="${TOML_TESTDIR}" -encoder toml-test-encoder
 
 fmt:
 	gofmt -w *.go */*.go
