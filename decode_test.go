@@ -88,6 +88,42 @@ cauchy = "cat 2"
 	}
 }
 
+func TestUTF16(t *testing.T) {
+	tests := []struct {
+		in      []byte
+		wantErr string
+	}{
+		// a = "b" in UTF-16, without BOM and with the LE and BE BOMs.
+		{
+			[]byte{0x61, 0x00, 0x20, 0x00, 0x3d, 0x00, 0x20, 0x00, 0x22, 0x00, 0x62, 0x00, 0x22, 0x00, 0x0a, 0x00},
+			`bare keys cannot contain '\x00'; probably using UTF-16; TOML files must be UTF-8`,
+		},
+		{
+			[]byte{0xfe, 0xff, 0x61, 0x00, 0x20, 0x00, 0x3d, 0x00, 0x20, 0x00, 0x22, 0x00, 0x62, 0x00, 0x22, 0x00, 0x0a, 0x00},
+			`document starts with UTF-16 byte-order-mark (BOM) 0xfeff; TOML files must be UTF-8`,
+		},
+		{
+			[]byte{0xff, 0xfe, 0x61, 0x00, 0x20, 0x00, 0x3d, 0x00, 0x20, 0x00, 0x22, 0x00, 0x62, 0x00, 0x22, 0x00, 0x0a, 0x00},
+			`document starts with UTF-16 byte-order-mark (BOM) 0xfffe; TOML files must be UTF-8`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			var s struct {
+				A string
+			}
+			_, err := Decode(string(tt.in), &s)
+			if err == nil {
+				t.Fatal("err is nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("wrong error\nhave: %q\nwant: %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestDecodeEmbedded(t *testing.T) {
 	type Dog struct{ Name string }
 	type Age int
