@@ -514,6 +514,8 @@ func TestDecodeInts(t *testing.T) {
 		want int64
 	}{
 		{"0", 0},
+		{"+0", 0},
+		{"-0", 0},
 		{"+99", 99},
 		{"-10", -10},
 		{"1_234_567", 1234567},
@@ -538,6 +540,8 @@ func TestDecodeFloats(t *testing.T) {
 		s    string
 		want float64
 	}{
+		{"+0.0", 0},
+		{"-0.0", 0},
 		{"+1.0", 1},
 		{"3.1415", 3.1415},
 		{"-0.01", -0.01},
@@ -548,15 +552,16 @@ func TestDecodeFloats(t *testing.T) {
 		{"9_224_617.445_991_228_313", 9224617.445991228313},
 		{"9_876.54_32e1_0", 9876.5432e10},
 	} {
-		var x struct{ N float64 }
-		input := "n = " + tt.s
-		if _, err := Decode(input, &x); err != nil {
-			t.Errorf("Decode(%q): got error: %s", input, err)
-			continue
-		}
-		if x.N != tt.want {
-			t.Errorf("Decode(%q): got %f; want %f", input, x.N, tt.want)
-		}
+		t.Run(tt.s, func(t *testing.T) {
+			var x struct{ N float64 }
+			input := "n = " + tt.s
+			if _, err := Decode(input, &x); err != nil {
+				t.Fatalf("got error: %s", err)
+			}
+			if x.N != tt.want {
+				t.Errorf("got %f; want %f", x.N, tt.want)
+			}
+		})
 	}
 }
 
@@ -576,19 +581,24 @@ func TestDecodeMalformedNumbers(t *testing.T) {
 		{"1e__23", "surrounded by digits"},
 		{"123.", "must be followed by one or more digits"},
 		{"1.e2", "must be followed by one or more digits"},
+		{"01", "cannot have leading zeroes"},
+		{"+01", "cannot have leading zeroes"},
+		{"-01", "cannot have leading zeroes"},
+		{"01.2", "cannot have leading zeroes"},
+		{"-01.2", "cannot have leading zeroes"},
+		{"+01.2", "cannot have leading zeroes"},
 	} {
-		var x struct{ N interface{} }
-		input := "n = " + tt.s
-		_, err := Decode(input, &x)
-		if err == nil {
-			t.Errorf("Decode(%q): got nil, want error containing %q",
-				input, tt.want)
-			continue
-		}
-		if !strings.Contains(err.Error(), tt.want) {
-			t.Errorf("Decode(%q): got %q, want error containing %q",
-				input, err, tt.want)
-		}
+		t.Run(tt.s, func(t *testing.T) {
+			var x struct{ N interface{} }
+			input := "n = " + tt.s
+			_, err := Decode(input, &x)
+			if err == nil {
+				t.Fatalf("got nil, want error containing %q", tt.want)
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("got %q, want error containing %q", err, tt.want)
+			}
+		})
 	}
 }
 
