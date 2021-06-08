@@ -47,6 +47,12 @@ func parse(data string) (p *parser, err error) {
 		}
 	}()
 
+	if strings.HasPrefix(data, "\xff\xfe") || strings.HasPrefix(data, "\xfe\xff") {
+		return nil, fmt.Errorf(
+			"document starts with UTF-16 byte-order-mark (BOM) 0x%x; TOML files must be UTF-8",
+			data[:2])
+	}
+
 	p = &parser{
 		mapping:   make(map[string]interface{}),
 		types:     make(map[string]tomlType),

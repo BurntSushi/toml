@@ -389,6 +389,10 @@ func lexBareKey(lx *lexer) stateFn {
 		lx.emit(itemText)
 		return lexKeyEnd
 	default:
+		// NULL bytes probably means it's a UTF-16 file without BOM.
+		if r == 0 {
+			return lx.errorf("bare keys cannot contain %q; probably using UTF-16; TOML files must be UTF-8", r)
+		}
 		return lx.errorf("bare keys cannot contain %q", r)
 	}
 }
