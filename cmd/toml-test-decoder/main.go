@@ -68,7 +68,7 @@ func translate(tomlData interface{}) interface{} {
 		// (If TOML ever supports tuples, we'll need this.)
 		return tag("array", typed)
 	case time.Time:
-		return tag("datetime", orig.Format("2006-01-02T15:04:05Z"))
+		return tag("datetime", orig.Format("2006-01-02T15:04:05.999999999Z07:00"))
 	case bool:
 		return tag("bool", fmt.Sprintf("%v", orig))
 	case int64:
