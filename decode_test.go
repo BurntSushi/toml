@@ -1506,3 +1506,52 @@ type cable struct {
 func (c *cable) Name() string {
 	return fmt.Sprintf("CABLE: %s", c.ID)
 }
+
+func BenchmarkDecode(b *testing.B) {
+	var testSimple = `
+age = 250
+andrew = "gallant"
+kait = "brady"
+now = 1987-07-05T05:45:00Z
+nowEast = 2017-06-22T16:15:21+08:00
+nowWest = 2017-06-22T02:14:36-06:00
+yesOrNo = true
+pi = 3.14
+colors = [
+	["red", "green", "blue"],
+	["cyan", "magenta", "yellow", "black"],
+]
+
+[My.Cats]
+plato = "cat 1"
+cauchy = "cat 2"
+`
+
+	type cats struct {
+		Plato  string
+		Cauchy string
+	}
+	type simple struct {
+		Age     int
+		Colors  [][]string
+		Pi      float64
+		YesOrNo bool
+		Now     time.Time
+		NowEast time.Time
+		NowWest time.Time
+		Andrew  string
+		Kait    string
+		My      map[string]cats
+	}
+
+	var val simple
+	_, err := Decode(testSimple, &val)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		Decode(testSimple, &val)
+	}
+}
