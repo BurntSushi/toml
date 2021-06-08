@@ -216,3 +216,6 @@ Note that a case insensitive match will be tried if an exact match can't be
 found.
 
 A working example of the above can be found in `_examples/example.{go,toml}`.
+
+**Beware**: only exported fields of structs are considered when encoding/deconding;
+private fields are silently ignored.

@@ -83,6 +83,9 @@ func NewEncoder(w io.Writer) *Encoder {
 // non-struct types and nested slices containing maps or structs.
 // (e.g., [][]map[string]string is not allowed but []map[string]string is OK
 // and so is []map[string][]string.)
+//
+// Beware: due to the use of reflection, only exported keys are encoded. Non
+// exported keys are silently discarded.
 func (enc *Encoder) Encode(v interface{}) error {
 	rv := eindirect(reflect.ValueOf(v))
 	if err := enc.safeEncode(Key([]string{}), rv); err != nil {
