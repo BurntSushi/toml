@@ -183,6 +183,9 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 				it.val)
 		}
 		val := strings.Replace(it.val, "_", "", -1)
+		if numHasLeadingZero(it.val) {
+			p.panicf("Invalid integer %q: cannot have leading zeroes", it.val)
+		}
 		num, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
 			// Distinguish integer values. Normally, it'd be a bug if the lexer
@@ -213,6 +216,9 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 				p.panicf("Invalid float %q: underscores must be "+
 					"surrounded by digits", it.val)
 			}
+		}
+		if len(parts) > 0 && numHasLeadingZero(parts[0]) {
+			p.panicf("Invalid float %q: cannot have leading zeroes", it.val)
 		}
 		if !numPeriodsOK(it.val) {
 			// As a special case, numbers like '123.' or '1.e2',
@@ -307,6 +313,18 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 	}
 	p.bug("Unexpected value type: %s", it.typ)
 	panic("unreachable")
+}
+
+// numHasLeadingZero checks if this number has leading zeroes, allowing for '0'
+// and +/- signs.
+func numHasLeadingZero(s string) bool {
+	if len(s) > 1 && s[0] == '0' { // >1 to allow "0"
+		return true
+	}
+	if len(s) > 2 && (s[0] == '-' || s[0] == '+') && s[1] == '0' {
+		return true
+	}
+	return false
 }
 
 // numUnderscoresOK checks whether each underscore in s is surrounded by
