@@ -389,19 +389,20 @@ func TestDecodeDatetime(t *testing.T) {
 		},
 		{"1979-05-27", "1979-05-27T00:00:00", noTimestamp},
 	} {
-		var x struct{ D time.Time }
-		input := "d = " + tt.s
-		if _, err := Decode(input, &x); err != nil {
-			t.Errorf("Decode(%q): got error: %s", input, err)
-			continue
-		}
-		want, err := time.ParseInLocation(tt.format, tt.t, time.Local)
-		if err != nil {
-			panic(err)
-		}
-		if !x.D.Equal(want) {
-			t.Errorf("Decode(%q): got %s; want %s", input, x.D, want)
-		}
+		t.Run(tt.s, func(t *testing.T) {
+			var x struct{ D time.Time }
+			input := "d = " + tt.s
+			if _, err := Decode(input, &x); err != nil {
+				t.Fatalf("got error: %s", err)
+			}
+			want, err := time.ParseInLocation(tt.format, tt.t, time.Local)
+			if err != nil {
+				panic(err)
+			}
+			if !x.D.Equal(want) {
+				t.Errorf("got %s; want %s", x.D, want)
+			}
+		})
 	}
 }
 
