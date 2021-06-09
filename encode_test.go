@@ -555,6 +555,37 @@ func TestEncodeAnonymousStructPointerField(t *testing.T) {
 	encodeExpected(t, "non-nil anonymous tagged struct pointer field", v1, expected, nil)
 }
 
+func TestEncodeNestedAnonymousStructs(t *testing.T) {
+	type A struct {	A string }
+	type B struct { B string }
+	type C struct { C string }
+	type BC struct {
+		B
+		C
+	}
+	type Outer struct {
+		A
+		BC
+	}
+
+	v := &Outer{
+		A: A{
+			A: "a",
+		},
+		BC: BC{
+			B: B{
+				B: "b",
+			},
+			C: C{
+				C: "c",
+			},
+		},
+	}
+
+	expected := "A = \"a\"\nB = \"b\"\nC = \"c\"\n"
+	encodeExpected(t, "nested anonymous untagged structs", v, expected, nil)
+}
+
 func TestEncodeIgnoredFields(t *testing.T) {
 	type simple struct {
 		Number int `toml:"-"`
