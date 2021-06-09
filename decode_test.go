@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -1554,6 +1555,39 @@ cauchy = "cat 2"
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		Decode(testSimple, &val)
+	}
+}
+
+func TestParseError(t *testing.T) {
+	file :=
+		`a = "a"
+b = "b"
+c = 001  # invalid
+`
+
+	var s struct {
+		A, B string
+		C    int
+	}
+	_, err := Decode(file, &s)
+	if err == nil {
+		t.Fatal("err is nil")
+	}
+
+	var pErr ParseError
+	if !errors.As(err, &pErr) {
+		t.Fatalf("err is not a ParseError: %T %[1]v", err)
+	}
+
+	want := ParseError{
+		Line:    3,
+		LastKey: "c",
+		Message: `Invalid integer "001": cannot have leading zeroes`,
+	}
+	if !strings.Contains(pErr.Message, `Invalid integer "001"`) ||
+		pErr.Line != want.Line ||
+		pErr.LastKey != want.LastKey {
+		t.Errorf("unexpected data\nhave: %#v\nwant: %#v", pErr, want)
 	}
 }
 

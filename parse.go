@@ -31,17 +31,24 @@ type parser struct {
 	implicits map[string]bool
 }
 
-type parseError string
+// ParseError is used when a file can't be parsed: for example invalid integer
+// literals, duplicate keys, etc.
+type ParseError struct {
+	Message string
+	Line    int
+	LastKey string
+}
 
-func (pe parseError) Error() string {
-	return string(pe)
+func (pe ParseError) Error() string {
+	return fmt.Sprintf("Near line %d (last key parsed '%s'): %s",
+		pe.Line, pe.LastKey, pe.Message)
 }
 
 func parse(data string) (p *parser, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			var ok bool
-			if err, ok = r.(parseError); ok {
+			if err, ok = r.(ParseError); ok {
 				return
 			}
 			panic(r)
@@ -83,9 +90,12 @@ func parse(data string) (p *parser, err error) {
 }
 
 func (p *parser) panicf(format string, v ...interface{}) {
-	msg := fmt.Sprintf("Near line %d (last key parsed '%s'): %s",
-		p.approxLine, p.current(), fmt.Sprintf(format, v...))
-	panic(parseError(msg))
+	msg := fmt.Sprintf(format, v...)
+	panic(ParseError{
+		Message: msg,
+		Line:    p.approxLine,
+		LastKey: p.current(),
+	})
 }
 
 func (p *parser) next() item {
