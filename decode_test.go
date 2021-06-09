@@ -96,29 +96,30 @@ func TestUTF16(t *testing.T) {
 		// a = "b" in UTF-16, without BOM and with the LE and BE BOMs.
 		{
 			[]byte{0x61, 0x00, 0x20, 0x00, 0x3d, 0x00, 0x20, 0x00, 0x22, 0x00, 0x62, 0x00, 0x22, 0x00, 0x0a, 0x00},
-			`bare keys cannot contain '\x00'; probably using UTF-16; TOML files must be UTF-8`,
+			`files cannot contain NULL bytes; probably using UTF-16; TOML files must be UTF-8`,
 		},
 		{
 			[]byte{0xfe, 0xff, 0x61, 0x00, 0x20, 0x00, 0x3d, 0x00, 0x20, 0x00, 0x22, 0x00, 0x62, 0x00, 0x22, 0x00, 0x0a, 0x00},
-			`document starts with UTF-16 byte-order-mark (BOM) 0xfeff; TOML files must be UTF-8`,
+			`files cannot contain NULL bytes; probably using UTF-16; TOML files must be UTF-8`,
 		},
-		{
-			[]byte{0xff, 0xfe, 0x61, 0x00, 0x20, 0x00, 0x3d, 0x00, 0x20, 0x00, 0x22, 0x00, 0x62, 0x00, 0x22, 0x00, 0x0a, 0x00},
-			`document starts with UTF-16 byte-order-mark (BOM) 0xfffe; TOML files must be UTF-8`,
-		},
+		//  UTF-8 with BOM
+		{[]byte("\xff\xfea = \"b\""), ``},
+		{[]byte("\xfe\xffa = \"b\""), ``},
 	}
 
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
-			var s struct {
-				A string
-			}
+			var s struct{ A string }
+
 			_, err := Decode(string(tt.in), &s)
-			if err == nil {
-				t.Fatal("err is nil")
+			if !errorContains(err, tt.wantErr) {
+				t.Fatalf("wrong error\nhave: %q\nwant: %q", err, tt.wantErr)
 			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("wrong error\nhave: %q\nwant: %q", err, tt.wantErr)
+			if tt.wantErr != "" {
+				return
+			}
+			if s.A != "b" {
+				t.Errorf(`s.A is not "b" but %q`, s.A)
 			}
 		})
 	}
@@ -1554,4 +1555,19 @@ cauchy = "cat 2"
 	for n := 0; n < b.N; n++ {
 		Decode(testSimple, &val)
 	}
+}
+
+// errorContains checks if the error message in have contains the text in
+// want.
+//
+// This is safe when have is nil. Use an empty string for want if you want to
+// test that err is nil.
+func errorContains(have error, want string) bool {
+	if have == nil {
+		return want == ""
+	}
+	if want == "" {
+		return false
+	}
+	return strings.Contains(have.Error(), want)
 }
