@@ -270,6 +270,12 @@ func (md *MetaData) unifyStruct(mapping interface{}, rv reflect.Value) error {
 }
 
 func (md *MetaData) unifyMap(mapping interface{}, rv reflect.Value) error {
+	if k := rv.Type().Key().Kind(); k != reflect.String {
+		return fmt.Errorf(
+			"toml: cannot decode to a map with non-string key type (%s in %q)",
+			k, rv.Type())
+	}
+
 	tmap, ok := mapping.(map[string]interface{})
 	if !ok {
 		if tmap == nil {

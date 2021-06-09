@@ -641,24 +641,27 @@ func TestDecodeMalformedNumbers(t *testing.T) {
 	}
 }
 
-func TestDecodeBadValues(t *testing.T) {
+func TestDecodeTypes(t *testing.T) {
+	type mystr string
+
 	for _, tt := range []struct {
 		v    interface{}
 		want string
 	}{
+		{new(map[string]int64), ""},
+		{new(map[mystr]int64), ""},
+
 		{3, "non-pointer int"},
 		{(*int)(nil), "nil"},
+		{new(map[int]string), "cannot decode to a map with non-string key type"},
+		{new(map[interface{}]string), "cannot decode to a map with non-string key type"},
 	} {
-		_, err := Decode(`x = 3`, tt.v)
-		if err == nil {
-			t.Errorf("Decode(%v): got nil; want error containing %q",
-				tt.v, tt.want)
-			continue
-		}
-		if !strings.Contains(err.Error(), tt.want) {
-			t.Errorf("Decode(%v): got %q; want error containing %q",
-				tt.v, err, tt.want)
-		}
+		t.Run(fmt.Sprintf("%T", tt.v), func(t *testing.T) {
+			_, err := Decode(`x = 3`, tt.v)
+			if !errorContains(err, tt.want) {
+				t.Errorf("wrong error\nhave: %q\nwant: %q", err, tt.want)
+			}
+		})
 	}
 }
 
