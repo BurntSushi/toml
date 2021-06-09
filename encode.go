@@ -118,6 +118,7 @@ func (enc *Encoder) encode(key Key, rv reflect.Value) {
 	case time.Time, encoding.TextMarshaler:
 		enc.keyEqElement(key, rv)
 		return
+	// TODO: #76 would make this superfluous after implemented.
 	case Primitive:
 		enc.encode(key, reflect.ValueOf(t.undecoded))
 		return

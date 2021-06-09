@@ -1,7 +1,6 @@
 package toml
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"log"
@@ -1608,75 +1607,4 @@ func errorContains(have error, want string) bool {
 		return false
 	}
 	return strings.Contains(have.Error(), want)
-}
-
-type MyStruct struct {
-	Data  Primitive
-	DataA int
-	DataB string
-}
-
-func TestDecodeEncodeDecodePrimitive(t *testing.T) {
-	input := `
-Data = ["Foo","Bar"]
-DataA = 1
-DataB = "bbb"
-	`
-
-	// First pass
-	func() {
-		result := MyStruct{}
-		md, err := Decode(input, &result)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if result.DataA != 1 || result.DataB != "bbb" {
-			t.Fatalf("Unexpceted unmarshaled values. %v", result)
-		}
-
-		dataValue := []string{}
-		err = md.PrimitiveDecode(result.Data, &dataValue)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if dataValue[0] != "Foo" {
-			t.Fatalf("Unexpected value of Data")
-		}
-
-		buf := bytes.Buffer{}
-		if err := NewEncoder(&buf).Encode(result); err != nil {
-			log.Fatal(err)
-		}
-
-		input = buf.String()
-	}()
-
-	if !strings.Contains(input, "Foo") {
-		t.Fatalf("Current input does not contain Foo\n%s", input)
-	}
-
-	// Second pass
-	func() {
-		result := MyStruct{}
-		md, err := Decode(input, &result)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if result.DataA != 1 || result.DataB != "bbb" {
-			t.Fatalf("Unexpceted unmarshaled values. %v", result)
-		}
-
-		dataValue := []string{}
-		err = md.PrimitiveDecode(result.Data, &dataValue)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if dataValue[0] != "Foo" {
-			t.Fatalf("Unexpected value of Data")
-		}
-	}()
 }
