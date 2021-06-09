@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -47,10 +48,20 @@ func parse(data string) (p *parser, err error) {
 		}
 	}()
 
+	// Read over BOM; do this here as the lexer calls utf8.DecodeRuneInString()
+	// which mangles stuff.
 	if strings.HasPrefix(data, "\xff\xfe") || strings.HasPrefix(data, "\xfe\xff") {
-		return nil, fmt.Errorf(
-			"document starts with UTF-16 byte-order-mark (BOM) 0x%x; TOML files must be UTF-8",
-			data[:2])
+		data = data[2:]
+	}
+	// Examine first few bytes for NULL bytes; this probably means it's a UTF-16
+	// file (second byte in surrogate pair being NULL). Again, do this here to
+	// avoid having to deal with UTF-8/16 stuff in the lexer.
+	ex := 6
+	if len(data) < 6 {
+		ex = len(data)
+	}
+	if strings.ContainsRune(data[:ex], 0) {
+		return nil, errors.New("files cannot contain NULL bytes; probably using UTF-16; TOML files must be UTF-8")
 	}
 
 	p = &parser{
