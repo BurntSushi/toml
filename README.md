@@ -6,12 +6,12 @@ packages. This package also supports the `encoding.TextUnmarshaler` and
 `encoding.TextMarshaler` interfaces so that you can define custom data
 representations. (There is an example of this below.)
 
-Spec: https://github.com/toml-lang/toml
+TOML specification: https://toml.io
 
-Compatible with TOML version
-[v0.4.0](https://github.com/toml-lang/toml/blob/master/versions/en/toml-v0.4.0.md)
+Compatible with TOML version [v0.4.0](https://toml.io/en/v0.4.0); support for
+more recent versions (0.5, 1.0) is forthcoming.
 
-Documentation: https://godoc.org/github.com/BurntSushi/toml
+Documentation: https://pkg.go.dev/github.com/BurntSushi/toml
 
 Installation:
 
@@ -19,14 +19,12 @@ Installation:
 go get github.com/BurntSushi/toml
 ```
 
-Try the toml validator:
+Try the TOML validator:
 
 ```bash
 go get github.com/BurntSushi/toml/cmd/tomlv
 tomlv some-toml-file.toml
 ```
-
-[![Build Status](https://travis-ci.org/BurntSushi/toml.svg?branch=master)](https://travis-ci.org/BurntSushi/toml) [![GoDoc](https://godoc.org/github.com/BurntSushi/toml?status.svg)](https://godoc.org/github.com/BurntSushi/toml)
 
 ### Testing
 
@@ -36,8 +34,8 @@ and the encoder.
 
 ### Examples
 
-This package works similarly to how the Go standard library handles `XML`
-and `JSON`. Namely, data is loaded into Go values via reflection.
+This package works similarly to how the Go standard library handles XML and
+JSON. Namely, data is loaded into Go values via reflection.
 
 For the simplest example, consider some TOML file as just a list of keys
 and values:
@@ -54,11 +52,11 @@ Which could be defined in Go as:
 
 ```go
 type Config struct {
-  Age int
-  Cats []string
-  Pi float64
-  Perfection []int
-  DOB time.Time // requires `import time`
+	Age        int
+	Cats       []string
+	Pi         float64
+	Perfection []int
+	DOB        time.Time // requires `import time`
 }
 ```
 
@@ -84,6 +82,9 @@ type TOML struct {
 }
 ```
 
+Beware that like other most other decoders **only exported fields** are
+considered when encoding and decoding; private fields are silently ignored.
+
 ### Using the `encoding.TextUnmarshaler` interface
 
 Here's an example that automatically parses duration strings into
@@ -103,19 +104,19 @@ Which can be decoded with:
 
 ```go
 type song struct {
-  Name     string
-  Duration duration
+	Name     string
+	Duration duration
 }
 type songs struct {
-  Song []song
+	Song []song
 }
 var favorites songs
 if _, err := toml.Decode(blob, &favorites); err != nil {
-  log.Fatal(err)
+	log.Fatal(err)
 }
 
 for _, s := range favorites.Song {
-  fmt.Printf("%s (%s)\n", s.Name, s.Duration)
+	fmt.Printf("%s (%s)\n", s.Name, s.Duration)
 }
 ```
 
@@ -133,6 +134,9 @@ func (d *duration) UnmarshalText(text []byte) error {
 	return err
 }
 ```
+
+To target TOML specifically you can implement `UnmarshalTOML` TOML interface in
+a similar way.
 
 ### More complex usage
 
@@ -180,23 +184,23 @@ And the corresponding Go types are:
 
 ```go
 type tomlConfig struct {
-	Title string
-	Owner ownerInfo
-	DB database `toml:"database"`
+	Title   string
+	Owner   ownerInfo
+	DB      database `toml:"database"`
 	Servers map[string]server
 	Clients clients
 }
 
 type ownerInfo struct {
 	Name string
-	Org string `toml:"organization"`
-	Bio string
-	DOB time.Time
+	Org  string `toml:"organization"`
+	Bio  string
+	DOB  time.Time
 }
 
 type database struct {
-	Server string
-	Ports []int
+	Server  string
+	Ports   []int
 	ConnMax int `toml:"connection_max"`
 	Enabled bool
 }
@@ -207,7 +211,7 @@ type server struct {
 }
 
 type clients struct {
-	Data [][]interface{}
+	Data  [][]interface{}
 	Hosts []string
 }
 ```
@@ -217,5 +221,3 @@ found.
 
 A working example of the above can be found in `_examples/example.{go,toml}`.
 
-**Beware**: only exported fields of structs are considered when encoding/deconding;
-private fields are silently ignored.
