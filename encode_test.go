@@ -3,7 +3,6 @@ package toml
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"net"
 	"testing"
 	"time"
@@ -653,29 +652,4 @@ func encodeExpected(
 		t.Errorf("%s: want\n-----\n%q\n-----\nbut got\n-----\n%q\n-----\n",
 			label, wantStr, got)
 	}
-}
-
-func ExampleEncoder_Encode() {
-	date, _ := time.Parse(time.RFC822, "14 Mar 10 18:00 UTC")
-	var config = map[string]interface{}{
-		"date":   date,
-		"counts": []int{1, 1, 2, 3, 5, 8},
-		"hash": map[string]string{
-			"key1": "val1",
-			"key2": "val2",
-		},
-	}
-	buf := new(bytes.Buffer)
-	if err := NewEncoder(buf).Encode(config); err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(buf.String())
-
-	// Output:
-	// counts = [1, 1, 2, 3, 5, 8]
-	// date = 2010-03-14T18:00:00Z
-	//
-	// [hash]
-	//   key1 = "val1"
-	//   key2 = "val2"
 }
