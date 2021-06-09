@@ -152,6 +152,7 @@ func DecodeReader(r io.Reader, v interface{}) (MetaData, error) {
 func (md *MetaData) unify(data interface{}, rv reflect.Value) error {
 
 	// Special case. Look for a `Primitive` value.
+	// TODO: #76 would make this superfluous after implemented.
 	if rv.Type() == reflect.TypeOf((*Primitive)(nil)).Elem() {
 		// Save the undecoded data and the key context into the primitive
 		// value.

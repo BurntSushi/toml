@@ -556,9 +556,9 @@ func TestEncodeAnonymousStructPointerField(t *testing.T) {
 }
 
 func TestEncodeNestedAnonymousStructs(t *testing.T) {
-	type A struct {	A string }
-	type B struct { B string }
-	type C struct { C string }
+	type A struct{ A string }
+	type B struct{ B string }
+	type C struct{ C string }
 	type BC struct {
 		B
 		C
@@ -593,6 +593,41 @@ func TestEncodeIgnoredFields(t *testing.T) {
 	value := simple{}
 	expected := ""
 	encodeExpected(t, "ignored field", value, expected, nil)
+}
+
+func TestEncodePrimitive(t *testing.T) {
+	type MyStruct struct {
+		Data  Primitive
+		DataA int
+		DataB string
+	}
+
+	decodeAndEncode := func(toml string) string {
+		var s MyStruct
+		_, err := Decode(toml, &s)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var buf bytes.Buffer
+		err = NewEncoder(&buf).Encode(s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return buf.String()
+	}
+
+	original := `DataA = 1
+DataB = "bbb"
+Data = ["Foo", "Bar"]
+`
+	reEncoded := decodeAndEncode(decodeAndEncode(original))
+
+	if reEncoded != original {
+		t.Errorf(
+			"re-encoded not the same as original\noriginal:   %q\nre-encoded: %q",
+			original, reEncoded)
+	}
 }
 
 func encodeExpected(

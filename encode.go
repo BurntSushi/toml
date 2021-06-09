@@ -114,9 +114,13 @@ func (enc *Encoder) encode(key Key, rv reflect.Value) {
 	// Special case. If we can marshal the type to text, then we used that.
 	// Basically, this prevents the encoder for handling these types as
 	// generic structs (or whatever the underlying type of a TextMarshaler is).
-	switch rv.Interface().(type) {
+	switch t := rv.Interface().(type) {
 	case time.Time, encoding.TextMarshaler:
 		enc.keyEqElement(key, rv)
+		return
+	// TODO: #76 would make this superfluous after implemented.
+	case Primitive:
+		enc.encode(key, reflect.ValueOf(t.undecoded))
 		return
 	}
 
