@@ -31,6 +31,8 @@ type parser struct {
 	implicits map[string]bool
 }
 
+// ParseError is used when a file can't be parsed: for example invalid integer
+// literals, duplicate keys, etc.
 type ParseError struct {
 	Message string
 	Line    int
