@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"encoding"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -170,16 +171,8 @@ func (md *MetaData) unify(data interface{}, rv reflect.Value) error {
 		}
 	}
 
-	// Special case. Handle time.Time values specifically.
-	// TODO: Remove this code when we decide to drop support for Go 1.1.
-	// This isn't necessary in Go 1.2 because time.Time satisfies the encoding
-	// interfaces.
-	if rv.Type().AssignableTo(rvalue(time.Time{}).Type()) {
-		return md.unifyDatetime(data, rv)
-	}
-
 	// Special case. Look for a value satisfying the TextUnmarshaler interface.
-	if v, ok := rv.Interface().(TextUnmarshaler); ok {
+	if v, ok := rv.Interface().(encoding.TextUnmarshaler); ok {
 		return md.unifyText(data, v)
 	}
 	// BUG(burntsushi)
@@ -439,7 +432,7 @@ func (md *MetaData) unifyAnything(data interface{}, rv reflect.Value) error {
 	return nil
 }
 
-func (md *MetaData) unifyText(data interface{}, v TextUnmarshaler) error {
+func (md *MetaData) unifyText(data interface{}, v encoding.TextUnmarshaler) error {
 	var s string
 	switch sdata := data.(type) {
 	case TextMarshaler:
@@ -482,7 +475,7 @@ func indirect(v reflect.Value) reflect.Value {
 	if v.Kind() != reflect.Ptr {
 		if v.CanSet() {
 			pv := v.Addr()
-			if _, ok := pv.Interface().(TextUnmarshaler); ok {
+			if _, ok := pv.Interface().(encoding.TextUnmarshaler); ok {
 				return pv
 			}
 		}
@@ -498,7 +491,7 @@ func isUnifiable(rv reflect.Value) bool {
 	if rv.CanSet() {
 		return true
 	}
-	if _, ok := rv.Interface().(TextUnmarshaler); ok {
+	if _, ok := rv.Interface().(encoding.TextUnmarshaler); ok {
 		return true
 	}
 	return false

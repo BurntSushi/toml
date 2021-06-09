@@ -1,3 +1,3 @@
 module github.com/BurntSushi/toml
 
-go 1.9
+go 1.11

@@ -2,6 +2,7 @@ package toml
 
 import (
 	"bufio"
+	"encoding"
 	"errors"
 	"fmt"
 	"io"
@@ -114,7 +115,7 @@ func (enc *Encoder) encode(key Key, rv reflect.Value) {
 	// Basically, this prevents the encoder for handling these types as
 	// generic structs (or whatever the underlying type of a TextMarshaler is).
 	switch rv.Interface().(type) {
-	case time.Time, TextMarshaler:
+	case time.Time, encoding.TextMarshaler:
 		enc.keyEqElement(key, rv)
 		return
 	}
@@ -165,7 +166,7 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 		// encoding.TextMarshaler, but we need to always use UTC.
 		enc.wf(v.UTC().Format("2006-01-02T15:04:05Z"))
 		return
-	case TextMarshaler:
+	case encoding.TextMarshaler:
 		// Special case. Use text marshaler if it's available for this value.
 		if s, err := v.MarshalText(); err != nil {
 			encPanic(err)
@@ -414,7 +415,7 @@ func tomlTypeOfGo(rv reflect.Value) tomlType {
 		switch rv.Interface().(type) {
 		case time.Time:
 			return tomlDatetime
-		case TextMarshaler:
+		case encoding.TextMarshaler:
 			return tomlString
 		default:
 			return tomlHash
