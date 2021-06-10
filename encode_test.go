@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"os"
 	"testing"
 	"time"
 )
@@ -626,6 +627,29 @@ Data = ["Foo", "Bar"]
 		t.Errorf(
 			"re-encoded not the same as original\noriginal:   %q\nre-encoded: %q",
 			original, reEncoded)
+	}
+}
+
+func TestEncodeError(t *testing.T) {
+	tests := []struct {
+		in      interface{}
+		wantErr string
+	}{
+		{make(chan int), "unsupported type for key '': chan"},
+		{struct{ C complex128 }{0}, "unsupported type: complex128"},
+		{[]complex128{0}, "unsupported type: complex128"},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			err := NewEncoder(os.Stderr).Encode(tt.in)
+			if err == nil {
+				t.Fatal("err is nil")
+			}
+			if !errorContains(err, tt.wantErr) {
+				t.Errorf("wrong error\nhave: %q\nwant: %q", err, tt.wantErr)
+			}
+		})
 	}
 }
 
