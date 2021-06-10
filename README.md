@@ -13,7 +13,7 @@ more recent versions (0.5, 1.0) is forthcoming.
 
 Documentation: https://pkg.go.dev/github.com/BurntSushi/toml
 
-Installation:
+This library requires Go 1.13 or newer; install it with:
 
 ```bash
 go get github.com/BurntSushi/toml
