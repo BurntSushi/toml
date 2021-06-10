@@ -575,16 +575,30 @@ func TestDecodeFloats(t *testing.T) {
 		{"0.1", 0.1},
 		{"5e+22", 5e22},
 		{"1e6", 1e6},
+		{"1e06", 1e6},
+		{"1e006", 1e6},
 		{"-2E-2", -2e-2},
 		{"6.626e-34", 6.626e-34},
 		{"9_224_617.445_991_228_313", 9224617.445991228313},
 		{"9_876.54_32e1_0", 9876.5432e10},
+		{"inf", math.Inf(0)},
+		{"+inf", math.Inf(1)},
+		{"-inf", math.Inf(-1)},
+		{"nan", math.NaN()},
+		{"+nan", math.NaN()},
+		{"-nan", math.NaN()},
 	} {
 		t.Run(tt.s, func(t *testing.T) {
 			var x struct{ N float64 }
 			input := "n = " + tt.s
 			if _, err := Decode(input, &x); err != nil {
 				t.Fatalf("got error: %s", err)
+			}
+			if math.IsNaN(tt.want) {
+				if !math.IsNaN(x.N) {
+					t.Errorf("not NaN: %f", x.N)
+				}
+				return
 			}
 			if x.N != tt.want {
 				t.Errorf("got %f; want %f", x.N, tt.want)
@@ -625,6 +639,14 @@ func TestDecodeMalformedNumbers(t *testing.T) {
 		{"0B0", "got 'B' instead"},
 		{"0X0", "got 'X' instead"},
 		{"0O0", "got 'O' instead"},
+		{"in", "expected value"},
+		{"+in", "invalid float: '+in'"},
+		{"-in", "invalid float: '-in'"},
+		{"na", "expected value"},
+		{"+na", "invalid float: '+na'"},
+		{"-na", "invalid float: '-na'"},
+		{"na_n", "expected value"},
+		{"+i_inf", "invalid float: '+i'"},
 	} {
 		t.Run(tt.s, func(t *testing.T) {
 			var x struct{ N interface{} }
