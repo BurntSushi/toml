@@ -984,21 +984,81 @@ func TestDecodePrimitive(t *testing.T) {
 }
 
 func TestDecodeErrors(t *testing.T) {
-	for _, s := range []string{
-		`x="`,
-		`x='`,
-		`x='''`,
+	tests := []struct {
+		in      string
+		wantErr string
+		lastKey bool
+	}{
+		{`x="`, "unexpected EOF", true},
+		{`x='`, "unexpected EOF", true},
+		{`x='''`, "unexpected EOF", true},
 
-		// Cases found by fuzzing in
-		// https://github.com/BurntSushi/toml/issues/155.
-		`""�`,   // used to panic with index out of range
-		`e="""`, // used to hang
-	} {
-		var x struct{}
-		_, err := Decode(s, &x)
-		if err == nil {
-			t.Errorf("Decode(%q): got nil error", s)
-		}
+		// TODO: Improve these
+		// {"x = ", "X", false},            // expected value but found '\x00' instead
+		// {"x = \n", "X", false},          // Near line 1 (last key parsed 'abc'): expected value but found '\n' instead
+		// {"x = \nzxc = 1\n", "X", false}, // Near line 1 (last key parsed 'abc'): expected value but found '\n' instead
+		// {`x  `, "X", false},             // expected key separator '=', but got '\x00' instead
+		// {`x`, "X", false},               // Near line 0 (last key parsed ''): bare keys cannot contain '\x00'
+		// {"x\n", "X", false},             // Near line 0 (last key parsed ''): bare keys cannot contain '\n'
+
+		// Cases found by fuzzing in #155
+		{`""` + "\ufffd", "expected key separator", false}, // used to panic with index out of range
+		{`x="""`, "unexpected EOF", true},                  // used to hang
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			var x struct{}
+			_, err := Decode(tt.in, &x)
+			if err == nil {
+				t.Fatal("err is nil")
+			}
+			if !errorContains(err, tt.wantErr) {
+				t.Errorf("wrong error\nhave: %q\nwant: %q", err, tt.wantErr)
+			}
+			if tt.lastKey && !errorContains(err, "last key parsed 'x'") {
+				t.Errorf("last key parsed not in error\nhave: %q\nwant: %q", err, "last key parsed 'x'")
+			}
+		})
+	}
+}
+
+func TestDecodeMultilineNewlines(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		// Note `NL` gets replaced by "\n"; this makes it easier to read and
+		// write these tests.
+
+		{`x=""""""`, ``},
+		{`x="""\NL"""`, ``},       // Empty string
+		{`x="""\NL\NL\NL"""`, ``}, // Empty string
+
+		{`x="""a\NL    u2222b"""`, `au2222b`},     // Remove all whitespace after \
+		{`x="""a\NLNLNLu2222b"""`, `au2222b`},     // Remove all newlines
+		{`x="""a  \NL    u2222b"""`, `a  u2222b`}, // Don't remove whitespace before \
+
+		{`x="""a\NLu2222b"""`, `au2222b`},        // Ends in \ → remove
+		{`x="""a\\NLu2222b"""`, `a\NLu2222b`},    // Ends in \\ → literal backslash, so keep NL.
+		{`x="""a\\\NLu2222b"""`, `a\u2222b`},     // Ends in \\\ → backslash followed by NL escape, so remove.
+		{`x="""a\\\\NLu2222b"""`, `a\\NLu2222b`}, // Ends in \\\\ → two lieral backslashes; keep NL
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			tt.in = strings.ReplaceAll(tt.in, "NL", "\n")
+			tt.want = strings.ReplaceAll(tt.want, "NL", "\n")
+
+			var s struct{ X string }
+			_, err := Decode(tt.in, &s)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if s.X != tt.want {
+				t.Errorf("\nhave: %s\nwant: %s", s.X, tt.want)
+			}
+		})
 	}
 }
 
@@ -1047,7 +1107,8 @@ colors = [
 
 [My.Cats]
 plato = "cat 1"
-cauchy = "cat 2"
+cauchy = """ cat 2
+"""
 `
 
 	type cats struct {

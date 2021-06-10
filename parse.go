@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 	"unicode/utf8"
 )
 
@@ -190,7 +189,7 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 	case itemString:
 		return p.replaceEscapes(it.val), p.typeOfPrimitive(it)
 	case itemMultilineString:
-		trimmed := stripFirstNewline(stripEscapedWhitespace(it.val))
+		trimmed := stripFirstNewline(stripEscapedNewlines(it.val))
 		return p.replaceEscapes(trimmed), p.typeOfPrimitive(it)
 	case itemRawString:
 		return it.val, p.typeOfPrimitive(it)
@@ -548,14 +547,41 @@ func stripFirstNewline(s string) string {
 	return s[1:]
 }
 
-func stripEscapedWhitespace(s string) string {
-	esc := strings.Split(s, "\\\n")
-	if len(esc) > 1 {
-		for i := 1; i < len(esc); i++ {
-			esc[i] = strings.TrimLeftFunc(esc[i], unicode.IsSpace)
+// Remove newlines inside triple-quoted strings if a line ends with "\".
+//
+// \NL   → remove
+// \\NL  → is escaped: do nothing
+// \\\NL → is backslash and then \\n: remove
+func stripEscapedNewlines(s string) string {
+	i := strings.Index(s, "\\\n")
+	if i == -1 {
+		return s
+	}
+
+	// Find all instances of "\\n"; remove them unless it's prefixed by an odd
+	// number of "\"s, incidating this was escaped.
+	var (
+		b    strings.Builder
+		upto string
+	)
+	b.Grow(len(s))
+	for ; i > -1; i = strings.Index(s, "\\\n") {
+		upto, s = s[:i], s[i+1:]
+		c := 0
+		for j := len(upto) - 1; j >= 0 && upto[j] == '\\'; j-- {
+			c++
+		}
+
+		b.WriteString(upto)
+		if c > 0 && c%2 == 1 {
+			b.WriteString("\\")
+		} else {
+			s = strings.TrimLeft(s, " \n\t")
 		}
 	}
-	return strings.Join(esc, "")
+
+	b.WriteString(s)
+	return b.String()
 }
 
 func (p *parser) replaceEscapes(str string) string {
