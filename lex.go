@@ -388,6 +388,8 @@ func lexBareKey(lx *lexer) stateFn {
 		lx.backup()
 		lx.emit(itemText)
 		return lexKeyEnd
+	case r == eof:
+		return lx.errorf("unexpected EOF; expected key separator '='")
 	default:
 		return lx.errorf("bare keys cannot contain %q", r)
 	}
@@ -401,6 +403,8 @@ func lexKeyEnd(lx *lexer) stateFn {
 		return lexSkip(lx, lexValue)
 	case isWhitespace(r):
 		return lexSkip(lx, lexKeyEnd)
+	case r == eof:
+		return lx.errorf("unexpected EOF; expected key separator %q", keySep)
 	default:
 		return lx.errorf("expected key separator %q, but got %q instead",
 			keySep, r)
@@ -462,6 +466,9 @@ func lexValue(lx *lexer) stateFn {
 		// (i.e. not 'true' or 'false' but is something else word-like.)
 		lx.backup()
 		return lexBool
+	}
+	if r == eof {
+		return lx.errorf("unexpected EOF; expected value")
 	}
 	return lx.errorf("expected value but found %q instead", r)
 }
@@ -579,7 +586,7 @@ func lexString(lx *lexer) stateFn {
 	r := lx.next()
 	switch {
 	case r == eof:
-		return lx.errorf("unexpected EOF")
+		return lx.errorf(`unexpected EOF; expected '"'`)
 	case isNL(r):
 		return lx.errorf("strings cannot contain newlines")
 	case r == '\\':
@@ -600,7 +607,7 @@ func lexString(lx *lexer) stateFn {
 func lexMultilineString(lx *lexer) stateFn {
 	switch lx.next() {
 	case eof:
-		return lx.errorf("unexpected EOF")
+		return lx.errorf(`unexpected EOF; expected '"""'`)
 	case '\\':
 		return lexMultilineStringEscape
 	case stringEnd:
@@ -628,7 +635,7 @@ func lexRawString(lx *lexer) stateFn {
 	r := lx.next()
 	switch {
 	case r == eof:
-		return lx.errorf("unexpected EOF")
+		return lx.errorf(`unexpected EOF; expected "'"`)
 	case isNL(r):
 		return lx.errorf("strings cannot contain newlines")
 	case r == rawStringEnd:
@@ -647,7 +654,7 @@ func lexRawString(lx *lexer) stateFn {
 func lexMultilineRawString(lx *lexer) stateFn {
 	switch lx.next() {
 	case eof:
-		return lx.errorf("unexpected EOF")
+		return lx.errorf(`unexpected EOF; expected "'''"`)
 	case rawStringEnd:
 		if lx.accept(rawStringEnd) {
 			if lx.accept(rawStringEnd) {

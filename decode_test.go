@@ -989,17 +989,14 @@ func TestDecodeErrors(t *testing.T) {
 		wantErr string
 		lastKey bool
 	}{
-		{`x="`, "unexpected EOF", true},
-		{`x='`, "unexpected EOF", true},
-		{`x='''`, "unexpected EOF", true},
-
-		// TODO: Improve these
-		// {"x = ", "X", false},            // expected value but found '\x00' instead
-		// {"x = \n", "X", false},          // Near line 1 (last key parsed 'abc'): expected value but found '\n' instead
-		// {"x = \nzxc = 1\n", "X", false}, // Near line 1 (last key parsed 'abc'): expected value but found '\n' instead
-		// {`x  `, "X", false},             // expected key separator '=', but got '\x00' instead
-		// {`x`, "X", false},               // Near line 0 (last key parsed ''): bare keys cannot contain '\x00'
-		// {"x\n", "X", false},             // Near line 0 (last key parsed ''): bare keys cannot contain '\n'
+		{`x`, "unexpected EOF; expected key separator '='", false},
+		{`x  `, "unexpected EOF; expected key separator '='", true},
+		{`x="`, `unexpected EOF; expected '"'`, true},
+		{`x="""`, `unexpected EOF; expected '"""'`, true},
+		{`x='`, `unexpected EOF; expected "'"`, true},
+		{`x='''`, `unexpected EOF; expected "'''"`, true},
+		{"x = ", "unexpected EOF; expected value", true},
+		{"x = \n", "expected value but found '\\n' instead", true},
 
 		// Cases found by fuzzing in #155
 		{`""` + "\ufffd", "expected key separator", false}, // used to panic with index out of range
