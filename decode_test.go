@@ -1166,7 +1166,7 @@ c = 001  # invalid
 		LastKey: "c",
 		Message: `Invalid integer "001": cannot have leading zeroes`,
 	}
-	if !strings.Contains(pErr.Message, `Invalid integer "001"`) ||
+	if !strings.Contains(pErr.Message, want.Message) ||
 		pErr.Line != want.Line ||
 		pErr.LastKey != want.LastKey {
 		t.Errorf("unexpected data\nhave: %#v\nwant: %#v", pErr, want)
