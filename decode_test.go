@@ -528,12 +528,25 @@ func TestDecodeInts(t *testing.T) {
 		want int64
 	}{
 		{"0", 0},
+		{"0x0", 0},
+		{"0x00", 0},
+		{"0o0", 0},
+		{"0o00", 0},
+		{"0b0", 0},
+		{"0b00", 0},
 		{"+0", 0},
 		{"-0", 0},
 		{"+99", 99},
 		{"-10", -10},
 		{"1_234_567", 1234567},
 		{"1_2_3_4", 1234},
+		{"0xdead_BEEF", 0xdeadbeef},
+		{"0b0_1_1_0", 0b0110},
+		{"0o7_7_7", 0o777},
+		{"0x12345", 0x12345},
+		{"0x0987", 0x987},
+		{"0b1101", 0xd},
+		{"0o777", 0x1ff},
 		{"-9_223_372_036_854_775_808", math.MinInt64},
 		{"9_223_372_036_854_775_807", math.MaxInt64},
 	} {
@@ -559,6 +572,7 @@ func TestDecodeFloats(t *testing.T) {
 		{"+1.0", 1},
 		{"3.1415", 3.1415},
 		{"-0.01", -0.01},
+		{"0.1", 0.1},
 		{"5e+22", 5e22},
 		{"1e6", 1e6},
 		{"-2E-2", -2e-2},
@@ -591,16 +605,26 @@ func TestDecodeMalformedNumbers(t *testing.T) {
 		{"1e2e3", "Invalid float value"},
 		{"_123", "expected value"},
 		{"123_", "surrounded by digits"},
+		{"0b0_", "surrounded by digits"},
 		{"1._23", "surrounded by digits"},
 		{"1e__23", "surrounded by digits"},
 		{"123.", "must be followed by one or more digits"},
 		{"1.e2", "must be followed by one or more digits"},
+		{"00", "cannot have leading zeroes"},
 		{"01", "cannot have leading zeroes"},
 		{"+01", "cannot have leading zeroes"},
 		{"-01", "cannot have leading zeroes"},
 		{"01.2", "cannot have leading zeroes"},
 		{"-01.2", "cannot have leading zeroes"},
 		{"+01.2", "cannot have leading zeroes"},
+		{"0x_d00d", "not a hexidecimal number: '0x_'"},
+		{"0b_0", "not a binary number: '0b_'"},
+		{"0z", "but got 'z' instead"},
+		{"+0x3", "cannot use sign with non-decimal numbers: '+0x'"},
+		{"-0xf00", "cannot use sign with non-decimal numbers: '-0x'"},
+		{"0B0", "got 'B' instead"},
+		{"0X0", "got 'X' instead"},
+		{"0O0", "got 'O' instead"},
 	} {
 		t.Run(tt.s, func(t *testing.T) {
 			var x struct{ N interface{} }
@@ -610,7 +634,7 @@ func TestDecodeMalformedNumbers(t *testing.T) {
 				t.Fatalf("got nil, want error containing %q", tt.want)
 			}
 			if !strings.Contains(err.Error(), tt.want) {
-				t.Errorf("got %q, want error containing %q", err, tt.want)
+				t.Errorf("\nhave: %q\nwant: %q", err, tt.want)
 			}
 		})
 	}
@@ -1182,7 +1206,7 @@ c = 001  # invalid
 		LastKey: "c",
 		Message: `Invalid integer "001": cannot have leading zeroes`,
 	}
-	if !strings.Contains(pErr.Message, `Invalid integer "001"`) ||
+	if !strings.Contains(pErr.Message, want.Message) ||
 		pErr.Line != want.Line ||
 		pErr.LastKey != want.LastKey {
 		t.Errorf("unexpected data\nhave: %#v\nwant: %#v", pErr, want)
