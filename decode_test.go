@@ -458,30 +458,6 @@ func TestDecodeBadDatetime(t *testing.T) {
 	}
 }
 
-func TestDecodeMultilineStrings(t *testing.T) {
-	var x struct {
-		S string
-	}
-	const s0 = `s = """
-a b \n c
-d e f
-"""`
-	if _, err := Decode(s0, &x); err != nil {
-		t.Fatal(err)
-	}
-	if want := "a b \n c\nd e f\n"; x.S != want {
-		t.Errorf("got: %q; want: %q", x.S, want)
-	}
-	const s1 = `s = """a b c\
-"""`
-	if _, err := Decode(s1, &x); err != nil {
-		t.Fatal(err)
-	}
-	if want := "a b c"; x.S != want {
-		t.Errorf("got: %q; want: %q", x.S, want)
-	}
-}
-
 type sphere struct {
 	Center [3]float64
 	Radius float64
@@ -1004,6 +980,16 @@ func TestDecodeErrors(t *testing.T) {
 		{`x = [{ key = 42 #`, "expected a comma or an inline table terminator", true}, // panic
 		{`x = {a = 42 #`, "expected a comma or an inline table terminator '}', but got end of file instead", true},
 		{`x = [42 #`, "expected a comma or array terminator ']', but got end of file instead", false},
+
+		// Literal escape characters are not alllowed in any strings
+		{`x = """` + "\r" + `"""`, `control characters are not allowed`, true},
+		{`x = """` + "\x01" + `"""`, `control characters are not allowed`, true},
+		{`x = '''` + "\r" + `'''`, `control characters are not allowed`, true},
+		{`x = '''` + "\x01" + `'''`, `control characters are not allowed`, true},
+		{`x = "` + "\r" + `"`, `control characters are not allowed`, true},
+		{`x = "` + "\x01" + `"`, `control characters are not allowed`, true},
+		{`x = '` + "\r" + `'`, `control characters are not allowed`, true},
+		{`x = '` + "\x01" + `'`, `control characters are not allowed`, true},
 	}
 
 	for _, tt := range tests {
@@ -1028,36 +1014,66 @@ func TestDecodeMultilineNewlines(t *testing.T) {
 		in   string
 		want string
 	}{
-		// Note `NL` gets replaced by "\n"; this makes it easier to read and
-		// write these tests.
+		// Note "NL" gets replaced by "\n" and "\r\n" (the tests are run twice);
+		// this makes it easier to read and write these tests.
 
-		{`x=""""""`, ``},
-		{`x="""\NL"""`, ``},       // Empty string
-		{`x="""\NL\NL\NL"""`, ``}, // Empty string
+		{`x = """"""`, ``},
+		{`x = """\NL"""`, ``},       // Empty string
+		{`x = """\NL\NL\NL"""`, ``}, // Empty string
 
-		{`x="""a\NL    u2222b"""`, `au2222b`},     // Remove all whitespace after \
-		{`x="""a\NLNLNLu2222b"""`, `au2222b`},     // Remove all newlines
-		{`x="""a  \NL    u2222b"""`, `a  u2222b`}, // Don't remove whitespace before \
+		{`x = """a\NL    u2222b"""`, `au2222b`},     // Remove all whitespace after \
+		{`x = """a\NLNLNLu2222b"""`, `au2222b`},     // Remove all newlines
+		{`x = """a  \NL    u2222b"""`, `a  u2222b`}, // Don't remove whitespace before \
+
+		{`x = """a \ NLb"""`, `a b`}, // Allow any whitespace between \n and \
+		{`x = """a  \ NL b"""`, `a  b`},
+		{`x = """a \ 		    NLb"""`, `a b`},
 
 		{`x="""a\NLu2222b"""`, `au2222b`},        // Ends in \ → remove
 		{`x="""a\\NLu2222b"""`, `a\NLu2222b`},    // Ends in \\ → literal backslash, so keep NL.
 		{`x="""a\\\NLu2222b"""`, `a\u2222b`},     // Ends in \\\ → backslash followed by NL escape, so remove.
 		{`x="""a\\\\NLu2222b"""`, `a\\NLu2222b`}, // Ends in \\\\ → two lieral backslashes; keep NL
+
+		{`x = """NLa b \n cNLd e fNL"""`, "a b \n c\nd e f\n"},
+		{`x = """a b c\NL"""`, "a b c"},
+
+		{`x = """NLThe quick brown \NLNLNLfox jumps over \NL    the lazy dog."""`,
+			`The quick brown fox jumps over the lazy dog.`},
+		{`x = """\NL        The quick brown \NLNLNL        fox jumps over \NL        the lazy dog.\NL        """`,
+			`The quick brown fox jumps over the lazy dog.`},
 	}
 
+	replUnix := strings.NewReplacer("NL", "\n")
+	replWin := strings.NewReplacer("NL", "\r\n")
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
-			tt.in = strings.ReplaceAll(tt.in, "NL", "\n")
-			tt.want = strings.ReplaceAll(tt.want, "NL", "\n")
+			t.Run("unix", func(t *testing.T) {
+				in := replUnix.Replace(tt.in)
+				want := replUnix.Replace(tt.want)
 
-			var s struct{ X string }
-			_, err := Decode(tt.in, &s)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if s.X != tt.want {
-				t.Errorf("\nhave: %s\nwant: %s", s.X, tt.want)
-			}
+				var s struct{ X string }
+				_, err := Decode(in, &s)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if s.X != want {
+					t.Errorf("\nhave: %q\nwant: %q", s.X, want)
+				}
+			})
+
+			t.Run("windows", func(t *testing.T) {
+				in := replWin.Replace(tt.in)
+				want := replWin.Replace(tt.want)
+
+				var s struct{ X string }
+				_, err := Decode(in, &s)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if s.X != want {
+					t.Errorf("\nhave: %q\nwant: %q", s.X, want)
+				}
+			})
 		})
 	}
 }

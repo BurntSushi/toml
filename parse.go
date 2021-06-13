@@ -537,47 +537,54 @@ func (p *parser) current() string {
 }
 
 func stripFirstNewline(s string) string {
-	if len(s) == 0 || s[0] != '\n' {
-		return s
+	if len(s) > 0 && s[0] == '\n' {
+		return s[1:]
 	}
-	return s[1:]
+	if len(s) > 1 && s[0] == '\r' && s[1] == '\n' {
+		return s[2:]
+	}
+	return s
 }
 
 // Remove newlines inside triple-quoted strings if a line ends with "\".
-//
-// \NL   → remove
-// \\NL  → is escaped: do nothing
-// \\\NL → is backslash and then \\n: remove
 func stripEscapedNewlines(s string) string {
-	i := strings.Index(s, "\\\n")
-	if i == -1 {
+	split := strings.Split(s, "\n")
+	if len(split) < 1 {
 		return s
 	}
 
-	// Find all instances of "\\n"; remove them unless it's prefixed by an odd
-	// number of "\"s, incidating this was escaped.
-	var (
-		b    strings.Builder
-		upto string
-	)
-	b.Grow(len(s))
-	for ; i > -1; i = strings.Index(s, "\\\n") {
-		upto, s = s[:i], s[i+1:]
-		c := 0
-		for j := len(upto) - 1; j >= 0 && upto[j] == '\\'; j-- {
-			c++
+	escNL := false // Keep track of the last non-blank line was escaped.
+	for i, line := range split {
+		line = strings.TrimRight(line, " \t\r")
+
+		if len(line) == 0 || line[len(line)-1] != '\\' {
+			split[i] = strings.TrimRight(split[i], "\r")
+			if !escNL && i != len(split)-1 {
+				split[i] += "\n"
+			}
+			continue
 		}
 
-		b.WriteString(upto)
-		if c > 0 && c%2 == 1 {
-			b.WriteString("\\")
-		} else {
-			s = strings.TrimLeft(s, " \n\t")
+		escBS := true
+		for j := len(line) - 1; j >= 0 && line[j] == '\\'; j-- {
+			escBS = !escBS
+		}
+		if escNL {
+			line = strings.TrimLeft(line, " \t\r")
+		}
+		escNL = !escBS
+
+		if escBS {
+			split[i] += "\n"
+			continue
+		}
+
+		split[i] = line[:len(line)-1] // Remove \
+		if len(split)-1 > i {
+			split[i+1] = strings.TrimLeft(split[i+1], " \t\r")
 		}
 	}
-
-	b.WriteString(s)
-	return b.String()
+	return strings.Join(split, "")
 }
 
 func (p *parser) replaceEscapes(str string) string {
