@@ -828,12 +828,12 @@ func lexDatetime(lx *lexer) stateFn {
 		return lexDatetime
 	}
 	switch r {
-	case '-', 'T', ':', '.', 'Z', '+':
+	case '-', ':', 'T', 't', ' ', '.', 'Z', 'z', '+':
 		return lexDatetime
 	}
 
 	lx.backup()
-	lx.emit(itemDatetime)
+	lx.emitTrim(itemDatetime)
 	return lx.pop()
 }
 

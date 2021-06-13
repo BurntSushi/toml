@@ -165,10 +165,8 @@ func (enc *Encoder) encode(key Key, rv reflect.Value) {
 func (enc *Encoder) eElement(rv reflect.Value) {
 	switch v := rv.Interface().(type) {
 	case time.Time:
-		// Special case time.Time as a primitive. Has to come before
-		// TextMarshaler below because time.Time implements
-		// encoding.TextMarshaler, but we need to always use UTC.
-		enc.wf(v.UTC().Format("2006-01-02T15:04:05Z"))
+		// Using TextMarshaler adds extra quotes, which we don't want.
+		enc.wf(v.Format(time.RFC3339Nano))
 		return
 	case encoding.TextMarshaler:
 		// Special case. Use text marshaler if it's available for this value.

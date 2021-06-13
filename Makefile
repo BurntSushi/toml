@@ -16,13 +16,9 @@ SKIP_ENCODE?=valid/inline-table-array,\
 	     valid/inline-table,\
 	     valid/nested-inline-table-array,\
 	     valid/array-table-array-string-backslash,\
-	     valid/datetime-timezone,\
-	     valid/datetime,\
 	     valid/inline-table-empty,\
 	     valid/inline-table-nest,\
-	     valid/key-escapes,\
-	     valid/spec-example-1-compact,\
-	     valid/spec-example-1
+	     valid/key-escapes
 
 install:
 	@go install ./...

@@ -182,6 +182,11 @@ func (p *parser) keyString(it item) string {
 	}
 }
 
+var datetimeRepl = strings.NewReplacer(
+	"z", "Z",
+	"t", "T",
+	" ", "T")
+
 // value translates an expected value from the lexer into a Go value wrapped
 // as an empty interface.
 func (p *parser) value(it item) (interface{}, tomlType) {
@@ -266,13 +271,18 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 		}
 		return num, p.typeOfPrimitive(it)
 	case itemDatetime:
-		var t time.Time
-		var ok bool
-		var err error
+		it.val = datetimeRepl.Replace(it.val)
+
+		var (
+			t   time.Time
+			ok  bool
+			err error
+		)
 		for _, format := range []string{
-			"2006-01-02T15:04:05Z07:00",
-			"2006-01-02T15:04:05",
+			time.RFC3339Nano,
+			"2006-01-02T15:04:05.999999999",
 			"2006-01-02",
+			"15:04:05.999999999",
 		} {
 			t, err = time.ParseInLocation(format, it.val, time.Local)
 			if err == nil {
