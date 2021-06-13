@@ -596,6 +596,8 @@ func lexString(lx *lexer) stateFn {
 	switch {
 	case r == eof:
 		return lx.errorf(`unexpected EOF; expected '"'`)
+	case isControl(r) || r == '\r':
+		return lx.errorf("control characters are not allowed inside strings: '0x%02x'", r)
 	case isNL(r):
 		return lx.errorf("strings cannot contain newlines")
 	case r == '\\':
@@ -614,9 +616,15 @@ func lexString(lx *lexer) stateFn {
 // lexMultilineString consumes the inner contents of a string. It assumes that
 // the beginning '"""' has already been consumed and ignored.
 func lexMultilineString(lx *lexer) stateFn {
-	switch lx.next() {
+	r := lx.next()
+	switch r {
 	case eof:
 		return lx.errorf(`unexpected EOF; expected '"""'`)
+	case '\r':
+		if lx.peek() != '\n' {
+			return lx.errorf("control characters are not allowed inside strings: '0x%02x'", r)
+		}
+		return lexMultilineString
 	case '\\':
 		return lexMultilineStringEscape
 	case stringEnd:
@@ -635,6 +643,10 @@ func lexMultilineString(lx *lexer) stateFn {
 			lx.backup()
 		}
 	}
+
+	if isControl(r) {
+		return lx.errorf("control characters are not allowed inside strings: '0x%02x'", r)
+	}
 	return lexMultilineString
 }
 
@@ -645,6 +657,8 @@ func lexRawString(lx *lexer) stateFn {
 	switch {
 	case r == eof:
 		return lx.errorf(`unexpected EOF; expected "'"`)
+	case isControl(r) || r == '\r':
+		return lx.errorf("control characters are not allowed inside strings: '0x%02x'", r)
 	case isNL(r):
 		return lx.errorf("strings cannot contain newlines")
 	case r == rawStringEnd:
@@ -661,9 +675,15 @@ func lexRawString(lx *lexer) stateFn {
 // a string. It assumes that the beginning "'''" has already been consumed and
 // ignored.
 func lexMultilineRawString(lx *lexer) stateFn {
-	switch lx.next() {
+	r := lx.next()
+	switch r {
 	case eof:
 		return lx.errorf(`unexpected EOF; expected "'''"`)
+	case '\r':
+		if lx.peek() != '\n' {
+			return lx.errorf("control characters are not allowed inside strings: '0x%02x'", r)
+		}
+		return lexMultilineString
 	case rawStringEnd:
 		if lx.accept(rawStringEnd) {
 			if lx.accept(rawStringEnd) {
@@ -679,6 +699,10 @@ func lexMultilineRawString(lx *lexer) stateFn {
 			}
 			lx.backup()
 		}
+	}
+
+	if isControl(r) {
+		return lx.errorf("control characters are not allowed inside strings: '0x%02x'", r)
 	}
 	return lexMultilineRawString
 }
@@ -709,6 +733,10 @@ func lexStringEscape(lx *lexer) stateFn {
 	case 'r':
 		fallthrough
 	case '"':
+		fallthrough
+	// Inside """ .. """ strings you can use \ to escape newlines, and any
+	// amount of whitespace can be between the \ and \n.
+	case ' ', '\t':
 		fallthrough
 	case '\\':
 		return lx.pop()
@@ -906,6 +934,16 @@ func isWhitespace(r rune) bool {
 
 func isNL(r rune) bool {
 	return r == '\n' || r == '\r'
+}
+
+// Control characters except \n, \t
+func isControl(r rune) bool {
+	switch r {
+	case '\t', '\r', '\n':
+		return false
+	default:
+		return (r >= 0x00 && r <= 0x1f) || r == 0x7f
+	}
 }
 
 func isDigit(r rune) bool {
