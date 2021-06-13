@@ -239,8 +239,7 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 		})
 		for _, part := range parts {
 			if !numUnderscoresOK(part) {
-				p.panicf("Invalid float %q: underscores must be "+
-					"surrounded by digits", it.val)
+				p.panicf("Invalid float %q: underscores must be surrounded by digits", it.val)
 			}
 		}
 		if len(parts) > 0 && numHasLeadingZero(parts[0]) {
@@ -251,17 +250,16 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 			// which are valid as far as Go/strconv are concerned,
 			// must be rejected because TOML says that a fractional
 			// part consists of '.' followed by 1+ digits.
-			p.panicf("Invalid float %q: '.' must be followed "+
-				"by one or more digits", it.val)
+			p.panicf("Invalid float %q: '.' must be followed by one or more digits", it.val)
 		}
 		val := strings.Replace(it.val, "_", "", -1)
+		if val == "+nan" || val == "-nan" { // Go doesn't support this, but TOML spec does.
+			val = "nan"
+		}
 		num, err := strconv.ParseFloat(val, 64)
 		if err != nil {
-			if e, ok := err.(*strconv.NumError); ok &&
-				e.Err == strconv.ErrRange {
-
-				p.panicf("Float '%s' is out of the range of 64-bit "+
-					"IEEE-754 floating-point numbers.", it.val)
+			if e, ok := err.(*strconv.NumError); ok && e.Err == strconv.ErrRange {
+				p.panicf("Float '%s' is out of the range of 64-bit IEEE-754 floating-point numbers.", it.val)
 			} else {
 				p.panicf("Invalid float value: %q", it.val)
 			}
@@ -352,6 +350,10 @@ func numHasLeadingZero(s string) bool {
 // numUnderscoresOK checks whether each underscore in s is surrounded by
 // characters that are not underscores.
 func numUnderscoresOK(s string) bool {
+	switch s {
+	case "nan", "+nan", "-nan", "inf", "-inf", "+inf":
+		return true
+	}
 	accept := false
 	for _, r := range s {
 		if r == '_' {

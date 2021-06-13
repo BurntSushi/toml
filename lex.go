@@ -456,10 +456,15 @@ func lexValue(lx *lexer) stateFn {
 		}
 		lx.ignore() // ignore the "'"
 		return lexRawString
-	case '-', '+':
-		return lexDecimalNumberStart
 	case '.': // special error case, be kind to users
 		return lx.errorf("floats must start with a digit, not '.'")
+	case 'i', 'n':
+		if (lx.accept('n') && lx.accept('f')) || (lx.accept('a') && lx.accept('n')) {
+			lx.emit(itemFloat)
+			return lx.pop()
+		}
+	case '-', '+':
+		return lexDecimalNumberStart
 	}
 	if unicode.IsLetter(r) {
 		// Be permissive here; lexBool will give a nice error if the
@@ -901,12 +906,26 @@ func lexDecimalNumber(lx *lexer) stateFn {
 // lexDecimalNumber consumes the first digit of a number beginning with a sign.
 // It assumes the sign has already been consumed. Values which start with a sign
 // are only allowed to be decimal integers or floats.
+//
+// The special "nan" and "inf" values are also recognized.
 func lexDecimalNumberStart(lx *lexer) stateFn {
 	r := lx.next()
-	// special error cases to give users better error messages
+
+	// Special error cases to give users better error messages
 	switch r {
+	case 'i':
+		if !lx.accept('n') || !lx.accept('f') {
+			return lx.errorf("invalid float: '%s'", lx.current())
+		}
+		lx.emit(itemFloat)
+		return lx.pop()
+	case 'n':
+		if !lx.accept('a') || !lx.accept('n') {
+			return lx.errorf("invalid float: '%s'", lx.current())
+		}
+		lx.emit(itemFloat)
+		return lx.pop()
 	case '0':
-		// possibly surprising element of the spec
 		p := lx.peek()
 		switch p {
 		case 'b', 'o', 'x':
