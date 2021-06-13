@@ -2,6 +2,8 @@ package toml
 
 import (
 	"fmt"
+	"reflect"
+	"runtime"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -514,9 +516,8 @@ func lexArrayValueEnd(lx *lexer) stateFn {
 		return lexArrayEnd
 	}
 	return lx.errorf(
-		"expected a comma or array terminator %q, but got %q instead",
-		arrayEnd, r,
-	)
+		"expected a comma or array terminator %q, but got %s instead",
+		arrayEnd, runeOrEOF(r))
 }
 
 // lexArrayEnd finishes the lexing of an array.
@@ -568,8 +569,16 @@ func lexInlineTableValueEnd(lx *lexer) stateFn {
 	case r == inlineTableEnd:
 		return lexInlineTableEnd
 	}
-	return lx.errorf("expected a comma or an inline table terminator %q, "+
-		"but got %q instead", inlineTableEnd, r)
+	return lx.errorf(
+		"expected a comma or an inline table terminator %q, but got %s instead",
+		inlineTableEnd, runeOrEOF(r))
+}
+
+func runeOrEOF(r rune) string {
+	if r == eof {
+		return "end of file"
+	}
+	return "'" + string(r) + "'"
 }
 
 // lexInlineTableEnd finishes the lexing of an inline table.
@@ -917,6 +926,14 @@ func isBareKeyChar(r rune) bool {
 		r == '-'
 }
 
+func (s stateFn) String() string {
+	name := runtime.FuncForPC(reflect.ValueOf(s).Pointer()).Name()
+	if i := strings.LastIndexByte(name, '.'); i > -1 {
+		name = name[i+1:]
+	}
+	return name + "()"
+}
+
 func (itype itemType) String() string {
 	switch itype {
 	case itemError:
@@ -949,6 +966,10 @@ func (itype itemType) String() string {
 		return "ArrayEnd"
 	case itemCommentStart:
 		return "CommentStart"
+	case itemInlineTableStart:
+		return "InlineTableStart"
+	case itemInlineTableEnd:
+		return "InlineTableEnd"
 	}
 	panic(fmt.Sprintf("BUG: Unknown type '%d'.", int(itype)))
 }
