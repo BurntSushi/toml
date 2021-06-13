@@ -44,14 +44,6 @@ type Primitive struct {
 	context   Key
 }
 
-// DEPRECATED!
-//
-// Use MetaData.PrimitiveDecode instead.
-func PrimitiveDecode(primValue Primitive, v interface{}) error {
-	md := MetaData{decoded: make(map[string]bool)}
-	return md.unify(primValue.undecoded, rvalue(v))
-}
-
 // PrimitiveDecode is just like the other `Decode*` functions, except it
 // decodes a TOML value that has already been parsed. Valid primitive values
 // can *only* be obtained from values filled by the decoder functions,
