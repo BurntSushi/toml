@@ -552,19 +552,27 @@ func TestDecodeInts(t *testing.T) {
 		want int64
 	}{
 		{"0", 0},
+		{"0x0", 0},
+		{"0x00", 0},
+		{"0o0", 0},
+		{"0o00", 0},
+		{"0b0", 0},
+		{"0b00", 0},
 		{"+0", 0},
 		{"-0", 0},
 		{"+99", 99},
 		{"-10", -10},
 		{"1_234_567", 1234567},
 		{"1_2_3_4", 1234},
-		{"-9_223_372_036_854_775_808", math.MinInt64},
-		{"9_223_372_036_854_775_807", math.MaxInt64},
 		{"0xdead_BEEF", 0xdeadbeef},
+		{"0b0_1_1_0", 0b0110},
+		{"0o7_7_7", 0o777},
 		{"0x12345", 0x12345},
 		{"0x0987", 0x987},
 		{"0b1101", 0xd},
 		{"0o777", 0x1ff},
+		{"-9_223_372_036_854_775_808", math.MinInt64},
+		{"9_223_372_036_854_775_807", math.MaxInt64},
 	} {
 		var x struct{ N int64 }
 		input := "n = " + tt.s
@@ -633,11 +641,14 @@ func TestDecodeMalformedNumbers(t *testing.T) {
 		{"01.2", "cannot have leading zeroes"},
 		{"-01.2", "cannot have leading zeroes"},
 		{"+01.2", "cannot have leading zeroes"},
-		{"0x_d00d", "invalid digit following hexadecimal base designator"},
-		{"0b_0", "invalid digit following binary base designator"},
+		{"0x_d00d", "not a hexidecimal number: '0x_'"},
+		{"0b_0", "not a binary number: '0b_'"},
 		{"0z", "but got 'z' instead"},
-		{"+0x3", "sign cannot be used"},
-		{"-0xf00", "sign cannot be used"},
+		{"+0x3", "cannot use sign with non-decimal numbers: '+0x'"},
+		{"-0xf00", "cannot use sign with non-decimal numbers: '-0x'"},
+		{"0B0", "got 'B' instead"},
+		{"0X0", "got 'X' instead"},
+		{"0O0", "got 'O' instead"},
 	} {
 		t.Run(tt.s, func(t *testing.T) {
 			var x struct{ N interface{} }
@@ -647,7 +658,7 @@ func TestDecodeMalformedNumbers(t *testing.T) {
 				t.Fatalf("got nil, want error containing %q", tt.want)
 			}
 			if !strings.Contains(err.Error(), tt.want) {
-				t.Errorf("got %q, want error containing %q", err, tt.want)
+				t.Errorf("\nhave: %q\nwant: %q", err, tt.want)
 			}
 		})
 	}

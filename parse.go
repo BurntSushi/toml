@@ -344,7 +344,7 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 // numHasLeadingZero checks if this number has leading zeroes, allowing for '0',
 // +/- signs, and base prefixes.
 func numHasLeadingZero(s string) bool {
-	if len(s) > 1 && s[0] == '0' && isDigit(rune(s[1])) { // >1 to allow "0"
+	if len(s) > 1 && s[0] == '0' && isDigit(rune(s[1])) { // >1 to allow "0" and isDigit to allow 0x
 		return true
 	}
 	if len(s) > 2 && (s[0] == '-' || s[0] == '+') && s[1] == '0' {
@@ -366,11 +366,7 @@ func numUnderscoresOK(s string) bool {
 
 		// isHexadecimal is a superset of all the permissable characters
 		// surrounding an underscore.
-		if isHexadecimal(r) {
-			accept = true
-		} else {
-			accept = false;
-		}
+		accept = isHexadecimal(r)
 	}
 	return accept
 }

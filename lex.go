@@ -866,7 +866,7 @@ func lexDecimalNumberStart(lx *lexer) stateFn {
 		p := lx.peek()
 		switch p {
 		case 'b', 'o', 'x':
-			return lx.errorf("sign cannot be used with base designator")
+			return lx.errorf("cannot use sign with non-decimal numbers: '%s%c'", lx.current(), p)
 		}
 	case '.':
 		return lx.errorf("floats must start with a digit, not '.'")
@@ -878,7 +878,6 @@ func lexDecimalNumberStart(lx *lexer) stateFn {
 
 	return lx.errorf("expected a digit but got %q", r)
 }
-
 
 // lexBaseNumberOrDate differentiates between the possible values which
 // start with '0'. It assumes that before reaching this state, the initial '0'
@@ -901,19 +900,19 @@ func lexBaseNumberOrDate(lx *lexer) stateFn {
 	case 'b':
 		r = lx.peek()
 		if !isBinary(r) {
-			lx.errorf("invalid digit following binary base designator: %q", r)
+			lx.errorf("not a binary number: '%s%c'", lx.current(), r)
 		}
 		return lexBinaryInteger
 	case 'o':
 		r = lx.peek()
 		if !isOctal(r) {
-			lx.errorf("invalid digit following octal base designator: %q", r)
+			lx.errorf("not an octal number: '%s%c'", lx.current(), r)
 		}
 		return lexOctalInteger
 	case 'x':
 		r = lx.peek()
 		if !isHexadecimal(r) {
-			lx.errorf("invalid digit following hexadecimal base designator: %q", r)
+			lx.errorf("not a hexidecimal number: '%s%c'", lx.current(), r)
 		}
 		return lexHexInteger
 	}
