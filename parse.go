@@ -311,10 +311,6 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 		p.context = append(p.context, p.currentKey)
 		p.currentKey = ""
 		for it := p.next(); it.typ != itemInlineTableEnd; it = p.next() {
-			if it.typ != itemKeyStart {
-				p.bug("Expected key start but instead found %q, around line %d",
-					it.val, p.approxLine)
-			}
 			if it.typ == itemCommentStart {
 				p.expect(itemText)
 				continue

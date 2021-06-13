@@ -998,13 +998,16 @@ func TestDecodeErrors(t *testing.T) {
 		{"x = ", "unexpected EOF; expected value", true},
 		{"x = \n", "expected value but found '\\n' instead", true},
 
-		// Cases found by fuzzing in #155
-		{`""` + "\ufffd", "expected key separator", false}, // used to panic with index out of range
-		{`x="""`, "unexpected EOF", true},                  // used to hang
+		// Cases found by fuzzing in #155 and #239
+		{`""` + "\ufffd", "expected key separator", false},                            // used to panic with index out of range
+		{`x="""`, "unexpected EOF", true},                                             // used to hang
+		{`x = [{ key = 42 #`, "expected a comma or an inline table terminator", true}, // panic
+		{`x = {a = 42 #`, "expected a comma or an inline table terminator '}', but got end of file instead", true},
+		{`x = [42 #`, "expected a comma or array terminator ']', but got end of file instead", false},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.in, func(t *testing.T) {
+		t.Run("", func(t *testing.T) {
 			var x struct{}
 			_, err := Decode(tt.in, &x)
 			if err == nil {
@@ -1013,7 +1016,7 @@ func TestDecodeErrors(t *testing.T) {
 			if !errorContains(err, tt.wantErr) {
 				t.Errorf("wrong error\nhave: %q\nwant: %q", err, tt.wantErr)
 			}
-			if tt.lastKey && !errorContains(err, "last key parsed 'x'") {
+			if tt.lastKey && !errorContains(err, "last key parsed 'x") {
 				t.Errorf("last key parsed not in error\nhave: %q\nwant: %q", err, "last key parsed 'x'")
 			}
 		})
