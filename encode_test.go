@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -650,6 +651,71 @@ func TestEncodeError(t *testing.T) {
 				t.Errorf("wrong error\nhave: %q\nwant: %q", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+type (
+	sound struct{ S string }
+	food  struct{ F []string }
+	fun   func()
+	cplx  complex128
+)
+
+// This is intentionally wrong (pointer receiver)
+func (s *sound) MarshalText() ([]byte, error) { return []byte(s.S), nil }
+func (f food) MarshalText() ([]byte, error)   { return []byte(strings.Join(f.F, ", ")), nil }
+func (f fun) MarshalText() ([]byte, error)    { return []byte("why would you do this?"), nil }
+func (c cplx) MarshalText() ([]byte, error) {
+	cplx := complex128(c)
+	return []byte(fmt.Sprintf("(%f+%fi)", real(cplx), imag(cplx))), nil
+}
+
+func TestEncodeTextMarshaler(t *testing.T) {
+	x := struct {
+		Name    string
+		Labels  map[string]string
+		Sound   sound
+		Sound2  *sound
+		Food    food
+		Food2   *food
+		Complex cplx
+		Fun     fun
+	}{
+		Name:   "Goblok",
+		Sound:  sound{"miauw"},
+		Sound2: &sound{"miauw"},
+		Labels: map[string]string{
+			"type":  "cat",
+			"color": "black",
+		},
+		Food:    food{[]string{"chicken", "fish"}},
+		Food2:   &food{[]string{"chicken", "fish"}},
+		Complex: complex(42, 666),
+		Fun:     func() { panic("x") },
+	}
+
+	var buf bytes.Buffer
+	if err := NewEncoder(&buf).Encode(x); err != nil {
+		t.Fatal(err)
+	}
+
+	want := `Name = "Goblok"
+Sound2 = "miauw"
+Food = "chicken, fish"
+Food2 = "chicken, fish"
+Complex = "(42.000000+666.000000i)"
+Fun = "why would you do this?"
+
+[Labels]
+  color = "black"
+  type = "cat"
+
+[Sound]
+  S = "miauw"
+`
+
+	if buf.String() != want {
+		t.Error("\n" + buf.String())
 	}
 }
 

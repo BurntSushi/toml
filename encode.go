@@ -423,9 +423,21 @@ func tomlTypeOfGo(rv reflect.Value) tomlType {
 		case encoding.TextMarshaler:
 			return tomlString
 		default:
+			// Someone used a pointer receiver: we can make it work for pointer
+			// values.
+			if rv.CanAddr() {
+				_, ok := rv.Addr().Interface().(encoding.TextMarshaler)
+				if ok {
+					return tomlString
+				}
+			}
 			return tomlHash
 		}
 	default:
+		_, ok := rv.Interface().(encoding.TextMarshaler)
+		if ok {
+			return tomlString
+		}
 		encPanic(errors.New("unsupported type: " + rv.Kind().String()))
 		panic("") // Need *some* return value
 	}
