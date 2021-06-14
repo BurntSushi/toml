@@ -59,6 +59,7 @@ func parse(data string) (p *parser, err error) {
 	if strings.HasPrefix(data, "\xff\xfe") || strings.HasPrefix(data, "\xfe\xff") {
 		data = data[2:]
 	}
+
 	// Examine first few bytes for NULL bytes; this probably means it's a UTF-16
 	// file (second byte in surrogate pair being NULL). Again, do this here to
 	// avoid having to deal with UTF-8/16 stuff in the lexer.
@@ -99,6 +100,7 @@ func (p *parser) panicf(format string, v ...interface{}) {
 
 func (p *parser) next() item {
 	it := p.lx.nextItem()
+	//fmt.Printf("ITEM %-18s line %-3d → %q\n", it.typ, it.line, it.val)
 	if it.typ == itemError {
 		p.panicf("%s", it.val)
 	}

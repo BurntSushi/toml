@@ -1031,9 +1031,10 @@ func TestDecodeErrors(t *testing.T) {
 		{"x = \n", "expected value but found '\\n' instead", true},
 
 		// Cases found by fuzzing in #155 and #239
-		{`""` + "\ufffd", "expected key separator", false},                            // used to panic with index out of range
-		{`x="""`, "unexpected EOF", true},                                             // used to hang
-		{`x = [{ key = 42 #`, "expected a comma or an inline table terminator", true}, // panic
+		{`""` + "\ufffd", "invalid UTF-8", false},
+		{`""=` + "\ufffd", "invalid UTF-8", false},
+		{`x="""`, "unexpected EOF", true},
+		{`x = [{ key = 42 #`, "expected a comma or an inline table terminator", true},
 		{`x = {a = 42 #`, "expected a comma or an inline table terminator '}', but got end of file instead", true},
 		{`x = [42 #`, "expected a comma or array terminator ']', but got end of file instead", false},
 

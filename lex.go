@@ -66,9 +66,9 @@ type lexer struct {
 	state stateFn
 	items chan item
 
-	// Allow for backing up up to three runes.
+	// Allow for backing up up to four runes.
 	// This is necessary because TOML contains 3-rune tokens (""" and ''').
-	prevWidths [3]int
+	prevWidths [4]int
 	nprev      int // how many of prevWidths are in use
 	// If we emit an eof, we can still back up, but it is not OK to call
 	// next again.
@@ -149,12 +149,19 @@ func (lx *lexer) next() (r rune) {
 	if lx.input[lx.pos] == '\n' {
 		lx.line++
 	}
+	lx.prevWidths[3] = lx.prevWidths[2]
 	lx.prevWidths[2] = lx.prevWidths[1]
 	lx.prevWidths[1] = lx.prevWidths[0]
-	if lx.nprev < 3 {
+	if lx.nprev < 4 {
 		lx.nprev++
 	}
+
 	r, w := utf8.DecodeRuneInString(lx.input[lx.pos:])
+	if r == utf8.RuneError {
+		lx.errorf("invalid UTF-8 byte at position %d (line %d): 0x%02x", lx.pos, lx.line, lx.input[lx.pos])
+		return utf8.RuneError
+	}
+
 	lx.prevWidths[0] = w
 	lx.pos += w
 	return r
@@ -177,6 +184,7 @@ func (lx *lexer) backup() {
 	w := lx.prevWidths[0]
 	lx.prevWidths[0] = lx.prevWidths[1]
 	lx.prevWidths[1] = lx.prevWidths[2]
+	lx.prevWidths[2] = lx.prevWidths[3]
 	lx.nprev--
 	lx.pos -= w
 	if lx.pos < len(lx.input) && lx.input[lx.pos] == '\n' {
@@ -368,7 +376,18 @@ func lexKeyStart(lx *lexer) stateFn {
 		lx.ignore()
 		lx.emit(itemKeyStart)
 		lx.push(lexKeyEnd)
-		return lexValue // reuse string lexing
+
+		r := lx.next()
+		lx.ignore()
+		switch r {
+		case stringStart:
+			return lexString
+		case rawStringStart:
+			return lexRawString
+		default:
+			lx.errorf("keys must be string")
+		}
+		return lexValue
 	default:
 		lx.ignore()
 		lx.emit(itemKeyStart)
@@ -635,6 +654,13 @@ func lexMultilineString(lx *lexer) stateFn {
 	case stringEnd:
 		if lx.accept(stringEnd) {
 			if lx.accept(stringEnd) {
+				// Can end in quote: """str""""
+				if lx.peek() == stringEnd {
+					lx.backup()
+					lx.backup()
+					return lexMultilineString
+				}
+
 				lx.backup()
 				lx.backup()
 				lx.backup()
@@ -688,10 +714,16 @@ func lexMultilineRawString(lx *lexer) stateFn {
 		if lx.peek() != '\n' {
 			return lx.errorf("control characters are not allowed inside strings: '0x%02x'", r)
 		}
-		return lexMultilineString
+		return lexMultilineRawString
 	case rawStringEnd:
 		if lx.accept(rawStringEnd) {
 			if lx.accept(rawStringEnd) {
+				// Can end in quote: '''str''''
+				if lx.peek() == rawStringEnd {
+					lx.backup()
+					lx.backup()
+					return lexMultilineRawString
+				}
 				lx.backup()
 				lx.backup()
 				lx.backup()

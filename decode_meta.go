@@ -41,8 +41,8 @@ func (md *MetaData) IsDefined(key ...string) bool {
 
 // Type returns a string representation of the type of the key specified.
 //
-// Type will return the empty string if given an empty key or a key that
-// does not exist. Keys are case sensitive.
+// Type will return the empty string if given an empty key or a key that does
+// not exist. Keys are case sensitive.
 func (md *MetaData) Type(key ...string) string {
 	fullkey := strings.Join(key, ".")
 	if typ, ok := md.types[fullkey]; ok {
@@ -68,6 +68,9 @@ func (k Key) maybeQuotedAll() string {
 }
 
 func (k Key) maybeQuoted(i int) string {
+	if k[i] == "" {
+		return `""`
+	}
 	quote := false
 	for _, c := range k[i] {
 		if !isBareKeyChar(c) {
@@ -76,7 +79,7 @@ func (k Key) maybeQuoted(i int) string {
 		}
 	}
 	if quote {
-		return "\"" + strings.Replace(k[i], "\"", "\\\"", -1) + "\""
+		return `"` + quotedReplacer.Replace(k[i]) + `"`
 	}
 	return k[i]
 }
