@@ -21,8 +21,9 @@ jobs:
     - name: 'Install'
       run: |
         go install ./...
-        git clone https://github.com/BurntSushi/toml-test.git
-        (cd toml-test && go install ./...)
+        curl -Ls 'https://github.com/BurntSushi/toml-test/releases/download/1.0.0-beta1/toml-test-v1.0.0-beta1-linux-amd64.gz' |
+            gzip -d - > toml-test
+        chmod a+x ./toml-test
 
     - name: 'Test'
-      run: 'make test TOML_TESTDIR=toml-test/tests'
+      run: 'make TOML_TEST=./toml-test'

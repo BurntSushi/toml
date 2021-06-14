@@ -10,10 +10,13 @@ SKIP_DECODE=valid/key-dotted
 SKIP_DECODE+=,valid/datetime-local-date,valid/datetime-local-time,valid/datetime-local
 SKIP_ENCODE+=,valid/datetime-local-date,valid/datetime-local-time,valid/datetime-local
 
+# Location of toml-test
+TOML_TEST?=toml-test
+
 all:
 	@e=0  # So it won't stop on the first command that fails.
 	@go install ./...
 	@go test ./... || e=1
-	@toml-test -skip="${SKIP_DECODE}" toml-test-decoder || e=1
-	@toml-test -encoder -skip="${SKIP_ENCODE}" toml-test-encoder || e=1
+	@${TOML_TEST} -skip="${SKIP_DECODE}" toml-test-decoder || e=1
+	@${TOML_TEST} -encoder -skip="${SKIP_ENCODE}" toml-test-encoder || e=1
 	@exit $e
