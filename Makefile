@@ -1,41 +1,19 @@
-TOML_TESTDIR?=tests
+# toml: TOML array element cannot contain a table
+# Dotted keys are not supported yet.
+SKIP_ENCODE?=valid/inline-table-nest,valid/key-dotted
 
-# TODO: these should be fixed
-SKIP_DECODE?=valid/array-table-array-string-backslash,\
-	     valid/inline-table-array,\
-	     valid/inline-table,\
-	     valid/nested-inline-table-array,\
-	     invalid/bad-utf8,\
-	     invalid/key-multiline,\
-	     invalid/inline-table-empty,\
-	     invalid/inline-table-nest,\
-	     valid/inline-table-empty,\
-	     valid/inline-table-nest
+# Dotted keys are not supported yet.
+SKIP_DECODE=valid/key-dotted
 
-SKIP_ENCODE?=valid/inline-table-array,\
-	     valid/inline-table,\
-	     valid/nested-inline-table-array,\
-	     valid/array-table-array-string-backslash,\
-	     valid/inline-table-empty,\
-	     valid/inline-table-nest,\
-	     valid/key-escapes
+# No easy way to see if this was a datetime or local datetime; we should extend
+# meta with new types for this, which seems like a good idea in any case.
+SKIP_DECODE+=,valid/datetime-local-date,valid/datetime-local-time,valid/datetime-local
+SKIP_ENCODE+=,valid/datetime-local-date,valid/datetime-local-time,valid/datetime-local
 
-install:
+all:
+	@e=0  # So it won't stop on the first command that fails.
 	@go install ./...
-
-test: install
-	@go test ./...
-	@toml-test -testdir="${TOML_TESTDIR}" -skip="${SKIP_DECODE}"          toml-test-decoder
-	@toml-test -testdir="${TOML_TESTDIR}" -skip="${SKIP_ENCODE}" -encoder toml-test-encoder
-
-fmt:
-	gofmt -w *.go */*.go
-	colcheck *.go */*.go
-
-tags:
-	find ./ -name '*.go' -print0 | xargs -0 gotags > TAGS
-
-push:
-	git push origin master
-	git push github master
-
+	@go test ./... || e=1
+	@toml-test -skip="${SKIP_DECODE}" toml-test-decoder || e=1
+	@toml-test -encoder -skip="${SKIP_ENCODE}" toml-test-encoder || e=1
+	@exit $e

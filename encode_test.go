@@ -3,6 +3,7 @@ package toml
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"strings"
@@ -112,6 +113,10 @@ func TestEncode(t *testing.T) {
 		"string field": {
 			input:      struct{ String string }{"foo"},
 			wantOutput: "String = \"foo\"\n",
+		},
+		"string field with \\n escape": {
+			input:      struct{ String string }{"foo\n"},
+			wantOutput: "String = \"foo\\n\"\n",
 		},
 		"string field and unexported field": {
 			input: struct {
@@ -362,6 +367,21 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 			},
 			wantOutput: "[map]\n  zero = 5\n\n  [[map.arr]]\n    friend = 5\n",
 		},
+		"empty key name": {
+			input:      map[string]int{"": 1},
+			wantOutput: `"" = 1` + "\n",
+		},
+		"key with \\n escape": {
+			input:      map[string]string{"\n": "\n"},
+			wantOutput: `"\n" = "\n"` + "\n",
+		},
+
+		"empty map name": {
+			input: map[string]interface{}{
+				"": map[string]int{"v": 1},
+			},
+			wantOutput: "[\"\"]\n  v = 1\n",
+		},
 		"(error) top-level slice": {
 			input:     []struct{ Int int }{{1}, {2}, {3}},
 			wantError: errNoKey,
@@ -377,16 +397,6 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 		"(error) map no string key": {
 			input:     map[int]string{1: ""},
 			wantError: errNonString,
-		},
-		"(error) empty key name": {
-			input:     map[string]int{"": 1},
-			wantError: errAnything,
-		},
-		"(error) empty map name": {
-			input: map[string]interface{}{
-				"": map[string]int{"v": 1},
-			},
-			wantError: errAnything,
 		},
 	}
 	for label, test := range tests {
@@ -596,6 +606,19 @@ func TestEncodeIgnoredFields(t *testing.T) {
 	encodeExpected(t, "ignored field", value, expected, nil)
 }
 
+func TestEncodeNaN(t *testing.T) {
+	s1 := struct {
+		Nan float64 `toml:"nan"`
+		Inf float64 `toml:"inf"`
+	}{math.NaN(), math.Inf(1)}
+	s2 := struct {
+		Nan float32 `toml:"nan"`
+		Inf float32 `toml:"inf"`
+	}{float32(math.NaN()), float32(math.Inf(-1))}
+	encodeExpected(t, "", s1, "nan = nan\ninf = +inf\n", nil)
+	encodeExpected(t, "", s2, "nan = nan\ninf = -inf\n", nil)
+}
+
 func TestEncodePrimitive(t *testing.T) {
 	type MyStruct struct {
 		Data  Primitive
@@ -722,6 +745,7 @@ Fun = "why would you do this?"
 func encodeExpected(
 	t *testing.T, label string, val interface{}, wantStr string, wantErr error,
 ) {
+	t.Helper()
 	var buf bytes.Buffer
 	enc := NewEncoder(&buf)
 	err := enc.Encode(val)
@@ -739,6 +763,6 @@ func encodeExpected(
 		return
 	}
 	if got := buf.String(); wantStr != got {
-		t.Errorf("%s\nhave: %q\nwant: %q\n", label, got, wantStr)
+		t.Errorf("%s\nhave: %s\nwant: %s\n", label, got, wantStr)
 	}
 }

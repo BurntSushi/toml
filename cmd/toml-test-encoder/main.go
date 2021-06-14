@@ -1,5 +1,5 @@
-// Command toml-test-encoder satisfies the toml-test interface for testing
-// TOML encoders. Namely, it accepts JSON on stdin and outputs TOML on stdout.
+// Command toml-test-encoder satisfies the toml-test interface for testing TOML
+// encoders. Namely, it accepts JSON on stdin and outputs TOML on stdout.
 package main
 
 import (
@@ -16,7 +16,6 @@ import (
 
 func init() {
 	log.SetFlags(0)
-
 	flag.Usage = usage
 	flag.Parse()
 }
@@ -24,7 +23,6 @@ func init() {
 func usage() {
 	log.Printf("Usage: %s < json-file\n", path.Base(os.Args[0]))
 	flag.PrintDefaults()
-
 	os.Exit(1)
 }
 
@@ -38,8 +36,7 @@ func main() {
 		log.Fatalf("Error decoding JSON: %s", err)
 	}
 
-	tomlData := translate(tmp)
-	if err := toml.NewEncoder(os.Stdout).Encode(tomlData); err != nil {
+	if err := toml.NewEncoder(os.Stdout).Encode(translate(tmp)); err != nil {
 		log.Fatalf("Error encoding TOML: %s", err)
 	}
 }
@@ -56,17 +53,11 @@ func translate(typedJson interface{}) interface{} {
 		}
 		return m
 	case []interface{}:
-		tabArray := make([]map[string]interface{}, len(v))
+		a := make([]interface{}, len(v))
 		for i := range v {
-			if m, ok := translate(v[i]).(map[string]interface{}); ok {
-				tabArray[i] = m
-			} else {
-				log.Fatalf("JSON arrays may only contain objects. This " +
-					"corresponds to only tables being allowed in " +
-					"TOML table arrays.")
-			}
+			a[i] = translate(v[i])
 		}
-		return tabArray
+		return a
 	}
 	log.Fatalf("Unrecognized JSON format '%T'.", typedJson)
 	panic("unreachable")
@@ -108,18 +99,6 @@ func untag(typed map[string]interface{}) interface{} {
 			return false
 		}
 		log.Fatalf("Could not parse '%s' as a boolean.", v)
-	case "array":
-		v := v.([]interface{})
-		array := make([]interface{}, len(v))
-		for i := range v {
-			if m, ok := v[i].(map[string]interface{}); ok {
-				array[i] = untag(m)
-			} else {
-				log.Fatalf("Arrays may only contain other arrays or "+
-					"primitive values, but found a '%T'.", m)
-			}
-		}
-		return array
 	}
 	log.Fatalf("Unrecognized tag type '%s'.", t)
 	panic("unreachable")
