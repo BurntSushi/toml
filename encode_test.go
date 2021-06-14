@@ -66,7 +66,7 @@ func TestEncode(t *testing.T) {
 	}
 	type NonStruct int
 
-	date := time.Date(2014, 5, 11, 20, 30, 40, 0, time.FixedZone("IST", 3600))
+	date := time.Date(2014, 5, 11, 19, 30, 40, 0, time.UTC)
 	dateStr := "2014-05-11T19:30:40Z"
 
 	tests := map[string]struct {
@@ -739,7 +739,6 @@ func encodeExpected(
 		return
 	}
 	if got := buf.String(); wantStr != got {
-		t.Errorf("%s: want\n-----\n%q\n-----\nbut got\n-----\n%q\n-----\n",
-			label, wantStr, got)
+		t.Errorf("%s\nhave: %q\nwant: %q\n", label, got, wantStr)
 	}
 }

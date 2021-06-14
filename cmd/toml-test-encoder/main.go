@@ -94,7 +94,7 @@ func untag(typed map[string]interface{}) interface{} {
 		return f
 	case "datetime":
 		v := v.(string)
-		t, err := time.Parse("2006-01-02T15:04:05Z", v)
+		t, err := time.Parse("2006-01-02T15:04:05.999999999Z07:00", v)
 		if err != nil {
 			log.Fatalf("Could not parse '%s' as a datetime: %s", v, err)
 		}
