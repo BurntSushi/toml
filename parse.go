@@ -100,7 +100,7 @@ func (p *parser) panicf(format string, v ...interface{}) {
 
 func (p *parser) next() item {
 	it := p.lx.nextItem()
-	//fmt.Printf("ITEM %-18s line %-3d → %q\n", it.typ, it.line, it.val)
+	//fmt.Printf("ITEM %-18s line %-3d │ %q\n", it.typ, it.line, it.val)
 	if it.typ == itemError {
 		p.panicf("%s", it.val)
 	}
@@ -129,40 +129,58 @@ func (p *parser) topLevel(item item) {
 		p.approxLine = item.line
 		p.expect(itemText)
 	case itemTableStart:
-		kg := p.next()
-		p.approxLine = kg.line
+		name := p.next()
+		p.approxLine = name.line
 
 		var key Key
-		for ; kg.typ != itemTableEnd && kg.typ != itemEOF; kg = p.next() {
-			key = append(key, p.keyString(kg))
+		for ; name.typ != itemTableEnd && name.typ != itemEOF; name = p.next() {
+			key = append(key, p.keyString(name))
 		}
-		p.assertEqual(itemTableEnd, kg.typ)
+		p.assertEqual(itemTableEnd, name.typ)
 
 		p.establishContext(key, false)
 		p.setType("", tomlHash)
 		p.ordered = append(p.ordered, key)
 	case itemArrayTableStart:
-		kg := p.next()
-		p.approxLine = kg.line
+		name := p.next()
+		p.approxLine = name.line
 
 		var key Key
-		for ; kg.typ != itemArrayTableEnd && kg.typ != itemEOF; kg = p.next() {
-			key = append(key, p.keyString(kg))
+		for ; name.typ != itemArrayTableEnd && name.typ != itemEOF; name = p.next() {
+			key = append(key, p.keyString(name))
 		}
-		p.assertEqual(itemArrayTableEnd, kg.typ)
+		p.assertEqual(itemArrayTableEnd, name.typ)
 
 		p.establishContext(key, true)
 		p.setType("", tomlArrayHash)
 		p.ordered = append(p.ordered, key)
 	case itemKeyStart:
-		kname := p.next()
-		p.approxLine = kname.line
-		p.currentKey = p.keyString(kname)
+		name := p.next()
+		p.approxLine = name.line
+
+		var key Key
+		for ; name.typ != itemKeyEnd && name.typ != itemEOF; name = p.next() {
+			key = append(key, p.keyString(name))
+		}
+		p.assertEqual(itemKeyEnd, name.typ)
+
+		p.currentKey = key[len(key)-1]
+		if len(key) > 1 {
+			for i := range key[:len(key)-1] {
+				app := append(p.context, key[i:i+1]...)
+				p.addImplicit(app)
+				p.establishContext(app, false)
+			}
+		}
 
 		val, typ := p.value(p.next())
-		p.setValue(p.currentKey, val)
-		p.setType(p.currentKey, typ)
+		p.set(p.currentKey, val, typ)
 		p.ordered = append(p.ordered, p.context.add(p.currentKey))
+
+		if len(key) > 1 {
+			p.context = p.context[:len(key)-2]
+		}
+
 		p.currentKey = ""
 	default:
 		p.bug("Unexpected type at top level: %s", item.typ)
@@ -328,6 +346,7 @@ func (p *parser) value(it item) (interface{}, tomlType) {
 
 			// retrieve key
 			k := p.next()
+			_ = p.next() // XXX read KeyEnd; temporary
 			p.approxLine = k.line
 			kname := p.keyString(k)
 
@@ -393,9 +412,8 @@ func numPeriodsOK(s string) bool {
 	return !period
 }
 
-// establishContext sets the current context of the parser,
-// where the context is either a hash or an array of hashes. Which one is
-// set depends on the value of the `array` parameter.
+// Set the current context of the parser, where the context is either a hash or
+// an array of hashes, depending on the value of the `array` parameter.
 //
 // Establishing the context also makes sure that the key isn't a duplicate, and
 // will create implicit hashes automatically.
@@ -446,13 +464,18 @@ func (p *parser) establishContext(key Key, array bool) {
 		if hash, ok := hashContext[k].([]map[string]interface{}); ok {
 			hashContext[k] = append(hash, make(map[string]interface{}))
 		} else {
-			p.panicf("Key '%s' was already created and cannot be used as "+
-				"an array.", keyContext)
+			p.panicf("Key '%s' was already created and cannot be used as an array.", keyContext)
 		}
 	} else {
 		p.setValue(key[len(key)-1], make(map[string]interface{}))
 	}
 	p.context = append(p.context, key[len(key)-1])
+}
+
+// set calls setValue and setType.
+func (p *parser) set(key string, val interface{}, typ tomlType) {
+	p.setValue(p.currentKey, val)
+	p.setType(p.currentKey, typ)
 }
 
 // setValue sets the given key to the given value in the current context.
@@ -484,11 +507,9 @@ func (p *parser) setValue(key string, value interface{}) {
 	keyContext = append(keyContext, key)
 
 	if _, ok := hash[key]; ok {
-		// Typically, if the given key has already been set, then we have
-		// to raise an error since duplicate keys are disallowed. However,
-		// it's possible that a key was previously defined implicitly. In this
-		// case, it is allowed to be redefined concretely. (See the
-		// `tests/valid/implicit-and-explicit-after.toml` test in `toml-test`.)
+		// Normally redefining keys isn't allowed, but the key could have been
+		// defined implicitly and it's allowed to be redefined concretely. (See
+		// the `valid/implicit-and-explicit-after.toml` in toml-test)
 		//
 		// But we have to make sure to stop marking it as an implicit. (So that
 		// another redefinition provokes an error.)

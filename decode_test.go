@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -42,6 +43,7 @@ func TestDecodeFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	have := fmt.Sprintf("%v %v %v", i, meta.Keys(), meta.Type("a"))
 	want := "{42} [a] Integer"
 	if have != want {
@@ -711,4 +713,61 @@ func errorContains(have error, want string) bool {
 		return false
 	}
 	return strings.Contains(have.Error(), want)
+}
+
+func TestDecodeDottedKey(t *testing.T) {
+	tests := []struct {
+		in      string
+		want    string
+		wantErr string
+	}{
+		// Bare key
+		{`a.b=1`, `{"a":{"b":1}}`, ``},
+		{` a . b = 1`, `{"a":{"b":1}}`, ``},
+		{" \t  a   \t  .   \t   b  \t = 1", `{"a":{"b":1}}`, ``},
+		// Quoted key
+		{`"a"."b"=1`, `{"a":{"b":1}}`, ``},
+		{` "a" . "b" = 1`, `{"a":{"b":1}}`, ``},
+		{" \t  'a'   \t  .   \t   'b'  \t = 1", `{"a":{"b":1}}`, ``},
+		// Bare + quoted
+		{`a."b"=1`, `{"a":{"b":1}}`, ``},
+		{` a . "b" = 1`, `{"a":{"b":1}}`, ``},
+		{" \t  a   \t  .   \t   'b'  \t = 1", `{"a":{"b":1}}`, ``},
+		// Quoted + bare
+		{`"a".b=1`, `{"a":{"b":1}}`, ``},
+		{` "a" . b = 1`, `{"a":{"b":1}}`, ``},
+		{" \t  'a'   \t  .   \t   b  \t = 1", `{"a":{"b":1}}`, ``},
+		// Inside a table.
+		{"[a.b]\nc=1", `{"a":{"b":{"c":1}}}`, ``},
+		{"[a.b.c]\nc=1", `{"a":{"b":{"c":{"c":1}}}}`, ``},
+		{"[[a.b]]\nc=1", `{"a":{"b":[{"c":1}]}}`, ``},
+		{"[a.b]\nc.d=1", `{"a":{"b":{"c":{"d":1}}}}`, ``},
+		{"[a.b.c.d]\ne.f.g.h=1", `{"a":{"b":{"c":{"d":{"e":{"f":{"g":{"h":1}}}}}}}}`, ``},
+		{"[[a.b.x.y]]\nc.d.e.f=1", `{"a":{"b":{"x":{"y":[{"c":{"d":{"e":{"f":1}}}}]}}}}`, ``},
+
+		// Multiple values on the same key
+		{"a.b=1\na.c=2\na.d=[3]", `{"a":{"b":1,"c":2,"d":[3]}}`, ``},
+
+		// Inline table.
+		//{`a={b.c=1}`, ``, ``},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			var s interface{}
+			_, err := Decode(tt.in, &s)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			j, _ := json.Marshal(s)
+			have := string(j)
+
+			//if have := fmt.Sprintf("%v", s); have != tt.want {
+			if have != tt.want {
+				j, _ := json.MarshalIndent(s, "", "  ")
+				t.Errorf("\nhave: %s\nwant: %s\n\nhave indented:\n%s", have, tt.want, j)
+			}
+		})
+	}
 }

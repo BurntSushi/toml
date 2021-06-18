@@ -31,6 +31,7 @@ const (
 	itemArrayTableStart
 	itemArrayTableEnd
 	itemKeyStart
+	itemKeyEnd
 	itemCommentStart
 	itemInlineTableStart
 	itemInlineTableEnd
@@ -95,6 +96,7 @@ func (lx *lexer) nextItem() item {
 			return item
 		default:
 			lx.state = lx.state(lx)
+			//fmt.Printf("     STATE %-24s   current: %-10q   stack: %s\n", lx.state, lx.current(), lx.stack)
 		}
 	}
 }
@@ -279,8 +281,9 @@ func lexTopEnd(lx *lexer) stateFn {
 		lx.emit(itemEOF)
 		return nil
 	}
-	return lx.errorf("expected a top-level item to end with a newline, "+
-		"comment, or EOF, but got %q instead", r)
+	return lx.errorf(
+		"expected a top-level item to end with a newline, comment, or EOF, but got %q instead",
+		r)
 }
 
 // lexTable lexes the beginning of a table. Namely, it makes sure that
@@ -307,8 +310,9 @@ func lexTableEnd(lx *lexer) stateFn {
 
 func lexArrayTableEnd(lx *lexer) stateFn {
 	if r := lx.next(); r != arrayTableEnd {
-		return lx.errorf("expected end of table array name delimiter %q, "+
-			"but got %q instead", arrayTableEnd, r)
+		return lx.errorf(
+			"expected end of table array name delimiter %q, but got %q instead",
+			arrayTableEnd, r)
 	}
 	lx.emit(itemArrayTableEnd)
 	return lexTopEnd
@@ -318,30 +322,17 @@ func lexTableNameStart(lx *lexer) stateFn {
 	lx.skip(isWhitespace)
 	switch r := lx.peek(); {
 	case r == tableEnd || r == eof:
-		return lx.errorf("unexpected end of table name " +
-			"(table names cannot be empty)")
+		return lx.errorf("unexpected end of table name (table names cannot be empty)")
 	case r == tableSep:
-		return lx.errorf("unexpected table separator " +
-			"(table names cannot be empty)")
+		return lx.errorf("unexpected table separator (table names cannot be empty)")
 	case r == stringStart || r == rawStringStart:
 		lx.ignore()
 		lx.push(lexTableNameEnd)
-		return lexValue // reuse string lexing
+		return lexQuotedName
 	default:
-		return lexBareTableName
+		lx.push(lexTableNameEnd)
+		return lexBareName
 	}
-}
-
-// lexBareTableName lexes the name of a table. It assumes that at least one
-// valid character for the table has already been read.
-func lexBareTableName(lx *lexer) stateFn {
-	r := lx.next()
-	if isBareKeyChar(r) {
-		return lexBareTableName
-	}
-	lx.backup()
-	lx.emit(itemText)
-	return lexTableNameEnd
 }
 
 // lexTableNameEnd reads the end of a piece of a table name, optionally
@@ -357,78 +348,101 @@ func lexTableNameEnd(lx *lexer) stateFn {
 	case r == tableEnd:
 		return lx.pop()
 	default:
-		return lx.errorf("expected '.' or ']' to end table name, "+
-			"but got %q instead", r)
+		return lx.errorf("expected '.' or ']' to end table name, but got %q instead", r)
 	}
 }
 
-// lexKeyStart consumes a key name up until the first non-whitespace character.
-// lexKeyStart will ignore whitespace.
-func lexKeyStart(lx *lexer) stateFn {
-	r := lx.peek()
+// lexBareName lexes one part of a key or table.
+//
+// It assumes that at least one valid character for the table has already been
+// read.
+//
+// Lexes only one part, e.g. only 'a' inside 'a.b'.
+func lexBareName(lx *lexer) stateFn {
+	r := lx.next()
+	if isBareKeyChar(r) {
+		return lexBareName
+	}
+	lx.backup()
+	lx.emit(itemText)
+	return lx.pop()
+}
+
+// lexBareName lexes one part of a key or table.
+//
+// It assumes that at least one valid character for the table has already been
+// read.
+//
+// Lexes only one part, e.g. only '"a"' inside '"a".b'.
+func lexQuotedName(lx *lexer) stateFn {
+	r := lx.next()
 	switch {
-	case r == keySep:
-		return lx.errorf("unexpected key separator %q", keySep)
-	case isWhitespace(r) || isNL(r):
-		lx.next()
-		return lexSkip(lx, lexKeyStart)
+	case isWhitespace(r):
+		return lexSkip(lx, lexValue)
+	case r == stringStart:
+		lx.ignore() // ignore the '"'
+		return lexString
+	case r == rawStringStart:
+		lx.ignore() // ignore the "'"
+		return lexRawString
+	case r == eof:
+		return lx.errorf("unexpected EOF; expected value")
+	default:
+		return lx.errorf("expected value but found %q instead", r)
+	}
+}
+
+// lexKeyStart consumes all key parts until a '='.
+func lexKeyStart(lx *lexer) stateFn {
+	lx.skip(isWhitespace)
+	switch r := lx.peek(); {
+	case r == '=' || r == eof:
+		return lx.errorf("unexpected '=': key name appears blank")
+	case r == '.':
+		return lx.errorf("unexpected '.': keys cannot start with a '.'")
 	case r == stringStart || r == rawStringStart:
 		lx.ignore()
+		fallthrough
+	default: // Bare key
 		lx.emit(itemKeyStart)
-		lx.push(lexKeyEnd)
-
-		r := lx.next()
-		lx.ignore()
-		switch r {
-		case stringStart:
-			return lexString
-		case rawStringStart:
-			return lexRawString
-		default:
-			lx.errorf("keys must be string")
-		}
-		return lexValue
-	default:
-		lx.ignore()
-		lx.emit(itemKeyStart)
-		return lexBareKey
+		return lexKeyNameStart
 	}
 }
 
-// lexBareKey consumes the text of a bare key. Assumes that the first character
-// (which is not whitespace) has not yet been consumed.
-func lexBareKey(lx *lexer) stateFn {
-	switch r := lx.next(); {
-	case isBareKeyChar(r):
-		return lexBareKey
-	case isWhitespace(r):
-		lx.backup()
-		lx.emit(itemText)
-		return lexKeyEnd
-	case r == keySep:
-		lx.backup()
-		lx.emit(itemText)
-		return lexKeyEnd
-	case r == eof:
-		return lx.errorf("unexpected EOF; expected key separator '='")
+func lexKeyNameStart(lx *lexer) stateFn {
+	lx.skip(isWhitespace)
+	switch r := lx.peek(); {
+	case r == '=' || r == eof:
+		return lx.errorf("unexpected '='")
+	case r == '.':
+		return lx.errorf("unexpected '.'")
+	case r == stringStart || r == rawStringStart:
+		lx.ignore()
+		lx.push(lexKeyEnd)
+		return lexQuotedName
 	default:
-		return lx.errorf("bare keys cannot contain %q", r)
+		lx.push(lexKeyEnd)
+		return lexBareName
 	}
 }
 
 // lexKeyEnd consumes the end of a key and trims whitespace (up to the key
 // separator).
 func lexKeyEnd(lx *lexer) stateFn {
+	lx.skip(isWhitespace)
 	switch r := lx.next(); {
-	case r == keySep:
-		return lexSkip(lx, lexValue)
 	case isWhitespace(r):
 		return lexSkip(lx, lexKeyEnd)
 	case r == eof:
 		return lx.errorf("unexpected EOF; expected key separator %q", keySep)
+	case r == '.':
+		lx.ignore()
+		return lexKeyNameStart
+	case r == '=':
+		lx.emit(itemKeyEnd)
+		return lexSkip(lx, lexValue)
 	default:
-		return lx.errorf("expected key separator %q, but got %q instead",
-			keySep, r)
+		return lx.errorf("expected '.' or '=', but got %q instead", r)
 	}
 }
 
@@ -782,8 +796,7 @@ func lexStringEscape(lx *lexer) stateFn {
 	case 'U':
 		return lexLongUnicodeEscape
 	}
-	return lx.errorf("invalid escape character %q; only the following "+
-		"escape characters are allowed: "+
+	return lx.errorf("invalid escape character %q; only the following escape characters are allowed: "+
 		`\b, \t, \n, \f, \r, \", \\, \uXXXX, and \UXXXXXXXX`, r)
 }
 
@@ -792,8 +805,9 @@ func lexShortUnicodeEscape(lx *lexer) stateFn {
 	for i := 0; i < 4; i++ {
 		r = lx.next()
 		if !isHexadecimal(r) {
-			return lx.errorf(`expected four hexadecimal digits after '\u', `+
-				"but got %q instead", lx.current())
+			return lx.errorf(
+				`expected four hexadecimal digits after '\u', but got %q instead`,
+				lx.current())
 		}
 	}
 	return lx.pop()
@@ -804,8 +818,9 @@ func lexLongUnicodeEscape(lx *lexer) stateFn {
 	for i := 0; i < 8; i++ {
 		r = lx.next()
 		if !isHexadecimal(r) {
-			return lx.errorf(`expected eight hexadecimal digits after '\U', `+
-				"but got %q instead", lx.current())
+			return lx.errorf(
+				`expected eight hexadecimal digits after '\U', but got %q instead`,
+				lx.current())
 		}
 	}
 	return lx.pop()
@@ -1133,6 +1148,9 @@ func (s stateFn) String() string {
 	if i := strings.LastIndexByte(name, '.'); i > -1 {
 		name = name[i+1:]
 	}
+	if s == nil {
+		name = "<nil>"
+	}
 	return name + "()"
 }
 
@@ -1162,6 +1180,8 @@ func (itype itemType) String() string {
 		return "TableEnd"
 	case itemKeyStart:
 		return "KeyStart"
+	case itemKeyEnd:
+		return "KeyEnd"
 	case itemArray:
 		return "Array"
 	case itemArrayEnd:
