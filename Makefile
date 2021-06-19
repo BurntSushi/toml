@@ -17,6 +17,8 @@ all:
 	@e=0  # So it won't stop on the first command that fails.
 	@go install ./...
 	@go test ./... || e=1
+	@go get github.com/BurntSushi/toml-test/cmd/toml-test@master
 	@${TOML_TEST} -skip="${SKIP_DECODE}" toml-test-decoder || e=1
 	@${TOML_TEST} -encoder -skip="${SKIP_ENCODE}" toml-test-encoder || e=1
+	@go mod tidy
 	@exit $e
