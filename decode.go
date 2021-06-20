@@ -11,10 +11,6 @@ import (
 	"time"
 )
 
-func e(format string, args ...interface{}) error {
-	return fmt.Errorf("toml: "+format, args...)
-}
-
 // Unmarshaler is the interface implemented by objects that can unmarshal a
 // TOML description of themselves.
 type Unmarshaler interface {
@@ -142,7 +138,6 @@ func DecodeReader(r io.Reader, v interface{}) (MetaData, error) {
 // Any type mismatch produces an error. Finding a type that we don't know
 // how to handle produces an unsupported type error.
 func (md *MetaData) unify(data interface{}, rv reflect.Value) error {
-
 	// Special case. Look for a `Primitive` value.
 	// TODO: #76 would make this superfluous after implemented.
 	if rv.Type() == reflect.TypeOf((*Primitive)(nil)).Elem() {
@@ -494,6 +489,10 @@ func isUnifiable(rv reflect.Value) bool {
 		return true
 	}
 	return false
+}
+
+func e(format string, args ...interface{}) error {
+	return fmt.Errorf("toml: "+format, args...)
 }
 
 func badtype(expected string, data interface{}) error {

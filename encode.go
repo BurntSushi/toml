@@ -17,19 +17,13 @@ import (
 type tomlEncodeError struct{ error }
 
 var (
-	errArrayMixedElementTypes = errors.New(
-		"toml: cannot encode array with mixed element types")
-	errArrayNilElement = errors.New(
-		"toml: cannot encode array with nil element")
-	errNonString = errors.New(
-		"toml: cannot encode a map with non-string key type")
-	errAnonNonStruct = errors.New(
-		"toml: cannot encode an anonymous field that is not a struct")
-	errArrayNoTable = errors.New(
-		"toml: TOML array element cannot contain a table")
-	errNoKey = errors.New(
-		"toml: top-level values must be Go maps or structs")
-	errAnything = errors.New("") // used in testing
+	errArrayMixedElementTypes = errors.New("toml: cannot encode array with mixed element types")
+	errArrayNilElement        = errors.New("toml: cannot encode array with nil element")
+	errNonString              = errors.New("toml: cannot encode a map with non-string key type")
+	errAnonNonStruct          = errors.New("toml: cannot encode an anonymous field that is not a struct")
+	errArrayNoTable           = errors.New("toml: TOML array element cannot contain a table")
+	errNoKey                  = errors.New("toml: top-level values must be Go maps or structs")
+	errAnything               = errors.New("") // used in testing
 )
 
 var quotedReplacer = strings.NewReplacer(
