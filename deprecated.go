@@ -1,6 +1,9 @@
 package toml
 
-import "encoding"
+import (
+	"encoding"
+	"io"
+)
 
 // DEPRECATED!
 //
@@ -20,4 +23,11 @@ type TextUnmarshaler encoding.TextUnmarshaler
 func PrimitiveDecode(primValue Primitive, v interface{}) error {
 	md := MetaData{decoded: make(map[string]bool)}
 	return md.unify(primValue.undecoded, rvalue(v))
+}
+
+// DEPRECATED!
+//
+// Use NewDecoder(reader).Decode(&v) instead.
+func DecodeReader(r io.Reader, v interface{}) (MetaData, error) {
+	return NewDecoder(r).Decode(v)
 }
