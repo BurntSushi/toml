@@ -36,12 +36,12 @@ func main() {
 		log.Fatalf("Error decoding JSON: %s", err)
 	}
 
-	if err := toml.NewEncoder(os.Stdout).Encode(translate(tmp)); err != nil {
+	if err := toml.NewEncoder(os.Stdout).Encode(removeJSONTags(tmp)); err != nil {
 		log.Fatalf("Error encoding TOML: %s", err)
 	}
 }
 
-func translate(typedJson interface{}) interface{} {
+func removeJSONTags(typedJson interface{}) interface{} {
 	switch v := typedJson.(type) {
 	case map[string]interface{}:
 		if len(v) == 2 && in("type", v) && in("value", v) {
@@ -49,13 +49,13 @@ func translate(typedJson interface{}) interface{} {
 		}
 		m := make(map[string]interface{}, len(v))
 		for k, v2 := range v {
-			m[k] = translate(v2)
+			m[k] = removeJSONTags(v2)
 		}
 		return m
 	case []interface{}:
 		a := make([]interface{}, len(v))
 		for i := range v {
-			a[i] = translate(v[i])
+			a[i] = removeJSONTags(v[i])
 		}
 		return a
 	}

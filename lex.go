@@ -139,7 +139,7 @@ func (lx *lexer) emitTrim(typ itemType) {
 
 func (lx *lexer) next() (r rune) {
 	if lx.atEOF {
-		panic("next called after EOF")
+		panic("BUG in lexer: next called after EOF")
 	}
 	if lx.pos >= len(lx.input) {
 		lx.atEOF = true
@@ -179,7 +179,7 @@ func (lx *lexer) backup() {
 		return
 	}
 	if lx.nprev < 1 {
-		panic("backed up too far")
+		panic("BUG in lexer: backed up too far")
 	}
 	w := lx.prevWidths[0]
 	lx.prevWidths[0] = lx.prevWidths[1]

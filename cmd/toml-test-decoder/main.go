@@ -39,12 +39,12 @@ func main() {
 
 	j := json.NewEncoder(os.Stdout)
 	j.SetIndent("", "  ")
-	if err := j.Encode(translate(decoded)); err != nil {
+	if err := j.Encode(addJSONTags(decoded)); err != nil {
 		log.Fatalf("Error encoding JSON: %s", err)
 	}
 }
 
-func translate(tomlData interface{}) interface{} {
+func addJSONTags(tomlData interface{}) interface{} {
 	switch orig := tomlData.(type) {
 	default:
 		panic(fmt.Sprintf("Unknown type: %T", tomlData))
@@ -52,19 +52,19 @@ func translate(tomlData interface{}) interface{} {
 	case map[string]interface{}:
 		typed := make(map[string]interface{}, len(orig))
 		for k, v := range orig {
-			typed[k] = translate(v)
+			typed[k] = addJSONTags(v)
 		}
 		return typed
 	case []map[string]interface{}:
 		typed := make([]map[string]interface{}, len(orig))
 		for i, v := range orig {
-			typed[i] = translate(v).(map[string]interface{})
+			typed[i] = addJSONTags(v).(map[string]interface{})
 		}
 		return typed
 	case []interface{}:
 		typed := make([]interface{}, len(orig))
 		for i, v := range orig {
-			typed[i] = translate(v)
+			typed[i] = addJSONTags(v)
 		}
 		return typed
 	case time.Time:
