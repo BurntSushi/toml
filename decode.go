@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -57,8 +58,7 @@ func (md *MetaData) PrimitiveDecode(primValue Primitive, v interface{}) error {
 	return md.unify(primValue.undecoded, rvalue(v))
 }
 
-// Decode will decode the contents of `data` in TOML format into a pointer
-// `v`.
+// Decode TOML data.
 //
 // TOML hashes correspond to Go structs or maps. (Dealer's choice. They can be
 // used interchangeably.)
@@ -93,7 +93,17 @@ func (md *MetaData) PrimitiveDecode(primValue Primitive, v interface{}) error {
 //
 // This decoder will not handle cyclic types. If a cyclic type is passed,
 // `Decode` will not terminate.
-func Decode(data string, v interface{}) (MetaData, error) {
+type Decoder struct {
+	r io.Reader
+}
+
+// NewDecoder creates a new Decoder.
+func NewDecoder(r io.Reader) *Decoder {
+	return &Decoder{r: r}
+}
+
+// Decode TOML data in to the pointer `v`.
+func (dec *Decoder) Decode(v interface{}) (MetaData, error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr {
 		return MetaData{}, e("Decode of non-pointer %s", reflect.TypeOf(v))
@@ -101,7 +111,15 @@ func Decode(data string, v interface{}) (MetaData, error) {
 	if rv.IsNil() {
 		return MetaData{}, e("Decode of nil %s", reflect.TypeOf(v))
 	}
-	p, err := parse(data)
+
+	// TODO: have parser should read from io.Reader? Or at the very least, make
+	// it read from []byte rather than string
+	data, err := ioutil.ReadAll(dec.r)
+	if err != nil {
+		return MetaData{}, err
+	}
+
+	p, err := parse(string(data))
 	if err != nil {
 		return MetaData{}, err
 	}
@@ -112,24 +130,22 @@ func Decode(data string, v interface{}) (MetaData, error) {
 	return md, md.unify(p.mapping, indirect(rv))
 }
 
+// Decode the TOML data in to the pointer v.
+//
+// See Decoder for the full documentation.
+func Decode(data string, v interface{}) (MetaData, error) {
+	return NewDecoder(strings.NewReader(data)).Decode(v)
+}
+
 // DecodeFile is just like Decode, except it will automatically read the
 // contents of the file at `fpath` and decode it for you.
 func DecodeFile(fpath string, v interface{}) (MetaData, error) {
-	bs, err := ioutil.ReadFile(fpath)
+	fp, err := os.Open(fpath)
 	if err != nil {
 		return MetaData{}, err
 	}
-	return Decode(string(bs), v)
-}
-
-// DecodeReader is just like Decode, except it will consume all bytes
-// from the reader and decode it for you.
-func DecodeReader(r io.Reader, v interface{}) (MetaData, error) {
-	bs, err := ioutil.ReadAll(r)
-	if err != nil {
-		return MetaData{}, err
-	}
-	return Decode(string(bs), v)
+	defer fp.Close()
+	return NewDecoder(fp).Decode(v)
 }
 
 // unify performs a sort of type unification based on the structure of `rv`,
