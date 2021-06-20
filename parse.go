@@ -1,7 +1,6 @@
 package toml
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -18,27 +17,20 @@ type parser struct {
 	context    Key             // Full key for the current hash in scope.
 	currentKey string          // Base key name for everything except hashes.
 	approxLine int             // Rough approximation of line number
+	pos        int             // Rough approximation of position (byte offset from start).
 	implicits  map[string]bool // Record implied keys (e.g. 'key.group.names').
 }
 
-// ParseError is used when a file can't be parsed: for example invalid integer
-// literals, duplicate keys, etc.
-type ParseError struct {
-	Message string
-	Line    int
-	LastKey string
-}
-
-func (pe ParseError) Error() string {
-	return fmt.Sprintf("Near line %d (last key parsed '%s'): %s",
-		pe.Line, pe.LastKey, pe.Message)
-}
+var extendedError = true
 
 func parse(data string) (p *parser, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			var ok bool
-			if err, ok = r.(ParseError); ok {
+			if pErr, ok := r.(ParseError); ok {
+				if extendedError {
+					pErr.Input = data
+				}
+				err = pErr
 				return
 			}
 			panic(r)
@@ -58,8 +50,12 @@ func parse(data string) (p *parser, err error) {
 	if len(data) < 6 {
 		ex = len(data)
 	}
-	if strings.ContainsRune(data[:ex], 0) {
-		return nil, errors.New("files cannot contain NULL bytes; probably using UTF-16; TOML files must be UTF-8")
+	if i := strings.IndexRune(data[:ex], 0); i > -1 {
+		return nil, ParseError{
+			Message: "files cannot contain NULL bytes; probably using UTF-16; TOML files must be UTF-8",
+			Pos:     i,
+			Line:    1,
+		}
 	}
 
 	p = &parser{
@@ -81,10 +77,10 @@ func parse(data string) (p *parser, err error) {
 }
 
 func (p *parser) panicf(format string, v ...interface{}) {
-	msg := fmt.Sprintf(format, v...)
 	panic(ParseError{
-		Message: msg,
+		Message: fmt.Sprintf(format, v...),
 		Line:    p.approxLine,
+		Pos:     p.pos,
 		LastKey: p.current(),
 	})
 }
@@ -93,6 +89,7 @@ func (p *parser) next() item {
 	it := p.lx.nextItem()
 	//fmt.Printf("ITEM %-18s line %-3d │ %q\n", it.typ, it.line, it.val)
 	if it.typ == itemError {
+		p.pos = it.pos
 		p.panicf("%s", it.val)
 	}
 	return it
@@ -117,11 +114,11 @@ func (p *parser) assertEqual(expected, got itemType) {
 func (p *parser) topLevel(item item) {
 	switch item.typ {
 	case itemCommentStart: // # ..
-		p.approxLine = item.line
+		p.approxLine, p.pos = item.line, item.pos
 		p.expect(itemText)
 	case itemTableStart: // [ .. ]
 		name := p.next()
-		p.approxLine = name.line
+		p.approxLine, p.pos = name.line, name.pos
 
 		var key Key
 		for ; name.typ != itemTableEnd && name.typ != itemEOF; name = p.next() {
@@ -134,7 +131,7 @@ func (p *parser) topLevel(item item) {
 		p.ordered = append(p.ordered, key)
 	case itemArrayTableStart: // [[ .. ]]
 		name := p.next()
-		p.approxLine = name.line
+		p.approxLine, p.pos = name.line, name.pos
 
 		var key Key
 		for ; name.typ != itemArrayTableEnd && name.typ != itemEOF; name = p.next() {
@@ -149,7 +146,7 @@ func (p *parser) topLevel(item item) {
 		outerContext := p.context
 		/// Read all the key parts (e.g. 'a' and 'b' in 'a.b')
 		k := p.next()
-		p.approxLine = k.line
+		p.approxLine, p.pos = k.line, k.pos
 		var key Key
 		for ; k.typ != itemKeyEnd && k.typ != itemEOF; k = p.next() {
 			key = append(key, p.keyString(k))
@@ -380,7 +377,7 @@ func (p *parser) valueInlineTable(it item, parentIsArray bool) (interface{}, tom
 
 		/// Read all key parts.
 		k := p.next()
-		p.approxLine = k.line
+		p.approxLine, p.pos = k.line, k.pos
 		var key Key
 		for ; k.typ != itemKeyEnd && k.typ != itemEOF; k = p.next() {
 			key = append(key, p.keyString(k))

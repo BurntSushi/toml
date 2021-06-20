@@ -87,6 +87,7 @@ type item struct {
 	typ  itemType
 	val  string
 	line int
+	pos  int
 }
 
 func (lx *lexer) nextItem() item {
@@ -130,12 +131,12 @@ func (lx *lexer) current() string {
 }
 
 func (lx *lexer) emit(typ itemType) {
-	lx.items <- item{typ, lx.current(), lx.line}
+	lx.items <- item{typ, lx.current(), lx.line, lx.pos}
 	lx.start = lx.pos
 }
 
 func (lx *lexer) emitTrim(typ itemType) {
-	lx.items <- item{typ, strings.TrimSpace(lx.current()), lx.line}
+	lx.items <- item{typ, strings.TrimSpace(lx.current()), lx.line, lx.pos}
 	lx.start = lx.pos
 }
 
@@ -227,11 +228,7 @@ func (lx *lexer) skip(pred func(rune) bool) {
 // Note that any value that is a character is escaped if it's a special
 // character (newlines, tabs, etc.).
 func (lx *lexer) errorf(format string, values ...interface{}) stateFn {
-	lx.items <- item{
-		itemError,
-		fmt.Sprintf(format, values...),
-		lx.line,
-	}
+	lx.items <- item{itemError, fmt.Sprintf(format, values...), lx.line, lx.pos}
 	return nil
 }
 
