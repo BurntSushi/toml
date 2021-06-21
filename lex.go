@@ -592,8 +592,7 @@ func lexInlineTableValue(lx *lexer) stateFn {
 // key/value pair and the next pair (or the end of the table):
 // it ignores whitespace and expects either a ',' or a '}'.
 func lexInlineTableValueEnd(lx *lexer) stateFn {
-	r := lx.next()
-	switch {
+	switch r := lx.next(); {
 	case isWhitespace(r):
 		return lexSkip(lx, lexInlineTableValueEnd)
 	case isNL(r):
@@ -603,13 +602,18 @@ func lexInlineTableValueEnd(lx *lexer) stateFn {
 		return lexCommentStart
 	case r == comma:
 		lx.ignore()
+		lx.skip(isWhitespace)
+		if lx.peek() == '}' {
+			return lx.errorf("trailing comma not allowed in inline tables")
+		}
 		return lexInlineTableValue
 	case r == inlineTableEnd:
 		return lexInlineTableEnd
+	default:
+		return lx.errorf(
+			"expected a comma or an inline table terminator %q, but got %s instead",
+			inlineTableEnd, runeOrEOF(r))
 	}
-	return lx.errorf(
-		"expected a comma or an inline table terminator %q, but got %s instead",
-		inlineTableEnd, runeOrEOF(r))
 }
 
 func runeOrEOF(r rune) string {
