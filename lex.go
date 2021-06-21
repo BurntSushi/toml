@@ -789,9 +789,9 @@ func lexStringEscape(lx *lexer) stateFn {
 		fallthrough
 	case '"':
 		fallthrough
-	// Inside """ .. """ strings you can use \ to escape newlines, and any
-	// amount of whitespace can be between the \ and \n.
 	case ' ', '\t':
+		// Inside """ .. """ strings you can use \ to escape newlines, and any
+		// amount of whitespace can be between the \ and \n.
 		fallthrough
 	case '\\':
 		return lx.pop()
