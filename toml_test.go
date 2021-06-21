@@ -23,8 +23,9 @@ import (
 //
 // Filepaths are glob'd
 var errorTests = map[string][]string{
-	"encoding-bad-utf8*": {"invalid UTF-8 byte"},
-	"encoding-utf16*":    {"files cannot contain NULL bytes; probably using UTF-16"},
+	"encoding-bad-utf8*":            {"invalid UTF-8 byte"},
+	"encoding-utf16*":               {"files cannot contain NULL bytes; probably using UTF-16"},
+	"string-multiline-escape-space": {`invalid escape: '\ '`},
 }
 
 // Test metadata; all keys listed as "keyname: type".
@@ -58,7 +59,6 @@ func TestToml(t *testing.T) {
 				"valid/inline-table-nest",
 
 				"invalid/string-literal-multiline-quotes",
-				"invalid/string-multiline-escape-space",
 			},
 		}
 
