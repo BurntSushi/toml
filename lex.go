@@ -1082,13 +1082,16 @@ func lexCommentStart(lx *lexer) stateFn {
 // It will consume *up to* the first newline character, and pass control
 // back to the last state on the stack.
 func lexComment(lx *lexer) stateFn {
-	r := lx.peek()
-	if isNL(r) || r == eof {
+	switch r := lx.next(); {
+	case isNL(r) || r == eof:
+		lx.backup()
 		lx.emit(itemText)
 		return lx.pop()
+	case isControl(r):
+		return lx.errorf("control characters are not allowed inside comments: '0x%02x'", r)
+	default:
+		return lexComment
 	}
-	lx.next()
-	return lexComment
 }
 
 // lexSkip ignores all slurped input and moves on to the next state.

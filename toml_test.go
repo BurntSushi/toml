@@ -57,7 +57,6 @@ func TestToml(t *testing.T) {
 				"valid/array-mix-string-table",
 				"valid/inline-table-nest",
 
-				"invalid/control-comment*",
 				"invalid/inline-table-trailing-comma",
 				"invalid/string-literal-multiline-quotes",
 				"invalid/string-multiline-escape-space",
