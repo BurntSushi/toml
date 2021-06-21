@@ -6,10 +6,7 @@ packages. This package also supports the `encoding.TextUnmarshaler` and
 `encoding.TextMarshaler` interfaces so that you can define custom data
 representations. (There is an example of this below.)
 
-TOML specification: https://toml.io
-
-Compatible with TOML version [v0.4.0](https://toml.io/en/v0.4.0); support for
-more recent versions (0.5, 1.0) is forthcoming.
+Compatible with TOML version [v1.0.0](https://toml.io/en/v1.0.0).
 
 Documentation: https://pkg.go.dev/github.com/BurntSushi/toml
 

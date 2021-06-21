@@ -42,6 +42,7 @@ func TestDecodeFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	have := fmt.Sprintf("%v %v %v", i, meta.Keys(), meta.Type("a"))
 	want := "{42} [a] Integer"
 	if have != want {

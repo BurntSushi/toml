@@ -51,7 +51,6 @@ func TestToml(t *testing.T) {
 			Encoder: enc,
 			Parser:  parser{},
 			SkipTests: []string{
-				"valid/key-dotted",
 				"valid/datetime-local-date",
 				"valid/datetime-local-time",
 				"valid/datetime-local",
