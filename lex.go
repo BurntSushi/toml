@@ -174,7 +174,7 @@ func (lx *lexer) ignore() {
 	lx.start = lx.pos
 }
 
-// backup steps back one rune. Can be called only twice between calls to next.
+// backup steps back one rune. Can be called 4 times between calls to next.
 func (lx *lexer) backup() {
 	if lx.atEOF {
 		lx.atEOF = false
@@ -670,20 +670,28 @@ func lexMultilineString(lx *lexer) stateFn {
 	case '\\':
 		return lexMultilineStringEscape
 	case stringEnd:
+		/// Found " → try to read two more "".
 		if lx.accept(stringEnd) {
 			if lx.accept(stringEnd) {
-				// Can end in quote: """str""""
+				/// Peek ahead: the string can contain " and "", including at the
+				/// end: """str"""""
+				/// 6 or more at the end, however, is an error.
 				if lx.peek() == stringEnd {
+					/// Check if we already lexed 5 's; if so we have 6 now, and
+					/// that's just too many man!
+					if strings.HasSuffix(lx.current(), `"""""`) {
+						return lx.errorf(`unexpected '""""""'`)
+					}
 					lx.backup()
 					lx.backup()
 					return lexMultilineString
 				}
 
-				lx.backup()
+				lx.backup() /// backup: don't include the """ in the item.
 				lx.backup()
 				lx.backup()
 				lx.emit(itemMultilineString)
-				lx.next()
+				lx.next() /// Read over ''' again and discard it.
 				lx.next()
 				lx.next()
 				lx.ignore()
@@ -734,19 +742,28 @@ func lexMultilineRawString(lx *lexer) stateFn {
 		}
 		return lexMultilineRawString
 	case rawStringEnd:
+		/// Found ' → try to read two more ''.
 		if lx.accept(rawStringEnd) {
 			if lx.accept(rawStringEnd) {
-				// Can end in quote: '''str''''
+				/// Peek ahead: the string can contain ' and '', including at the
+				/// end: '''str'''''
+				/// 6 or more at the end, however, is an error.
 				if lx.peek() == rawStringEnd {
+					/// Check if we already lexed 5 's; if so we have 6 now, and
+					/// that's just too many man!
+					if strings.HasSuffix(lx.current(), "'''''") {
+						return lx.errorf(`unexpected "''''''"`)
+					}
 					lx.backup()
 					lx.backup()
 					return lexMultilineRawString
 				}
-				lx.backup()
+
+				lx.backup() /// backup: don't include the ''' in the item.
 				lx.backup()
 				lx.backup()
 				lx.emit(itemRawMultilineString)
-				lx.next()
+				lx.next() /// Read over ''' again and discard it.
 				lx.next()
 				lx.next()
 				lx.ignore()
