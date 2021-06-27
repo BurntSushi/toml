@@ -27,7 +27,7 @@ type Position struct {
 
 func (pe ParseError) Error() string {
 	msg := pe.Message
-	if msg == "" {
+	if msg == "" { // TODO: temporary
 		msg = pe.err.Error()
 	}
 
@@ -95,11 +95,20 @@ func (pe ParseError) column(lines []string) int {
 }
 
 type (
-	errLexEscape struct{ r rune }
+	errLexEscape      struct{ r rune }
+	errLexUTF8        struct{ b byte }
+	errLexInvalidNum  struct{ v string }
+	errLexInvalidDate struct{ v string }
 )
 
-func (e errLexEscape) Error() string { return fmt.Sprintf(`invalid escape in string '\%c'`, e.r) }
-func (e errLexEscape) Usage() string { return usageEscape }
+func (e errLexEscape) Error() string      { return fmt.Sprintf(`invalid escape in string '\%c'`, e.r) }
+func (e errLexEscape) Usage() string      { return usageEscape }
+func (e errLexUTF8) Error() string        { return fmt.Sprintf("invalid UTF-8 byte: 0x%02x", e.b) }
+func (e errLexUTF8) Usage() string        { return "" }
+func (e errLexInvalidNum) Error() string  { return fmt.Sprintf("invalid number: %q", e.v) }
+func (e errLexInvalidNum) Usage() string  { return "" }
+func (e errLexInvalidDate) Error() string { return fmt.Sprintf("invalid date: %q", e.v) }
+func (e errLexInvalidDate) Usage() string { return "" }
 
 const usageEscape = `
 A '\' inside a "-delimited string is interpreted as an escape character.

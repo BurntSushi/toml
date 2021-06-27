@@ -176,7 +176,7 @@ func (lx *lexer) next() (r rune) {
 
 	r, w := utf8.DecodeRuneInString(lx.input[lx.pos:])
 	if r == utf8.RuneError {
-		lx.errorf("invalid UTF-8 byte at: 0x%02x", lx.input[lx.pos])
+		lx.errorferr(errLexUTF8{lx.input[lx.pos]})
 		return utf8.RuneError
 	}
 
@@ -240,7 +240,7 @@ func (lx *lexer) skip(pred func(rune) bool) {
 	}
 }
 
-func (lx *lexer) err(err error) stateFn {
+func (lx *lexer) errorferr(err error) stateFn {
 	//if lx.atEOF {
 	//	return lx.errorfPrevline(format, values...)
 	//}
@@ -866,7 +866,7 @@ func lexStringEscape(lx *lexer) stateFn {
 	case 'U':
 		return lexLongUnicodeEscape
 	}
-	return lx.err(errLexEscape{r})
+	return lx.errorferr(errLexEscape{r})
 }
 
 func lexShortUnicodeEscape(lx *lexer) stateFn {

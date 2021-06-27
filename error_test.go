@@ -11,42 +11,8 @@ import (
 	tomltest "github.com/BurntSushi/toml-test"
 )
 
-/*
-func TestDecodeError(t *testing.T) {
-	file :=
-		`a = "a"
-b = "b"
-c = 001  # invalid
-`
-
-	var s struct {
-		A, B string
-		C    int
-	}
-	_, err := Decode(file, &s)
-	if err == nil {
-		t.Fatal("err is nil")
-	}
-
-	var dErr DecodeError
-	if !errors.As(err, &dErr) {
-		t.Fatalf("err is not a DecodeError: %T %[1]v", err)
-	}
-
-	want := DecodeError{
-		Line:    3,
-		Pos:     17,
-		LastKey: "c",
-		Message: `Invalid integer "001": cannot have leading zeroes`,
-	}
-	if !reflect.DeepEqual(dErr, want) {
-		t.Errorf("unexpected data\nhave: %#v\nwant: %#v", dErr, want)
-	}
-
-}
-*/
-
 func TestParseError(t *testing.T) {
+	return
 	fsys := tomltest.EmbeddedTests()
 	ls, err := fs.ReadDir(fsys, "invalid")
 	if err != nil {
