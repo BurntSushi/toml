@@ -57,6 +57,9 @@ func TestParseError(t *testing.T) {
 		if !strings.HasSuffix(f.Name(), ".toml") {
 			continue
 		}
+		if f.Name() != "datetime-no-secs.toml" {
+			//continue
+		}
 
 		if f.Name() == "string-multiline-escape-space.toml" {
 			continue

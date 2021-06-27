@@ -59,35 +59,43 @@ const (
 
 type stateFn func(lx *lexer) stateFn
 
-type lexer struct {
-	input string
-	start int
-	pos   int
-	line  int
-	state stateFn
-	items chan item
+type Position struct {
+	Line  int // Line number, starting at 1.
+	Start int // Start of error, as byte offset starting at 0.
+	Len   int // Lenght in bytes; may be 0.
+}
 
-	// Allow for backing up up to four runes.
-	// This is necessary because TOML contains 3-rune tokens (""" and ''').
+func (p Position) String() string {
+	return fmt.Sprintf("at line %d; start %d; length %d", p.Line, p.Start, p.Len)
+}
+
+type lexer struct {
+	input   string
+	start   int
+	pos     int
+	itemPos Position
+	state   stateFn
+	items   chan item
+
+	// Allow for backing up up to four runes. This is necessary because TOML
+	// contains 3-rune tokens (""" and ''').
 	prevWidths [4]int
-	nprev      int // how many of prevWidths are in use
-	// If we emit an eof, we can still back up, but it is not OK to call
-	// next again.
-	atEOF bool
+	nprev      int  // how many of prevWidths are in use
+	atEOF      bool // If we emit an eof, we can still back up, but it is not OK to call next again.
 
 	// A stack of state functions used to maintain context.
-	// The idea is to reuse parts of the state machine in various places.
-	// For example, values can appear at the top level or within arbitrarily
-	// nested arrays. The last state on the stack is used after a value has
-	// been lexed. Similarly for comments.
+	//
+	// The idea is to reuse parts of the state machine in various places. For
+	// example, values can appear at the top level or within arbitrarily nested
+	// arrays. The last state on the stack is used after a value has been lexed.
+	// Similarly for comments.
 	stack []stateFn
 }
 
 type item struct {
-	typ  itemType
-	val  string
-	line int
-	pos  int
+	typ itemType
+	val string
+	pos Position
 }
 
 func (lx *lexer) nextItem() item {
@@ -97,18 +105,19 @@ func (lx *lexer) nextItem() item {
 			return item
 		default:
 			lx.state = lx.state(lx)
-			//fmt.Printf("     STATE %-24s   current: %-10q   stack: %s\n", lx.state, lx.current(), lx.stack)
+			//fmt.Printf("     STATE %-24s  current: %-10q   %d:%d-%d   stack: %s\n",
+			//	lx.state, lx.current(), lx.itemPos.Line, lx.itemPos.Start, lx.itemPos.Len, lx.stack)
 		}
 	}
 }
 
 func lex(input string) *lexer {
 	lx := &lexer{
-		input: input,
-		state: lexTop,
-		line:  1,
-		items: make(chan item, 10),
-		stack: make([]stateFn, 0, 10),
+		input:   input,
+		state:   lexTop,
+		itemPos: Position{Line: 1},
+		items:   make(chan item, 10),
+		stack:   make([]stateFn, 0, 10),
 	}
 	return lx
 }
@@ -131,12 +140,16 @@ func (lx *lexer) current() string {
 }
 
 func (lx *lexer) emit(typ itemType) {
-	lx.items <- item{typ, lx.current(), lx.line, lx.pos}
+	lx.itemPos.Start = lx.start
+	lx.itemPos.Len = lx.pos - lx.start
+	lx.items <- item{typ, lx.current(), lx.itemPos}
 	lx.start = lx.pos
 }
 
 func (lx *lexer) emitTrim(typ itemType) {
-	lx.items <- item{typ, strings.TrimSpace(lx.current()), lx.line, lx.pos}
+	lx.itemPos.Start = lx.start
+	lx.itemPos.Len = lx.pos - lx.start
+	lx.items <- item{typ, strings.TrimSpace(lx.current()), lx.itemPos}
 	lx.start = lx.pos
 }
 
@@ -150,7 +163,7 @@ func (lx *lexer) next() (r rune) {
 	}
 
 	if lx.input[lx.pos] == '\n' {
-		lx.line++
+		lx.itemPos.Line++
 	}
 	lx.prevWidths[3] = lx.prevWidths[2]
 	lx.prevWidths[2] = lx.prevWidths[1]
@@ -161,7 +174,7 @@ func (lx *lexer) next() (r rune) {
 
 	r, w := utf8.DecodeRuneInString(lx.input[lx.pos:])
 	if r == utf8.RuneError {
-		lx.errorf("invalid UTF-8 byte at position %d (line %d): 0x%02x", lx.pos, lx.line, lx.input[lx.pos])
+		lx.errorf("invalid UTF-8 byte at %d: 0x%02x", lx.itemPos, lx.input[lx.pos])
 		return utf8.RuneError
 	}
 
@@ -189,9 +202,10 @@ func (lx *lexer) backup() {
 	lx.prevWidths[1] = lx.prevWidths[2]
 	lx.prevWidths[2] = lx.prevWidths[3]
 	lx.nprev--
+
 	lx.pos -= w
 	if lx.pos < len(lx.input) && lx.input[lx.pos] == '\n' {
-		lx.line--
+		lx.itemPos.Line--
 	}
 }
 
@@ -228,7 +242,25 @@ func (lx *lexer) skip(pred func(rune) bool) {
 // Note that any value that is a character is escaped if it's a special
 // character (newlines, tabs, etc.).
 func (lx *lexer) errorf(format string, values ...interface{}) stateFn {
-	lx.items <- item{itemError, fmt.Sprintf(format, values...), lx.line, lx.pos}
+	if lx.atEOF {
+		return lx.errorfPrevline(format, values...)
+	}
+
+	lx.itemPos.Start = lx.start
+	lx.itemPos.Len = lx.pos - lx.start
+	lx.items <- item{itemError, fmt.Sprintf(format, values...), lx.itemPos}
+	return nil
+}
+
+// errorfPrevline is like errorf, but sets the position to the last column of
+// the previous line.
+//
+// This is so that unexpected EOF or NL errors don't show on a new blank line.
+func (lx *lexer) errorfPrevline(format string, values ...interface{}) stateFn {
+	lx.itemPos.Line--
+	lx.itemPos.Len = 0
+	lx.itemPos.Start++
+	lx.items <- item{itemError, fmt.Sprintf(format, values...), lx.itemPos}
 	return nil
 }
 
@@ -537,8 +569,7 @@ func lexArrayValue(lx *lexer) stateFn {
 // the next value (or the end of the array): it ignores whitespace and newlines
 // and expects either a ',' or a ']'.
 func lexArrayValueEnd(lx *lexer) stateFn {
-	r := lx.next()
-	switch {
+	switch r := lx.next(); {
 	case isWhitespace(r) || isNL(r):
 		return lexSkip(lx, lexArrayValueEnd)
 	case r == commentStart:
@@ -549,10 +580,11 @@ func lexArrayValueEnd(lx *lexer) stateFn {
 		return lexArrayValue // move on to the next value
 	case r == arrayEnd:
 		return lexArrayEnd
+	default:
+		return lx.errorf(
+			"expected a comma or array terminator %q, but got %s instead",
+			arrayEnd, runeOrEOF(r))
 	}
-	return lx.errorf(
-		"expected a comma or array terminator %q, but got %s instead",
-		arrayEnd, runeOrEOF(r))
 }
 
 // lexArrayEnd finishes the lexing of an array.
@@ -571,7 +603,7 @@ func lexInlineTableValue(lx *lexer) stateFn {
 	case isWhitespace(r):
 		return lexSkip(lx, lexInlineTableValue)
 	case isNL(r):
-		return lx.errorf("newlines not allowed within inline tables")
+		return lx.errorfPrevline("newlines not allowed within inline tables")
 	case r == commentStart:
 		lx.push(lexInlineTableValue)
 		return lexCommentStart
@@ -593,7 +625,7 @@ func lexInlineTableValueEnd(lx *lexer) stateFn {
 	case isWhitespace(r):
 		return lexSkip(lx, lexInlineTableValueEnd)
 	case isNL(r):
-		return lx.errorf("newlines not allowed within inline tables")
+		return lx.errorfPrevline("newlines not allowed within inline tables")
 	case r == commentStart:
 		lx.push(lexInlineTableValueEnd)
 		return lexCommentStart
@@ -638,7 +670,7 @@ func lexString(lx *lexer) stateFn {
 	case isControl(r) || r == '\r':
 		return lx.errorf("control characters are not allowed inside strings: '0x%02x'", r)
 	case isNL(r):
-		return lx.errorf("strings cannot contain newlines")
+		return lx.errorfPrevline("strings cannot contain newlines")
 	case r == '\\':
 		lx.push(lexString)
 		return lexStringEscape
@@ -714,7 +746,7 @@ func lexRawString(lx *lexer) stateFn {
 	case isControl(r) || r == '\r':
 		return lx.errorf("control characters are not allowed inside strings: '0x%02x'", r)
 	case isNL(r):
-		return lx.errorf("strings cannot contain newlines")
+		return lx.errorfPrevline("strings cannot contain newlines")
 	case r == rawStringEnd:
 		lx.backup()
 		lx.emit(itemRawString)

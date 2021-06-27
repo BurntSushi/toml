@@ -9,19 +9,18 @@ import (
 //
 // For example invalid TOML syntax, duplicate keys, etc.
 type ParseError struct {
-	Message string
-	Line    int
-	Pos     int    // Byte offset
-	LastKey string // Last parsed key, may be blank.
-	Input   string
+	Message  string
+	Position Position
+	LastKey  string // Last parsed key, may be blank.
+	Input    string
 }
 
 func (pe ParseError) Error() string {
 	if pe.LastKey == "" {
-		return fmt.Sprintf("toml: line %d: %s", pe.Line, pe.Message)
+		return fmt.Sprintf("toml: %s: %s", pe.Position, pe.Message)
 	}
-	return fmt.Sprintf("toml: line %d (last key parsed '%s'): %s",
-		pe.Line, pe.LastKey, pe.Message)
+	return fmt.Sprintf("toml: %s (last key parsed '%s'): %s",
+		pe.Position, pe.LastKey, pe.Message)
 }
 
 // Clang error:
@@ -43,18 +42,26 @@ func (pe ParseError) Error() string {
 //
 // For more information about this error, try `rustc --explain E0425`.
 
+// ––– array-mixed-types-arrays-and-ints.toml –––––––––––––––––––––––––––
+// toml: error: Array contains values of type 'Integer' and 'Array', but arrays must be homogeneous.
+//              at line 1; column 1-15; byte offset 15
+//              last key parsed was "arrays-and-ints"
+//
+//      1 | arrays-and-ints =  [1, ["Arrays are not integers."]]
+//         ^^^^^^^^^^^^^^^
+//
+// This is on the key as the parser doesn't use the lex position.
 func (pe ParseError) ExtError() string {
 	if pe.Input == "" {
 		return pe.Error()
 	}
 
 	lines := strings.Split(pe.Input, "\n")
-	var line, pos, col int
+	var pos, col int
 	for i := range lines {
 		ll := len(lines[i]) + 1 // +1 for the removed newline
-		if pos+ll >= pe.Pos {
-			line = i
-			col = pe.Pos - pos - 1
+		if pos+ll >= pe.Position.Start {
+			col = pe.Position.Start - pos
 			if col < 0 { // Should never happen, but just in case.
 				col = 0
 			}
@@ -66,24 +73,32 @@ func (pe ParseError) ExtError() string {
 	b := new(strings.Builder)
 	//fmt.Fprintf(b, "toml: error on line %d: %s\n", line, pe.Message)
 	fmt.Fprintf(b, "toml: error: %s\n", pe.Message)
-	fmt.Fprintf(b, "             on line %d", line+1)
+	//fmt.Fprintf(b, "             on line %d", pe.Position.Line)
+	fmt.Fprintf(b, "             %s\n", pe.Position)
 	if pe.LastKey != "" {
-		fmt.Fprintf(b, "; last key parsed was %q", pe.LastKey)
+		fmt.Fprintf(b, "             last key parsed was %q", pe.LastKey)
 	}
 	b.WriteString("\n\n")
 
-	if line > 1 {
-		fmt.Fprintf(b, "% 6d | %s\n", line-1, lines[line-2])
+	if pe.Position.Line > 2 {
+		fmt.Fprintf(b, "% 6d | %s\n", pe.Position.Line-2, lines[pe.Position.Line-3])
 	}
-	if line > 0 {
-		fmt.Fprintf(b, "% 6d | %s\n", line, lines[line-1])
+	if pe.Position.Line > 1 {
+		fmt.Fprintf(b, "% 6d | %s\n", pe.Position.Line-1, lines[pe.Position.Line-2])
 	}
 
-	fmt.Fprintf(b, "% 6d | %s\n", line+1, lines[line])
-	fmt.Fprintf(b, "% 9s%s^\n", "", strings.Repeat(" ", col))
+	l := pe.Position.Len - 1
+	if l < 0 {
+		l = 0
+	}
 
-	// if len(lines)-1 > line && lines[line+1] != "" {
-	// 	fmt.Fprintf(b, "% 6d | %s\n", line+1, lines[line+1])
+	fmt.Fprintf(b, "% 6d | %s\n", pe.Position.Line, lines[pe.Position.Line-1])
+	fmt.Fprintf(b, "% 9s%s%s\n", "",
+		strings.Repeat(" ", col),
+		strings.Repeat("^", l+1))
+
+	// if len(lines)-1 > pe.Position.Line && lines[pe.Position.Line+1] != "" {
+	// 	fmt.Fprintf(b, "% 6d | %s\n", pe.Position.Line+1, lines[pe.Position.Line+1])
 	// }
 
 	return b.String()
