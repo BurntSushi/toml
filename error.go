@@ -9,54 +9,75 @@ import (
 //
 // For example invalid TOML syntax, duplicate keys, etc.
 type ParseError struct {
-	Message  string
-	Position Position
-	LastKey  string // Last parsed key, may be blank.
-	Input    string
+	Message  string   // Short technical message.
+	Usage    string   // Longer message with usage guidance; may be blank.
+	Position Position // Position of the error
+	LastKey  string   // Last parsed key, may be blank.
+
+	err   error
+	input string
+}
+
+// Position of an error.
+type Position struct {
+	Line  int // Line number, starting at 1.
+	Start int // Start of error, as byte offset starting at 0.
+	Len   int // Lenght in bytes.
 }
 
 func (pe ParseError) Error() string {
-	if pe.LastKey == "" {
-		return fmt.Sprintf("toml: %s: %s", pe.Position, pe.Message)
+	msg := pe.Message
+	if msg == "" {
+		msg = pe.err.Error()
 	}
-	return fmt.Sprintf("toml: %s (last key parsed '%s'): %s",
-		pe.Position, pe.LastKey, pe.Message)
+
+	if pe.LastKey == "" {
+		return fmt.Sprintf("toml: line %d: %s", pe.Position.Line, msg)
+	}
+	return fmt.Sprintf("toml: line %d (last key %q): %s",
+		pe.Position.Line, pe.LastKey, msg)
 }
 
-// Clang error:
-//
-// a.c:2:9: warning: incompatible pointer to integer conversion returning 'char [4]' from a function with result type 'int' [-Wint-conversion]
-//         return "zxc";
-//                ^~~~~
-// 1 warning generated.
-//
-// Rust:
-//
-// error[E0425]: cannot find value `err` in this scope
-//    --> a.rs:3:5
-//     |
-// 3   |     err
-//     |     ^^^ help: a tuple variant with a similar name exists: `Err`
-//
-// error: aborting due to previous error
-//
-// For more information about this error, try `rustc --explain E0425`.
+func (pe ParseError) ExtendedWithUsage() string {
+	m := pe.Extended()
+	if u, ok := pe.err.(interface{ Usage() string }); ok {
+		return m + "\n" + strings.TrimSpace(u.Usage()) + "\n"
+	}
+	return m
+}
 
-// ––– array-mixed-types-arrays-and-ints.toml –––––––––––––––––––––––––––
-// toml: error: Array contains values of type 'Integer' and 'Array', but arrays must be homogeneous.
-//              at line 1; column 1-15; byte offset 15
-//              last key parsed was "arrays-and-ints"
-//
-//      1 | arrays-and-ints =  [1, ["Arrays are not integers."]]
-//         ^^^^^^^^^^^^^^^
-//
-// This is on the key as the parser doesn't use the lex position.
-func (pe ParseError) ExtError() string {
-	if pe.Input == "" {
+func (pe ParseError) Extended() string {
+	if pe.input == "" { // Should never happen, but just in case.
 		return pe.Error()
 	}
 
-	lines := strings.Split(pe.Input, "\n")
+	var (
+		lines = strings.Split(pe.input, "\n")
+		col   = pe.column(lines)
+		b     = new(strings.Builder)
+	)
+
+	msg := pe.Message
+	if msg == "" {
+		msg = pe.err.Error()
+	}
+
+	// TODO: don't show control characters as literals.
+
+	fmt.Fprintf(b, "toml: error: %s\n\nAt line %d, column %d-%d:\n\n",
+		msg, pe.Position.Line, col, col+pe.Position.Len)
+	if pe.Position.Line > 2 {
+		fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line-2, lines[pe.Position.Line-3])
+	}
+	if pe.Position.Line > 1 {
+		fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line-1, lines[pe.Position.Line-2])
+	}
+	fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line, lines[pe.Position.Line-1])
+	fmt.Fprintf(b, "% 10s%s%s\n", "", strings.Repeat(" ", col), strings.Repeat("^", pe.Position.Len))
+	return b.String()
+}
+
+func (pe ParseError) column(lines []string) int {
 	var pos, col int
 	for i := range lines {
 		ll := len(lines[i]) + 1 // +1 for the removed newline
@@ -70,36 +91,27 @@ func (pe ParseError) ExtError() string {
 		pos += ll
 	}
 
-	b := new(strings.Builder)
-	//fmt.Fprintf(b, "toml: error on line %d: %s\n", line, pe.Message)
-	fmt.Fprintf(b, "toml: error: %s\n", pe.Message)
-	//fmt.Fprintf(b, "             on line %d", pe.Position.Line)
-	fmt.Fprintf(b, "             %s\n", pe.Position)
-	if pe.LastKey != "" {
-		fmt.Fprintf(b, "             last key parsed was %q", pe.LastKey)
-	}
-	b.WriteString("\n\n")
-
-	if pe.Position.Line > 2 {
-		fmt.Fprintf(b, "% 6d | %s\n", pe.Position.Line-2, lines[pe.Position.Line-3])
-	}
-	if pe.Position.Line > 1 {
-		fmt.Fprintf(b, "% 6d | %s\n", pe.Position.Line-1, lines[pe.Position.Line-2])
-	}
-
-	l := pe.Position.Len - 1
-	if l < 0 {
-		l = 0
-	}
-
-	fmt.Fprintf(b, "% 6d | %s\n", pe.Position.Line, lines[pe.Position.Line-1])
-	fmt.Fprintf(b, "% 9s%s%s\n", "",
-		strings.Repeat(" ", col),
-		strings.Repeat("^", l+1))
-
-	// if len(lines)-1 > pe.Position.Line && lines[pe.Position.Line+1] != "" {
-	// 	fmt.Fprintf(b, "% 6d | %s\n", pe.Position.Line+1, lines[pe.Position.Line+1])
-	// }
-
-	return b.String()
+	return col
 }
+
+type (
+	errLexEscape struct{ r rune }
+)
+
+func (e errLexEscape) Error() string { return fmt.Sprintf(`invalid escape in string '\%c'`, e.r) }
+func (e errLexEscape) Usage() string { return usageEscape }
+
+const usageEscape = `
+A '\' inside a "-delimited string is interpreted as an escape character.
+
+The following escape sequences are supported:
+\b, \t, \n, \f, \r, \", \\, \uXXXX, and \UXXXXXXXX
+
+To prevent a '\' from being recognized as an escape character, use:
+
+- a ' or '''-delimited string; escape characters aren't processed in them; or
+- two backslashes to get a single backslash: '\\'.
+
+If you're trying to add a Windows path (e.g. "C:\Users\martin") then using '/'
+instead of '\' will usually also work: "C:/Users/martin".
+`

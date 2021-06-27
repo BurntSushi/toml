@@ -83,8 +83,11 @@ func TestParseError(t *testing.T) {
 		}
 
 		fmt.Println()
-		fmt.Println("–––", f.Name(), strings.Repeat("–", 65-len(f.Name())))
-		fmt.Print(dErr.ExtError())
+		fmt.Println("━━━", f.Name(), strings.Repeat("━", 65-len(f.Name())))
+		fmt.Print(dErr.Error())
+		fmt.Println()
 		fmt.Println(strings.Repeat("–", 70))
+		fmt.Print(dErr.ExtendedWithUsage())
+		fmt.Println(strings.Repeat("━", 70))
 	}
 }
