@@ -60,39 +60,40 @@ func (md *MetaData) PrimitiveDecode(primValue Primitive, v interface{}) error {
 
 // Decode TOML data.
 //
-// TOML hashes correspond to Go structs or maps. (Dealer's choice. They can be
-// used interchangeably.)
+// TOML tables correspond to Go structs or maps (dealer's choice – they can be
+// used interchangeably).
 //
-// TOML arrays of tables correspond to either a slice of structs or a slice
-// of maps.
+// TOML table arrays correspond to either a slice of structs or a slice of maps.
 //
-// TOML datetimes correspond to Go `time.Time` values.
+// TOML datetimes correspond to Go `time.Time` values. Local datetimes are
+// parsed in the local timezone and have the Location set to toml.LocalDatetime.
+// Local dates and times have the Location set to toml.LocalDate and
+// toml.LocalTime.
 //
-// All other TOML types (float, string, int, bool and array) correspond
-// to the obvious Go types.
+// All other TOML types (float, string, int, bool and array) correspond to the
+// obvious Go types.
 //
 // An exception to the above rules is if a type implements the
 // encoding.TextUnmarshaler interface. In this case, any primitive TOML value
-// (floats, strings, integers, booleans and datetimes) will be converted to
-// a byte string and given to the value's UnmarshalText method. See the
+// (floats, strings, integers, booleans and datetimes) will be converted to a
+// byte string and given to the value's UnmarshalText method. See the
 // Unmarshaler example for a demonstration with time duration strings.
 //
 // Key mapping
 //
-// TOML keys can map to either keys in a Go map or field names in a Go
-// struct. The special `toml` struct tag may be used to map TOML keys to
-// struct fields that don't match the key name exactly. (See the example.)
-// A case insensitive match to struct names will be tried if an exact match
-// can't be found.
+// TOML keys can map to either keys in a Go map or field names in a Go struct.
+// The special `toml` struct tag can be used to map TOML keys to struct fields
+// that don't match the key name exactly (see the example). A case insensitive
+// match to struct names will be tried if an exact match can't be found.
 //
-// The mapping between TOML values and Go values is loose. That is, there
-// may exist TOML values that cannot be placed into your representation, and
-// there may be parts of your representation that do not correspond to
-// TOML values. This loose mapping can be made stricter by using the IsDefined
-// and/or Undecoded methods on the MetaData returned.
+// The mapping between TOML values and Go values is loose. That is, there may
+// exist TOML values that cannot be placed into your representation, and there
+// may be parts of your representation that do not correspond to TOML values.
+// This loose mapping can be made stricter by using the IsDefined and/or
+// Undecoded methods on the MetaData returned.
 //
-// This decoder will not handle cyclic types. If a cyclic type is passed,
-// `Decode` will not terminate.
+// This decoder does not handle cyclic types. Decode will not terminate if a
+// cyclic type is passed.
 type Decoder struct {
 	r io.Reader
 }

@@ -19,19 +19,14 @@ var (
 
 func init() {
 	log.SetFlags(0)
-
-	flag.BoolVar(&flagTypes, "types", flagTypes,
-		"When set, the types of every defined key will be shown.")
-
+	flag.BoolVar(&flagTypes, "types", flagTypes, "Show the types for every key.")
 	flag.Usage = usage
 	flag.Parse()
 }
 
 func usage() {
-	log.Printf("Usage: %s toml-file [ toml-file ... ]\n",
-		path.Base(os.Args[0]))
+	log.Printf("Usage: %s toml-file [ toml-file ... ]\n", path.Base(os.Args[0]))
 	flag.PrintDefaults()
-
 	os.Exit(1)
 }
 

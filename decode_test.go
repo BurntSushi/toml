@@ -666,6 +666,48 @@ cauchy = """ cat 2
 	}
 }
 
+func TestDecodeDatetime(t *testing.T) {
+	// Test here in addition to toml-test to ensure the TZs are correct.
+	tz7 := time.FixedZone("", -3600*7)
+
+	for _, tt := range []struct {
+		in   string
+		want time.Time
+	}{
+		// Offset datetime
+		{"1979-05-27T07:32:00Z", time.Date(1979, 05, 27, 07, 32, 0, 0, time.UTC)},
+		{"1979-05-27T07:32:00.999999Z", time.Date(1979, 05, 27, 07, 32, 0, 999999000, time.UTC)},
+		{"1979-05-27T00:32:00-07:00", time.Date(1979, 05, 27, 00, 32, 0, 0, tz7)},
+		{"1979-05-27T00:32:00.999999-07:00", time.Date(1979, 05, 27, 00, 32, 0, 999999000, tz7)},
+		{"1979-05-27T00:32:00.24-07:00", time.Date(1979, 05, 27, 00, 32, 0, 240000000, tz7)},
+		{"1979-05-27 07:32:00Z", time.Date(1979, 05, 27, 07, 32, 0, 0, time.UTC)},
+		{"1979-05-27t07:32:00z", time.Date(1979, 05, 27, 07, 32, 0, 0, time.UTC)},
+
+		// Make sure the space between the datetime and "#" isn't lexed.
+		{"1979-05-27T07:32:12-07:00  # c", time.Date(1979, 05, 27, 07, 32, 12, 0, tz7)},
+
+		// Local times.
+		{"1979-05-27T07:32:00", time.Date(1979, 05, 27, 07, 32, 0, 0, LocalDatetime)},
+		{"1979-05-27T07:32:00.999999", time.Date(1979, 05, 27, 07, 32, 0, 999999000, LocalDatetime)},
+		{"1979-05-27T07:32:00.25", time.Date(1979, 05, 27, 07, 32, 0, 250000000, LocalDatetime)},
+		{"1979-05-27", time.Date(1979, 05, 27, 0, 0, 0, 0, LocalDate)},
+		{"07:32:00", time.Date(0, 1, 1, 07, 32, 0, 0, LocalTime)},
+		{"07:32:00.999999", time.Date(0, 1, 1, 07, 32, 0, 999999000, LocalTime)},
+	} {
+		t.Run(tt.in, func(t *testing.T) {
+			var x struct{ D time.Time }
+			input := "d = " + tt.in
+			if _, err := Decode(input, &x); err != nil {
+				t.Fatalf("got error: %s", err)
+			}
+
+			if h, w := x.D.Format(time.RFC3339Nano), tt.want.Format(time.RFC3339Nano); h != w {
+				t.Errorf("\nhave: %s\nwant: %s", h, w)
+			}
+		})
+	}
+}
+
 func TestParseError(t *testing.T) {
 	file :=
 		`a = "a"
