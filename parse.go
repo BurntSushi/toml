@@ -324,9 +324,13 @@ func (p *parser) valueDatetime(it item) (interface{}, tomlType) {
 }
 
 func (p *parser) valueArray(it item) (interface{}, tomlType) {
-	array := make([]interface{}, 0)
-	types := make([]tomlType, 0)
+	p.setType(p.currentKey, tomlArray)
 
+	// p.setType(p.currentKey, typ)
+	var (
+		array []interface{}
+		types []tomlType
+	)
 	for it = p.next(); it.typ != itemArrayEnd; it = p.next() {
 		if it.typ == itemCommentStart {
 			p.expect(itemText)
@@ -337,8 +341,7 @@ func (p *parser) valueArray(it item) (interface{}, tomlType) {
 		array = append(array, val)
 		types = append(types, typ)
 	}
-	return array, p.typeOfArray(types)
-
+	return array, tomlArray
 }
 
 func (p *parser) valueInlineTable(it item, parentIsArray bool) (interface{}, tomlType) {
@@ -511,11 +514,12 @@ func (p *parser) set(key string, val interface{}, typ tomlType) {
 // It will make sure that the key hasn't already been defined, account for
 // implicit key groups.
 func (p *parser) setValue(key string, value interface{}) {
-	var tmpHash interface{}
-	var ok bool
-
-	hash := p.mapping
-	keyContext := make(Key, 0)
+	var (
+		tmpHash    interface{}
+		ok         bool
+		hash       = p.mapping
+		keyContext Key
+	)
 	for _, k := range p.context {
 		keyContext = append(keyContext, k)
 		if tmpHash, ok = hash[k]; !ok {
@@ -544,6 +548,11 @@ func (p *parser) setValue(key string, value interface{}) {
 		//
 		// Note that since it has already been defined (as a hash), we don't
 		// want to overwrite it. So our business is done.
+		if p.isArray(keyContext) {
+			p.removeImplicit(keyContext)
+			hash[key] = value
+			return
+		}
 		if p.isImplicit(keyContext) {
 			p.removeImplicit(keyContext)
 			return
@@ -553,6 +562,7 @@ func (p *parser) setValue(key string, value interface{}) {
 		// key, which is *always* wrong.
 		p.panicf("Key '%s' has already been defined.", keyContext)
 	}
+
 	hash[key] = value
 }
 
@@ -577,6 +587,7 @@ func (p *parser) setType(key string, typ tomlType) {
 func (p *parser) addImplicit(key Key)     { p.implicits[key.String()] = true }
 func (p *parser) removeImplicit(key Key)  { p.implicits[key.String()] = false }
 func (p *parser) isImplicit(key Key) bool { return p.implicits[key.String()] }
+func (p *parser) isArray(key Key) bool    { return p.types[key.String()] == tomlArray }
 func (p *parser) addImplicitContext(key Key) {
 	p.addImplicit(key)
 	p.addContext(key, false)

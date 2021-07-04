@@ -52,8 +52,6 @@ func TestToml(t *testing.T) {
 				"valid/datetime-local-date",
 				"valid/datetime-local-time",
 				"valid/datetime-local",
-				"valid/array-mix-string-table",
-				"valid/inline-table-nest",
 			},
 		}
 
