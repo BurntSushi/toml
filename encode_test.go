@@ -396,27 +396,32 @@ Fun = "why would you do this?"
 	}
 }
 
-func encodeExpected(
-	t *testing.T, label string, val interface{}, wantStr string, wantErr error,
-) {
+func encodeExpected(t *testing.T, label string, val interface{}, want string, wantErr error) {
 	t.Helper()
-	var buf bytes.Buffer
-	enc := NewEncoder(&buf)
-	err := enc.Encode(val)
-	if err != wantErr {
-		if wantErr != nil {
-			if wantErr == errAnything && err != nil {
-				return
+
+	t.Run(label, func(t *testing.T) {
+		var buf bytes.Buffer
+		err := NewEncoder(&buf).Encode(val)
+		if err != wantErr {
+			if wantErr != nil {
+				if wantErr == errAnything && err != nil {
+					return
+				}
+				t.Errorf("want Encode error %v, got %v", wantErr, err)
+			} else {
+				t.Errorf("Encode failed: %s", err)
 			}
-			t.Errorf("%s: want Encode error %v, got %v", label, wantErr, err)
-		} else {
-			t.Errorf("%s: Encode failed: %s", label, err)
 		}
-	}
-	if err != nil {
-		return
-	}
-	if got := buf.String(); wantStr != got {
-		t.Errorf("%s\nhave: %s\nwant: %s\n", label, got, wantStr)
-	}
+		if err != nil {
+			return
+		}
+
+		have := strings.TrimSpace(buf.String())
+		want = strings.TrimSpace(want)
+		if want != have {
+			t.Errorf("\nhave: %s\nwant: %s\n", have, want)
+			// v, _ := json.MarshalIndent(val, "", "  ")
+			// t.Log(string(v))
+		}
+	})
 }

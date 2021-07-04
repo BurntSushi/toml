@@ -315,10 +315,8 @@ func (md *MetaData) unifyArray(data interface{}, rv reflect.Value) error {
 		}
 		return badtype("slice", data)
 	}
-	sliceLen := datav.Len()
-	if sliceLen != rv.Len() {
-		return e("expected array length %d; got TOML array of length %d",
-			rv.Len(), sliceLen)
+	if l := datav.Len(); l != rv.Len() {
+		return e("expected array length %d; got TOML array of length %d", rv.Len(), l)
 	}
 	return md.unifySliceArray(datav, rv)
 }
@@ -340,11 +338,10 @@ func (md *MetaData) unifySlice(data interface{}, rv reflect.Value) error {
 }
 
 func (md *MetaData) unifySliceArray(data, rv reflect.Value) error {
-	sliceLen := data.Len()
-	for i := 0; i < sliceLen; i++ {
-		v := data.Index(i).Interface()
-		sliceval := indirect(rv.Index(i))
-		if err := md.unify(v, sliceval); err != nil {
+	l := data.Len()
+	for i := 0; i < l; i++ {
+		err := md.unify(data.Index(i).Interface(), indirect(rv.Index(i)))
+		if err != nil {
 			return err
 		}
 	}

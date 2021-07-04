@@ -198,12 +198,12 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 			wantOutput: "Empty = []\n",
 		},
 		"(error) slice with element type mismatch (string and integer)": {
-			input:     struct{ Mixed []interface{} }{[]interface{}{1, "a"}},
-			wantError: errArrayMixedElementTypes,
+			input:      struct{ Mixed []interface{} }{[]interface{}{1, "a"}},
+			wantOutput: "Mixed = [1, \"a\"]\n",
 		},
 		"(error) slice with element type mismatch (integer and float)": {
-			input:     struct{ Mixed []interface{} }{[]interface{}{1, 2.5}},
-			wantError: errArrayMixedElementTypes,
+			input:      struct{ Mixed []interface{} }{[]interface{}{1, 2.5}},
+			wantOutput: "Mixed = [1, 2.5]\n",
 		},
 		"slice with elems of differing Go types, same TOML types": {
 			input: struct {
@@ -223,7 +223,7 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 			input: struct{ Mixed []interface{} }{
 				[]interface{}{1, []interface{}{2}},
 			},
-			wantError: errArrayMixedElementTypes,
+			wantOutput: "Mixed = [1, [2]]\n",
 		},
 		"(error) slice with 1 nil element": {
 			input:     struct{ NilElement1 []interface{} }{[]interface{}{nil}},
@@ -379,17 +379,41 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 			input:     []struct{ Int int }{{1}, {2}, {3}},
 			wantError: errNoKey,
 		},
-		"(error) slice of slice": {
+		"(error) map no string key": {
+			input:     map[int]string{1: ""},
+			wantError: errNonString,
+		},
+
+		"tbl-in-arr-struct": {
+			input: struct {
+				Arr [][]struct{ A, B, C int }
+			}{[][]struct{ A, B, C int }{{{1, 2, 3}, {4, 5, 6}}}},
+			wantOutput: "Arr = [[{A = 1, B = 2, C = 3}, {A = 4, B = 5, C = 6}]]",
+		},
+
+		"tbl-in-arr-map": {
+			input: map[string]interface{}{
+				"arr": []interface{}{[]interface{}{
+					map[string]interface{}{
+						"a": []interface{}{"hello", "world"},
+						"b": []interface{}{1.12, 4.1},
+						"c": 1,
+						"d": map[string]interface{}{"e": "E"},
+						"f": struct{ A, B int }{1, 2},
+						"g": []struct{ A, B int }{{3, 4}, {5, 6}},
+					},
+				}},
+			},
+			wantOutput: `arr = [[{a = ["hello", "world"], b = [1.12, 4.1], c = 1, d = {e = "E"}, f = {A = 1, B = 2}, g = [{A = 3, B = 4}, {A = 5, B = 6}]}]]`,
+		},
+
+		"slice of slice": {
 			input: struct {
 				Slices [][]struct{ Int int }
 			}{
 				[][]struct{ Int int }{{{1}}, {{2}}, {{3}}},
 			},
-			wantError: errArrayNoTable,
-		},
-		"(error) map no string key": {
-			input:     map[int]string{1: ""},
-			wantError: errNonString,
+			wantOutput: "Slices = [[{Int = 1}], [{Int = 2}], [{Int = 3}]]",
 		},
 	}
 	for label, test := range tests {
