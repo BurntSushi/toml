@@ -298,6 +298,24 @@ func (p *parser) valueFloat(it item) (interface{}, tomlType) {
 	return num, p.typeOfPrimitive(it)
 }
 
+// Timezones used for local datetime, date, and time.
+var (
+	localOffset   = func() int { _, o := time.Now().Zone(); return o }()
+	LocalDatetime = time.FixedZone("datetime-local", localOffset)
+	LocalDate     = time.FixedZone("date-local", localOffset)
+	LocalTime     = time.FixedZone("time-local", localOffset)
+)
+
+var dtTypes = []struct {
+	fmt  string
+	zone *time.Location
+}{
+	{time.RFC3339Nano, time.Local},
+	{"2006-01-02T15:04:05.999999999", LocalDatetime},
+	{"2006-01-02", LocalDate},
+	{"15:04:05.999999999", LocalTime},
+}
+
 func (p *parser) valueDatetime(it item) (interface{}, tomlType) {
 	it.val = datetimeRepl.Replace(it.val)
 	var (
@@ -305,13 +323,8 @@ func (p *parser) valueDatetime(it item) (interface{}, tomlType) {
 		ok  bool
 		err error
 	)
-	for _, format := range []string{
-		time.RFC3339Nano,
-		"2006-01-02T15:04:05.999999999",
-		"2006-01-02",
-		"15:04:05.999999999",
-	} {
-		t, err = time.ParseInLocation(format, it.val, time.Local)
+	for _, dt := range dtTypes {
+		t, err = time.ParseInLocation(dt.fmt, it.val, dt.zone)
 		if err == nil {
 			ok = true
 			break

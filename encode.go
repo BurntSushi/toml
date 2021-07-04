@@ -186,9 +186,22 @@ func (enc *Encoder) encode(key Key, rv reflect.Value) {
 // eElement encodes any value that can be an array element.
 func (enc *Encoder) eElement(rv reflect.Value) {
 	switch v := rv.Interface().(type) {
-	case time.Time:
-		// Using TextMarshaler adds extra quotes, which we don't want.
-		enc.wf(v.Format(time.RFC3339Nano))
+	case time.Time: // Using TextMarshaler adds extra quotes, which we don't want.
+		format := time.RFC3339Nano
+		switch v.Location() {
+		case LocalDatetime:
+			format = "2006-01-02T15:04:05.999999999"
+		case LocalDate:
+			format = "2006-01-02"
+		case LocalTime:
+			format = "15:04:05.999999999"
+		}
+		switch v.Location() {
+		default:
+			enc.wf(v.Format(format))
+		case LocalDatetime, LocalDate, LocalTime:
+			enc.wf(v.In(time.UTC).Format(format))
+		}
 		return
 	case encoding.TextMarshaler:
 		// Use text marshaler if it's available for this value.

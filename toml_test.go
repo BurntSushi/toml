@@ -43,16 +43,10 @@ func TestToml(t *testing.T) {
 	}
 
 	run := func(t *testing.T, enc bool) {
-		t.Helper()
 		r := tomltest.Runner{
 			Files:   tomltest.EmbeddedTests(),
 			Encoder: enc,
 			Parser:  parser{},
-			SkipTests: []string{
-				"valid/datetime-local-date",
-				"valid/datetime-local-time",
-				"valid/datetime-local",
-			},
 		}
 
 		tests, err := r.Run()
@@ -184,7 +178,7 @@ func (p parser) Decode(input string) (output string, outputIsError bool, retErr 
 		return err.Error(), true, retErr
 	}
 
-	j, err := json.MarshalIndent(tag.Add(d), "", "  ")
+	j, err := json.MarshalIndent(tag.Add("", d), "", "  ")
 	if err != nil {
 		return "", false, err
 	}

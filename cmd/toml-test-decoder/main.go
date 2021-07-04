@@ -37,7 +37,7 @@ func main() {
 
 	j := json.NewEncoder(os.Stdout)
 	j.SetIndent("", "  ")
-	if err := j.Encode(tag.Add(decoded)); err != nil {
+	if err := j.Encode(tag.Add("", decoded)); err != nil {
 		log.Fatalf("Error encoding JSON: %s", err)
 	}
 }
