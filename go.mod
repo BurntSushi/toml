@@ -1,5 +1,5 @@
-module github.com/BurntSushi/toml
+module github.com/ando-masaki/toml
 
-go 1.13
+go 1.16
 
-require github.com/BurntSushi/toml-test v0.1.1-0.20210704114940-e6948edce1c5
+require github.com/ando-masaki/toml-test v0.1.0
