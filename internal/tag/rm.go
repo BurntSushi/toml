@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ando-masaki/toml"
+	"github.com/BurntSushi/toml"
 )
 
 // Rempve JSON tags to a data structure as returned by toml-test.

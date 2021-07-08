@@ -10,7 +10,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/ando-masaki/toml"
+	"github.com/BurntSushi/toml"
 )
 
 var (

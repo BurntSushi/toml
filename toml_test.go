@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ando-masaki/toml"
-	tomltest "github.com/ando-masaki/toml-test"
-	"github.com/ando-masaki/toml/internal/tag"
+	"github.com/BurntSushi/toml"
+	tomltest "github.com/BurntSushi/toml-test"
+	"github.com/BurntSushi/toml/internal/tag"
 )
 
 // Test if the error message matches what we want for invalid tests. Every slice

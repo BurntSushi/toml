@@ -8,25 +8,25 @@ representations. (There is an example of this below.)
 
 Compatible with TOML version [v1.0.0](https://toml.io/en/v1.0.0).
 
-Documentation: https://pkg.go.dev/github.com/ando-masaki/toml
+Documentation: https://pkg.go.dev/github.com/BurntSushi/toml
 
 This library requires Go 1.13 or newer; install it with:
 
 ```bash
-go get github.com/ando-masaki/toml
+go get github.com/BurntSushi/toml
 ```
 
 Try the TOML validator:
 
 ```bash
-go get github.com/ando-masaki/toml/cmd/tomlv
+go get github.com/BurntSushi/toml/cmd/tomlv
 tomlv some-toml-file.toml
 ```
 
 ### Testing
 
 This package passes all tests in
-[toml-test](https://github.com/ando-masaki/toml-test) for both the decoder
+[toml-test](https://github.com/BurntSushi/toml-test) for both the decoder
 and the encoder.
 
 ### Examples

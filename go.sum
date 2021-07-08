@@ -1,2 +1,2 @@
-github.com/ando-masaki/toml-test v0.1.0 h1:irtV2kQuJC7JYAPD0zGaeWYieBZygkZl8VdCu4zdsDc=
-github.com/ando-masaki/toml-test v0.1.0/go.mod h1:7XtrXcANchZg+/O0IRg85MkoTXhMyf/JGKpgiYH+3FU=
+github.com/BurntSushi/toml-test v0.1.0 h1:irtV2kQuJC7JYAPD0zGaeWYieBZygkZl8VdCu4zdsDc=
+github.com/BurntSushi/toml-test v0.1.0/go.mod h1:7XtrXcANchZg+/O0IRg85MkoTXhMyf/JGKpgiYH+3FU=

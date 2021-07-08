@@ -9,8 +9,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/ando-masaki/toml"
-	"github.com/ando-masaki/toml/internal/tag"
+	"github.com/BurntSushi/toml"
+	"github.com/BurntSushi/toml/internal/tag"
 )
 
 func init() {

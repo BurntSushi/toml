@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/ando-masaki/toml"
+	"github.com/BurntSushi/toml"
 )
 
 func ExampleEncoder_Encode() {

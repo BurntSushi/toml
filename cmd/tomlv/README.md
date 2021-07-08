@@ -2,7 +2,7 @@
 
 If Go is installed, it's simple to try it out:
 
-    $ go install github.com/ando-masaki/toml/cmd/tomlv@master
+    $ go install github.com/BurntSushi/toml/cmd/tomlv@master
     $ tomlv some-toml-file.toml
 
 You can see the types of every key in a TOML file with:
