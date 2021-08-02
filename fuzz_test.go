@@ -1,5 +1,4 @@
 // +build gofuzzbeta
-// +build go1.17
 
 package toml
 

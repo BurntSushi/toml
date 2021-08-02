@@ -2,9 +2,9 @@ package toml
 
 import "strings"
 
-// MetaData allows access to meta information about TOML data that may not
-// be inferrable via reflection. In particular, whether a key has been defined
-// and the TOML type of a key.
+// MetaData allows access to meta information about TOML data that may not be
+// inferable via reflection. In particular, whether a key has been defined and
+// the TOML type of a key.
 type MetaData struct {
 	mapping map[string]interface{}
 	types   map[string]tomlType
@@ -13,10 +13,11 @@ type MetaData struct {
 	context Key // Used only during decoding.
 }
 
-// IsDefined returns true if the key given exists in the TOML data. The key
-// should be specified hierarchially. e.g.,
+// IsDefined reports if the key exists in the TOML data.
 //
-//	// access the TOML key 'a.b.c'
+// The key should be specified hierarchically, for example to access the TOML
+// key "a.b.c" you would use:
+//
 //	IsDefined("a", "b", "c")
 //
 // IsDefined will return false if an empty key given. Keys are case sensitive.
@@ -51,13 +52,11 @@ func (md *MetaData) Type(key ...string) string {
 	return ""
 }
 
-// Key is the type of any TOML key, including key groups. Use (MetaData).Keys
-// to get values of this type.
+// Key represents any TOML key, including key groups. Use (MetaData).Keys to get
+// values of this type.
 type Key []string
 
-func (k Key) String() string {
-	return strings.Join(k, ".")
-}
+func (k Key) String() string { return strings.Join(k, ".") }
 
 func (k Key) maybeQuotedAll() string {
 	var ss []string
@@ -92,10 +91,10 @@ func (k Key) add(piece string) Key {
 }
 
 // Keys returns a slice of every key in the TOML data, including key groups.
-// Each key is itself a slice, where the first element is the top of the
-// hierarchy and the last is the most specific.
 //
-// The list will have the same order as the keys appeared in the TOML data.
+// Each key is itself a slice, where the first element is the top of the
+// hierarchy and the last is the most specific. The list will have the same
+// order as the keys appeared in the TOML data.
 //
 // All keys returned are non-empty.
 func (md *MetaData) Keys() []Key {

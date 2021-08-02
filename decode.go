@@ -25,17 +25,16 @@ func Unmarshal(p []byte, v interface{}) error {
 }
 
 // Primitive is a TOML value that hasn't been decoded into a Go value.
-// When using the various `Decode*` functions, the type `Primitive` may
-// be given to any value, and its decoding will be delayed.
 //
-// A `Primitive` value can be decoded using the `PrimitiveDecode` function.
+// This type can be used for any value, which will cause decoding to be delayed.
+// You can use the PrimitiveDecode() function to "manually" decode these values.
 //
-// The underlying representation of a `Primitive` value is subject to change.
-// Do not rely on it.
+// NOTE: The underlying representation of a `Primitive` value is subject to
+// change. Do not rely on it.
 //
-// N.B. Primitive values are still parsed, so using them will only avoid
-// the overhead of reflection. They can be useful when you don't know the
-// exact type of TOML data until run time.
+// NOTE: Primitive values are still parsed, so using them will only avoid the
+// overhead of reflection. They can be useful when you don't know the exact type
+// of TOML data until runtime.
 type Primitive struct {
 	undecoded interface{}
 	context   Key
@@ -58,26 +57,25 @@ func (md *MetaData) PrimitiveDecode(primValue Primitive, v interface{}) error {
 	return md.unify(primValue.undecoded, rvalue(v))
 }
 
-// Decode TOML data.
+// Decoder decodes TOML data.
 //
 // TOML tables correspond to Go structs or maps (dealer's choice – they can be
 // used interchangeably).
 //
 // TOML table arrays correspond to either a slice of structs or a slice of maps.
 //
-// TOML datetimes correspond to Go `time.Time` values. Local datetimes are
-// parsed in the local timezone and have the Location set to toml.LocalDatetime.
-// Local dates and times have the Location set to toml.LocalDate and
-// toml.LocalTime.
+// TOML datetimes correspond to Go time.Time values. Local datetimes are parsed
+// in the local timezone and have the Location set to the decoders's Timezone
+// value. This defaults to this computer's local timezone if not given.
 //
 // All other TOML types (float, string, int, bool and array) correspond to the
 // obvious Go types.
 //
-// An exception to the above rules is if a type implements the
-// encoding.TextUnmarshaler interface. In this case, any primitive TOML value
-// (floats, strings, integers, booleans and datetimes) will be converted to a
-// byte string and given to the value's UnmarshalText method. See the
-// Unmarshaler example for a demonstration with time duration strings.
+// An exception to the above rules is if a type implements the TextUnmarshaler
+// interface, in which case any primitive TOML value (floats, strings, integers,
+// booleans, datetimes) will be converted to a []byte and given to the value's
+// UnmarshalText method. See the Unmarshaler example for a demonstration with
+// time duration strings.
 //
 // Key mapping
 //
@@ -96,6 +94,10 @@ func (md *MetaData) PrimitiveDecode(primValue Primitive, v interface{}) error {
 // cyclic type is passed.
 type Decoder struct {
 	r io.Reader
+
+	// Timezone to use for local times. Defaults to this computer's local
+	// timezone if nil.
+	//Timezone *time.Location
 }
 
 // NewDecoder creates a new Decoder.
@@ -133,15 +135,15 @@ func (dec *Decoder) Decode(v interface{}) (MetaData, error) {
 
 // Decode the TOML data in to the pointer v.
 //
-// See Decoder for the full documentation.
+// See the documentation on Decoder for a description of the decoding process.
 func Decode(data string, v interface{}) (MetaData, error) {
 	return NewDecoder(strings.NewReader(data)).Decode(v)
 }
 
 // DecodeFile is just like Decode, except it will automatically read the
-// contents of the file at `fpath` and decode it for you.
-func DecodeFile(fpath string, v interface{}) (MetaData, error) {
-	fp, err := os.Open(fpath)
+// contents of the file at path and decode it for you.
+func DecodeFile(path string, v interface{}) (MetaData, error) {
+	fp, err := os.Open(path)
 	if err != nil {
 		return MetaData{}, err
 	}
@@ -180,13 +182,13 @@ func (md *MetaData) unify(data interface{}, rv reflect.Value) error {
 	if v, ok := rv.Interface().(encoding.TextUnmarshaler); ok {
 		return md.unifyText(data, v)
 	}
-	// BUG(burntsushi)
+	// TODO:
 	// The behavior here is incorrect whenever a Go type satisfies the
-	// encoding.TextUnmarshaler interface but also corresponds to a TOML
-	// hash or array. In particular, the unmarshaler should only be applied
-	// to primitive TOML values. But at this point, it will be applied to
-	// all kinds of values and produce an incorrect error whenever those values
-	// are hashes or arrays (including arrays of tables).
+	// encoding.TextUnmarshaler interface but also corresponds to a TOML hash or
+	// array. In particular, the unmarshaler should only be applied to primitive
+	// TOML values. But at this point, it will be applied to all kinds of values
+	// and produce an incorrect error whenever those values are hashes or arrays
+	// (including arrays of tables).
 
 	k := rv.Kind()
 

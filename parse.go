@@ -298,7 +298,26 @@ func (p *parser) valueFloat(it item) (interface{}, tomlType) {
 	return num, p.typeOfPrimitive(it)
 }
 
-// Timezones used for local datetime, date, and time.
+// Timezones used for local datetime, date, and time TOML types.
+//
+// The exact way times and dates without a timezone should be interpreted is not
+// well-defined in the TOML specification and left to the implementation. These
+// defaults to current local timezone offset of the computer, but this can be
+// changed by changing these variables before decoding.
+//
+// The reason we use three different variables for this is to support
+// round-tripping.
+//
+// TODO: these really shouldn't be package-level globals, and there also
+// shouldn't be three variables. The problem is that the time is decoded in the
+// parse stage, rather than the decode stage.
+//
+// Decoder and Encoder should both support a Timezone attribute instead.
+// Round-tripping is more tricky though, as there isn't a way to pass this
+// information yet.
+//
+// The reason they're exported is because they're referred from in e.g.
+// internal/tag.
 var (
 	localOffset   = func() int { _, o := time.Now().Zone(); return o }()
 	LocalDatetime = time.FixedZone("datetime-local", localOffset)

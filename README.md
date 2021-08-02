@@ -8,20 +8,16 @@ representations. (There is an example of this below.)
 
 Compatible with TOML version [v1.0.0](https://toml.io/en/v1.0.0).
 
-Documentation: https://pkg.go.dev/github.com/BurntSushi/toml
+Documentation: https://godocs.io/github.com/BurntSushi/toml
 
 This library requires Go 1.13 or newer; install it with:
 
-```bash
-go get github.com/BurntSushi/toml
-```
+    $ go get github.com/BurntSushi/toml
 
-Try the TOML validator:
+It also comes with a TOML validator CLI tool:
 
-```bash
-go get github.com/BurntSushi/toml/cmd/tomlv
-tomlv some-toml-file.toml
-```
+    $ go get github.com/BurntSushi/toml/cmd/tomlv
+    $ tomlv some-toml-file.toml
 
 ### Testing
 
