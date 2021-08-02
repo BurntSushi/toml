@@ -65,8 +65,7 @@ func (md *MetaData) PrimitiveDecode(primValue Primitive, v interface{}) error {
 // TOML table arrays correspond to either a slice of structs or a slice of maps.
 //
 // TOML datetimes correspond to Go time.Time values. Local datetimes are parsed
-// in the local timezone and have the Location set to the decoders's Timezone
-// value. This defaults to this computer's local timezone if not given.
+// in the local timezone.
 //
 // All other TOML types (float, string, int, bool and array) correspond to the
 // obvious Go types.
@@ -94,10 +93,6 @@ func (md *MetaData) PrimitiveDecode(primValue Primitive, v interface{}) error {
 // cyclic type is passed.
 type Decoder struct {
 	r io.Reader
-
-	// Timezone to use for local times. Defaults to this computer's local
-	// timezone if nil.
-	//Timezone *time.Location
 }
 
 // NewDecoder creates a new Decoder.

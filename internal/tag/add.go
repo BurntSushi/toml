@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/BurntSushi/toml"
+	"github.com/BurntSushi/toml/internal"
 )
 
 // Add JSON tags to a data structure as expected by toml-test.
@@ -44,11 +44,11 @@ func Add(key string, tomlData interface{}) interface{} {
 		switch orig.Location() {
 		default:
 			return tag("datetime", orig.Format("2006-01-02T15:04:05.999999999Z07:00"))
-		case toml.LocalDatetime:
+		case internal.LocalDatetime:
 			return tag("datetime-local", orig.Format("2006-01-02T15:04:05.999999999"))
-		case toml.LocalDate:
+		case internal.LocalDate:
 			return tag("date-local", orig.Format("2006-01-02"))
-		case toml.LocalTime:
+		case internal.LocalTime:
 			return tag("time-local", orig.Format("15:04:05.999999999"))
 		}
 

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/BurntSushi/toml/internal"
 )
 
 func TestDecodeReader(t *testing.T) {
@@ -687,12 +689,12 @@ func TestDecodeDatetime(t *testing.T) {
 		{"1979-05-27T07:32:12-07:00  # c", time.Date(1979, 05, 27, 07, 32, 12, 0, tz7)},
 
 		// Local times.
-		{"1979-05-27T07:32:00", time.Date(1979, 05, 27, 07, 32, 0, 0, LocalDatetime)},
-		{"1979-05-27T07:32:00.999999", time.Date(1979, 05, 27, 07, 32, 0, 999999000, LocalDatetime)},
-		{"1979-05-27T07:32:00.25", time.Date(1979, 05, 27, 07, 32, 0, 250000000, LocalDatetime)},
-		{"1979-05-27", time.Date(1979, 05, 27, 0, 0, 0, 0, LocalDate)},
-		{"07:32:00", time.Date(0, 1, 1, 07, 32, 0, 0, LocalTime)},
-		{"07:32:00.999999", time.Date(0, 1, 1, 07, 32, 0, 999999000, LocalTime)},
+		{"1979-05-27T07:32:00", time.Date(1979, 05, 27, 07, 32, 0, 0, internal.LocalDatetime)},
+		{"1979-05-27T07:32:00.999999", time.Date(1979, 05, 27, 07, 32, 0, 999999000, internal.LocalDatetime)},
+		{"1979-05-27T07:32:00.25", time.Date(1979, 05, 27, 07, 32, 0, 250000000, internal.LocalDatetime)},
+		{"1979-05-27", time.Date(1979, 05, 27, 0, 0, 0, 0, internal.LocalDate)},
+		{"07:32:00", time.Date(0, 1, 1, 07, 32, 0, 0, internal.LocalTime)},
+		{"07:32:00.999999", time.Date(0, 1, 1, 07, 32, 0, 999999000, internal.LocalTime)},
 	} {
 		t.Run(tt.in, func(t *testing.T) {
 			var x struct{ D time.Time }

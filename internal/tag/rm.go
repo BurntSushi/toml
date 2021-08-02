@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/BurntSushi/toml"
+	"github.com/BurntSushi/toml/internal"
 )
 
 // Rempve JSON tags to a data structure as returned by toml-test.
@@ -70,11 +70,11 @@ func untag(typed map[string]interface{}) interface{} {
 	case "datetime":
 		return parseTime(v, "2006-01-02T15:04:05.999999999Z07:00", nil)
 	case "datetime-local":
-		return parseTime(v, "2006-01-02T15:04:05.999999999", toml.LocalDatetime)
+		return parseTime(v, "2006-01-02T15:04:05.999999999", internal.LocalDatetime)
 	case "date-local":
-		return parseTime(v, "2006-01-02", toml.LocalDate)
+		return parseTime(v, "2006-01-02", internal.LocalDate)
 	case "time-local":
-		return parseTime(v, "15:04:05.999999999", toml.LocalTime)
+		return parseTime(v, "15:04:05.999999999", internal.LocalTime)
 	case "bool":
 		switch v {
 		case "true":

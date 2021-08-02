@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/BurntSushi/toml/internal"
 )
 
 type tomlEncodeError struct{ error }
@@ -184,17 +186,17 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 	case time.Time: // Using TextMarshaler adds extra quotes, which we don't want.
 		format := time.RFC3339Nano
 		switch v.Location() {
-		case LocalDatetime:
+		case internal.LocalDatetime:
 			format = "2006-01-02T15:04:05.999999999"
-		case LocalDate:
+		case internal.LocalDate:
 			format = "2006-01-02"
-		case LocalTime:
+		case internal.LocalTime:
 			format = "15:04:05.999999999"
 		}
 		switch v.Location() {
 		default:
 			enc.wf(v.Format(format))
-		case LocalDatetime, LocalDate, LocalTime:
+		case internal.LocalDatetime, internal.LocalDate, internal.LocalTime:
 			enc.wf(v.In(time.UTC).Format(format))
 		}
 		return
