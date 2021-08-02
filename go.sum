@@ -7,4 +7,6 @@ github.com/BurntSushi/toml-test v0.1.1-0.20210624055653-1f6389604dc6/go.mod h1:U
 github.com/BurntSushi/toml-test v0.1.1-0.20210704062846-269931e74e3f/go.mod h1:fnFWrIwqgHsEjVsW3RYCJmDo86oq9eiJ9u6bnqhtm2g=
 github.com/BurntSushi/toml-test v0.1.1-0.20210704114940-e6948edce1c5 h1:pkhJ7YiuikhNSX/HnPKMahEWoWiQbsAZ3djE6vVF2I0=
 github.com/BurntSushi/toml-test v0.1.1-0.20210704114940-e6948edce1c5/go.mod h1:ve9Q/RRu2vHi42LocPLNvagxuUJh993/95b18bw/Nws=
+github.com/BurntSushi/toml-test v0.1.1-0.20210723065233-facb9eccd4da h1:2QGUaQtV2u8V1USTI883wo+uxtZFAiZ4TCNupHJ98IU=
+github.com/BurntSushi/toml-test v0.1.1-0.20210723065233-facb9eccd4da/go.mod h1:ve9Q/RRu2vHi42LocPLNvagxuUJh993/95b18bw/Nws=
 zgo.at/zli v0.0.0-20210619044753-e7020a328e59/go.mod h1:HLAc12TjNGT+VRXr76JnsNE3pbooQtwKWhX+RlDjQ2Y=
