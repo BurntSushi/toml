@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"github.com/BurntSushi/toml"
-	tomltest "github.com/BurntSushi/toml-test"
 	"github.com/BurntSushi/toml/internal/tag"
+	tomltest "github.com/BurntSushi/toml/internal/toml-test"
 )
 
 // Test if the error message matches what we want for invalid tests. Every slice
