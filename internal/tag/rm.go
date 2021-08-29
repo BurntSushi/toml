@@ -67,7 +67,7 @@ func untag(typed map[string]interface{}) (interface{}, error) {
 	case "string":
 		return v, nil
 	case "integer":
-		n, err := strconv.Atoi(v)
+		n, err := strconv.ParseInt(v, 10, 64)
 		if err != nil {
 			return nil, fmt.Errorf("untag: %w", err)
 		}
