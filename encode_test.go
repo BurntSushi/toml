@@ -419,7 +419,7 @@ func encodeExpected(t *testing.T, label string, val interface{}, want string, wa
 		have := strings.TrimSpace(buf.String())
 		want = strings.TrimSpace(want)
 		if want != have {
-			t.Errorf("\nhave: %s\nwant: %s\n", have, want)
+			t.Errorf("\nhave:\n%s\nwant:\n%s\n", have, want)
 			// v, _ := json.MarshalIndent(val, "", "  ")
 			// t.Log(string(v))
 		}
