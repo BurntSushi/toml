@@ -35,7 +35,12 @@ func main() {
 		log.Fatalf("Error decoding JSON: %s", err)
 	}
 
-	if err := toml.NewEncoder(os.Stdout).Encode(tag.Remove(tmp)); err != nil {
+	rm, err := tag.Remove(tmp)
+	if err != nil {
+		log.Fatalf("Error decoding JSON: %s", err)
+	}
+
+	if err := toml.NewEncoder(os.Stdout).Encode(rm); err != nil {
 		log.Fatalf("Error encoding TOML: %s", err)
 	}
 }

@@ -157,8 +157,13 @@ func (p parser) Encode(input string) (output string, outputIsError bool, retErr 
 		return "", false, err
 	}
 
+	rm, err := tag.Remove(tmp)
+	if err != nil {
+		return err.Error(), true, retErr
+	}
+
 	buf := new(bytes.Buffer)
-	err = toml.NewEncoder(buf).Encode(tag.Remove(tmp))
+	err = toml.NewEncoder(buf).Encode(rm)
 	if err != nil {
 		return err.Error(), true, retErr
 	}

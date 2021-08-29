@@ -1,15 +1,15 @@
 package tag
 
 import (
-	"log"
+	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/BurntSushi/toml/internal"
 )
 
-// Rempve JSON tags to a data structure as returned by toml-test.
-func Remove(typedJson interface{}) interface{} {
+// Remove JSON tags to a data structure as returned by toml-test.
+func Remove(typedJson interface{}) (interface{}, error) {
 	// Switch on the data type.
 	switch v := typedJson.(type) {
 
@@ -18,28 +18,39 @@ func Remove(typedJson interface{}) interface{} {
 		// This value represents a primitive: remove the tags and return just
 		// the primitive value.
 		if len(v) == 2 && in("type", v) && in("value", v) {
-			return untag(v)
+			ut, err := untag(v)
+			if err != nil {
+				return ut, fmt.Errorf("tag.Remove: %w", err)
+			}
+			return ut, nil
 		}
 
 		// Table: remove tags on all children.
 		m := make(map[string]interface{}, len(v))
 		for k, v2 := range v {
-			m[k] = Remove(v2)
+			var err error
+			m[k], err = Remove(v2)
+			if err != nil {
+				return nil, err
+			}
 		}
-		return m
+		return m, nil
 
 	// Array: remove tags from all itenm.
 	case []interface{}:
 		a := make([]interface{}, len(v))
 		for i := range v {
-			a[i] = Remove(v[i])
+			var err error
+			a[i], err = Remove(v[i])
+			if err != nil {
+				return nil, err
+			}
 		}
-		return a
+		return a, nil
 	}
 
 	// The top level must be an object or array.
-	log.Fatalf("Unrecognized JSON format '%T'.", typedJson)
-	panic("unreachable")
+	return nil, fmt.Errorf("tag.Remove: unrecognized JSON format '%T'", typedJson)
 }
 
 // Check if key is in the table m.
@@ -49,24 +60,24 @@ func in(key string, m map[string]interface{}) bool {
 }
 
 // Return a primitive: read the "type" and convert the "value" to that.
-func untag(typed map[string]interface{}) interface{} {
+func untag(typed map[string]interface{}) (interface{}, error) {
 	t := typed["type"].(string)
 	v := typed["value"].(string)
 	switch t {
 	case "string":
-		return v
+		return v, nil
 	case "integer":
 		n, err := strconv.Atoi(v)
 		if err != nil {
-			log.Fatalf("Could not parse '%s' as integer: %s", v, err)
+			return nil, fmt.Errorf("untag: %w", err)
 		}
-		return n
+		return n, nil
 	case "float":
 		f, err := strconv.ParseFloat(v, 64)
 		if err != nil {
-			log.Fatalf("Could not parse '%s' as float64: %s", v, err)
+			return nil, fmt.Errorf("untag: %w", err)
 		}
-		return f
+		return f, nil
 	case "datetime":
 		return parseTime(v, "2006-01-02T15:04:05.999999999Z07:00", nil)
 	case "datetime-local":
@@ -78,24 +89,23 @@ func untag(typed map[string]interface{}) interface{} {
 	case "bool":
 		switch v {
 		case "true":
-			return true
+			return true, nil
 		case "false":
-			return false
+			return false, nil
 		}
-		log.Fatalf("Could not parse '%s' as a boolean.", v)
+		return nil, fmt.Errorf("untag: could not parse %q as a boolean", v)
 	}
 
-	log.Fatalf("Unrecognized tag type '%s'.", t)
-	panic("unreachable")
+	return nil, fmt.Errorf("untag: unrecognized tag type %q", t)
 }
 
-func parseTime(v, format string, l *time.Location) time.Time {
+func parseTime(v, format string, l *time.Location) (time.Time, error) {
 	t, err := time.Parse(format, v)
 	if err != nil {
-		log.Fatalf("Could not parse '%s' as a datetime: %s", v, err)
+		return time.Time{}, fmt.Errorf("Could not parse %q as a datetime: %w", v, err)
 	}
 	if l != nil {
 		t = t.In(l)
 	}
-	return t
+	return t, nil
 }
