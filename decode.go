@@ -9,7 +9,6 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"time"
 )
 
 // Unmarshaler is the interface implemented by objects that can unmarshal a
@@ -344,14 +343,6 @@ func (md *MetaData) unifySliceArray(data, rv reflect.Value) error {
 		}
 	}
 	return nil
-}
-
-func (md *MetaData) unifyDatetime(data interface{}, rv reflect.Value) error {
-	if _, ok := data.(time.Time); ok {
-		rv.Set(reflect.ValueOf(data))
-		return nil
-	}
-	return badtype("time.Time", data)
 }
 
 func (md *MetaData) unifyString(data interface{}, rv reflect.Value) error {
