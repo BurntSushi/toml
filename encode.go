@@ -364,6 +364,8 @@ func (enc *Encoder) eMap(key Key, rv reflect.Value, inline bool) {
 	}
 }
 
+const is32Bit = (32 << (^uint(0) >> 63)) == 32
+
 func (enc *Encoder) eStruct(key Key, rv reflect.Value, inline bool) {
 	// Write keys for fields directly under this key first, because if we write
 	// a field that creates a new table then all keys under it will be in that
@@ -415,7 +417,7 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value, inline bool) {
 				// is needed. See #314, and https://www.reddit.com/r/golang/comments/pnx8v4
 				// This also works fine on 64bit, but 32bit archs are somewhat
 				// rare and this is a wee bit faster.
-				if math.MaxInt == math.MaxInt32 {
+				if is32Bit {
 					copyStart := make([]int, len(start))
 					copy(copyStart, start)
 					fieldsDirect = append(fieldsDirect, append(copyStart, f.Index...))
