@@ -396,6 +396,21 @@ Fun = "why would you do this?"
 	}
 }
 
+// Would previously fail on 32bit architectures; can test with:
+//   GOARCH=386         go test -c &&  ./toml.test
+//   GOARCH=arm GOARM=7 go test -c && qemu-arm ./toml.test
+func TestEncode32bit(t *testing.T) {
+	type Inner struct {
+		A, B, C string
+	}
+	type Outer struct{ Inner }
+
+	encodeExpected(t, "embedded anonymous untagged struct",
+		Outer{Inner{"a", "b", "c"}},
+		"A = \"a\"\nB = \"b\"\nC = \"c\"\n",
+		nil)
+}
+
 func encodeExpected(t *testing.T, label string, val interface{}, want string, wantErr error) {
 	t.Helper()
 
@@ -420,8 +435,6 @@ func encodeExpected(t *testing.T, label string, val interface{}, want string, wa
 		want = strings.TrimSpace(want)
 		if want != have {
 			t.Errorf("\nhave:\n%s\nwant:\n%s\n", have, want)
-			// v, _ := json.MarshalIndent(val, "", "  ")
-			// t.Log(string(v))
 		}
 	})
 }

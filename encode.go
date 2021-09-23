@@ -411,7 +411,17 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value, inline bool) {
 			if typeIsHash(tomlTypeOfGo(frv)) {
 				fieldsSub = append(fieldsSub, append(start, f.Index...))
 			} else {
-				fieldsDirect = append(fieldsDirect, append(start, f.Index...))
+				// Copy so it works correct on 32bit archs; not clear why this
+				// is needed. See #314, and https://www.reddit.com/r/golang/comments/pnx8v4
+				// This also works fine on 64bit, but 32bit archs are somewhat
+				// rare and this is a wee bit faster.
+				if math.MaxInt == math.MaxInt32 {
+					copyStart := make([]int, len(start))
+					copy(copyStart, start)
+					fieldsDirect = append(fieldsDirect, append(copyStart, f.Index...))
+				} else {
+					fieldsDirect = append(fieldsDirect, append(start, f.Index...))
+				}
 			}
 		}
 	}
