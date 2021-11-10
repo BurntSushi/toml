@@ -3,6 +3,7 @@ package toml
 import (
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"reflect"
 	"strings"
@@ -263,6 +264,53 @@ func TestDecodeIntOverflow(t *testing.T) {
 	var tab table
 	if _, err := Decode(`value = 500`, &tab); err == nil {
 		t.Fatal("Expected integer out-of-bounds error.")
+	}
+}
+
+func TestDecodeFloatOverflow(t *testing.T) {
+	type table struct {
+		F32 float32
+		F64 float64
+	}
+
+	tests := []struct {
+		value    string
+		overflow bool
+	}{
+		{fmt.Sprintf(`F32 = %f`, math.MaxFloat64), true},
+		{fmt.Sprintf(`F32 = %f`, -math.MaxFloat64), true},
+		{fmt.Sprintf(`F32 = %f`, math.MaxFloat32), false},
+		{fmt.Sprintf(`F32 = %f`, -math.MaxFloat32), false},
+		{fmt.Sprintf(`F32 = %f`, math.MaxFloat32*1.1), true},
+		{fmt.Sprintf(`F32 = %f`, -math.MaxFloat32*1.1), true},
+
+		{fmt.Sprintf(`F32 = %d`, maxSafeFloat32Int), false},
+		{fmt.Sprintf(`F32 = %d`, -maxSafeFloat32Int), false},
+		{fmt.Sprintf(`F32 = %d`, maxSafeFloat32Int+1), true},
+		{fmt.Sprintf(`F32 = %d`, -maxSafeFloat32Int-1), true},
+
+		{fmt.Sprintf(`F64 = %f`, math.MaxFloat64), false},
+		{fmt.Sprintf(`F64 = %f`, -math.MaxFloat64), false},
+		{fmt.Sprintf(`F64 = %f`, math.MaxFloat32), false},
+		{fmt.Sprintf(`F64 = %f`, -math.MaxFloat32), false},
+
+		{fmt.Sprintf(`F64 = %d`, maxSafeFloat64Int), false},
+		{fmt.Sprintf(`F64 = %d`, -maxSafeFloat64Int), false},
+		{fmt.Sprintf(`F64 = %d`, maxSafeFloat64Int+1), true},
+		{fmt.Sprintf(`F64 = %d`, -maxSafeFloat64Int-1), true},
+	}
+
+	for _, tc := range tests {
+		var tab table
+		_, err := Decode(tc.value, &tab)
+
+		if tc.overflow && err == nil {
+			t.Fatalf("expected error for %q", tc.value)
+		}
+
+		if !tc.overflow && err != nil {
+			t.Fatalf("unexpected error for %q: %v", tc.value, err)
+		}
 	}
 }
 
