@@ -55,7 +55,7 @@ type ParseError struct {
 	Usage    string   // Longer message with usage guidance; may be blank.
 	Position Position // Position of the error
 	LastKey  string   // Last parsed key, may be blank.
-	Line     int      // DEPRECATED: line the error occured; use Position instead.
+	Line     int      // Line the error occurred. Deprecated: use Position.
 
 	err   error
 	input string
