@@ -39,9 +39,8 @@ type Primitive struct {
 	context   Key
 }
 
-// The significand precision for float32 and float64 is 24 and
-// 53 bits respectfully. 2^prec-1 gives us the range an integer
-// can be stored within a float without loss of data.
+// The significand precision for float32 and float64 is 24 and 53 bits; this is
+// the range a natural number can be stored in a float without loss of data.
 const (
 	maxSafeFloat32Int = 16777215         // 2^24-1
 	maxSafeFloat64Int = 9007199254740991 // 2^53-1
@@ -225,9 +224,7 @@ func (md *MetaData) unify(data interface{}, rv reflect.Value) error {
 			return e("unsupported type %s", rv.Type())
 		}
 		return md.unifyAnything(data, rv)
-	case reflect.Float32:
-		fallthrough
-	case reflect.Float64:
+	case reflect.Float32, reflect.Float64:
 		return md.unifyFloat64(data, rv)
 	}
 	return e("unsupported type %s", rv.Kind())
