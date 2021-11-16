@@ -11,13 +11,16 @@ import (
 )
 
 type parser struct {
-	mapping map[string]interface{}
-	types   map[string]tomlType
-	lx      *lexer
+	mapping  map[string]interface{}
+	types    map[string]tomlType
+	comments map[string][]comment
+	lx       *lexer
 
-	ordered    []Key           // List of keys in the order that they appear in the TOML data.
-	context    Key             // Full key for the current hash in scope.
-	currentKey string          // Base key name for everything except hashes.
+	ordered    []Key  // List of keys in the order that they appear in the TOML data.
+	context    Key    // Full key for the current hash in scope.
+	currentKey string // Base key name for everything except hashes.
+	prevKey    string
+	comment    []string
 	pos        Position        // Position
 	implicits  map[string]bool // Record implied keys (e.g. 'key.group.names').
 }
@@ -59,6 +62,7 @@ func parse(data string) (p *parser, err error) {
 	p = &parser{
 		mapping:   make(map[string]interface{}),
 		types:     make(map[string]tomlType),
+		comments:  make(map[string][]comment),
 		lx:        lex(data),
 		ordered:   make([]Key, 0),
 		implicits: make(map[string]bool),
@@ -135,7 +139,21 @@ func (p *parser) assertEqual(expected, got itemType) {
 func (p *parser) topLevel(item item) {
 	switch item.typ {
 	case itemCommentStart: // # ..
-		p.expect(itemText)
+		text := p.expect(itemComment)
+
+		// XXX: we need to associate this comment with a key:
+		//
+		// - If it's inline, associate with previous key.
+		// - If it's above a key, associate with next key.
+		//
+		// Memorize the comment if it's above a key (set p.doc), and associate
+		// that when we read the key.
+		//
+		// For inline keys we can use p.context + p.prevKey.
+
+		p.comment = append(p.comment, text.val)
+		//k := append(p.context, p.prevKey).String()
+		//p.comments[k] = append(p.comments[k], comment{where: commentDoc, text: text.val})
 	case itemTableStart: // [ .. ]
 		name := p.nextPos()
 
@@ -146,7 +164,7 @@ func (p *parser) topLevel(item item) {
 		p.assertEqual(itemTableEnd, name.typ)
 
 		p.addContext(key, false)
-		p.setType("", tomlHash)
+		p.setType("", Table{})
 		p.ordered = append(p.ordered, key)
 	case itemArrayTableStart: // [[ .. ]]
 		name := p.nextPos()
@@ -158,7 +176,7 @@ func (p *parser) topLevel(item item) {
 		p.assertEqual(itemArrayTableEnd, name.typ)
 
 		p.addContext(key, true)
-		p.setType("", tomlArrayHash)
+		p.setType("", ArrayTable{})
 		p.ordered = append(p.ordered, key)
 	case itemKeyStart: // key = ..
 		outerContext := p.context
@@ -180,6 +198,13 @@ func (p *parser) topLevel(item item) {
 			p.addImplicitContext(append(p.context, context[i:i+1]...))
 		}
 
+		if len(p.comment) > 0 {
+			for _, c := range p.comment {
+				p.comments[p.currentKey] = append(p.comments[p.currentKey], comment{where: commentDoc, text: c})
+			}
+			p.comment = nil
+		}
+
 		/// Set value.
 		val, typ := p.value(p.next(), false)
 		p.set(p.currentKey, val, typ)
@@ -187,7 +212,7 @@ func (p *parser) topLevel(item item) {
 
 		/// Remove the context we added (preserving any context from [tbl] lines).
 		p.context = outerContext
-		p.currentKey = ""
+		p.currentKey, p.prevKey = "", p.currentKey
 	default:
 		p.bug("Unexpected type at top level: %s", item.typ)
 	}
@@ -196,7 +221,7 @@ func (p *parser) topLevel(item item) {
 // Gets a string for a key (or part of a key in a table name).
 func (p *parser) keyString(it item) string {
 	switch it.typ {
-	case itemText:
+	case itemKey, itemComment:
 		return it.val
 	case itemString, itemMultilineString,
 		itemRawString, itemRawMultilineString:
@@ -204,8 +229,8 @@ func (p *parser) keyString(it item) string {
 		return s.(string)
 	default:
 		p.bug("Unexpected key type: %s", it.typ)
+		panic("unreachable")
 	}
-	panic("unreachable")
 }
 
 var datetimeRepl = strings.NewReplacer(
@@ -218,13 +243,13 @@ var datetimeRepl = strings.NewReplacer(
 func (p *parser) value(it item, parentIsArray bool) (interface{}, tomlType) {
 	switch it.typ {
 	case itemString:
-		return p.replaceEscapes(it, it.val), p.typeOfPrimitive(it)
+		return p.replaceEscapes(it, it.val), String{}
 	case itemMultilineString:
-		return p.replaceEscapes(it, stripFirstNewline(stripEscapedNewlines(it.val))), p.typeOfPrimitive(it)
+		return p.replaceEscapes(it, stripFirstNewline(stripEscapedNewlines(it.val))), String{Multiline: true}
 	case itemRawString:
-		return it.val, p.typeOfPrimitive(it)
+		return it.val, String{Literal: true}
 	case itemRawMultilineString:
-		return stripFirstNewline(it.val), p.typeOfPrimitive(it)
+		return stripFirstNewline(it.val), String{Literal: true, Multiline: true}
 	case itemInteger:
 		return p.valueInteger(it)
 	case itemFloat:
@@ -232,15 +257,15 @@ func (p *parser) value(it item, parentIsArray bool) (interface{}, tomlType) {
 	case itemBool:
 		switch it.val {
 		case "true":
-			return true, p.typeOfPrimitive(it)
+			return true, Bool{}
 		case "false":
-			return false, p.typeOfPrimitive(it)
+			return false, Bool{}
 		default:
 			p.bug("Expected boolean value, but got '%s'.", it.val)
 		}
 	case itemDatetime:
 		return p.valueDatetime(it)
-	case itemArray:
+	case itemArrayStart:
 		return p.valueArray(it)
 	case itemInlineTableStart:
 		return p.valueInlineTable(it, parentIsArray)
@@ -261,17 +286,30 @@ func (p *parser) valueInteger(it item) (interface{}, tomlType) {
 	num, err := strconv.ParseInt(it.val, 0, 64)
 	if err != nil {
 		// Distinguish integer values. Normally, it'd be a bug if the lexer
-		// provides an invalid integer, but it's possible that the number is
-		// out of range of valid values (which the lexer cannot determine).
-		// So mark the former as a bug but the latter as a legitimate user
-		// error.
+		// provides an invalid integer, but it's possible that the number is out
+		// of range of valid values (which the lexer cannot determine). So mark
+		// the former as a bug but the latter as a legitimate user error.
 		if e, ok := err.(*strconv.NumError); ok && e.Err == strconv.ErrRange {
 			p.panicItemf(it, "Integer '%s' is out of the range of 64-bit signed integers.", it.val)
 		} else {
 			p.bug("Expected integer value, but got '%s'.", it.val)
 		}
 	}
-	return num, p.typeOfPrimitive(it)
+
+	v := it.val
+	if len(v) > 0 && (v[0] == '-' || v[0] == '+') {
+		v = v[1:]
+	}
+	var base uint8
+	switch {
+	case strings.HasPrefix(v, "0b"):
+		base = 2
+	case strings.HasPrefix(v, "0o"):
+		base = 8
+	case strings.HasPrefix(v, "0x"):
+		base = 16
+	}
+	return num, Int{Base: base}
 }
 
 func (p *parser) valueFloat(it item) (interface{}, tomlType) {
@@ -291,10 +329,8 @@ func (p *parser) valueFloat(it item) (interface{}, tomlType) {
 		p.panicItemf(it, "Invalid float %q: cannot have leading zeroes", it.val)
 	}
 	if !numPeriodsOK(it.val) {
-		// As a special case, numbers like '123.' or '1.e2',
-		// which are valid as far as Go/strconv are concerned,
-		// must be rejected because TOML says that a fractional
-		// part consists of '.' followed by 1+ digits.
+		// Numbers like '123.' or '1.e2' are valid in Go/strconv, but not valid
+		// in TOML as a fractional part consists of '.' followed by 1+ digits.
 		p.panicItemf(it, "Invalid float %q: '.' must be followed by one or more digits", it.val)
 	}
 	val := strings.Replace(it.val, "_", "", -1)
@@ -309,58 +345,60 @@ func (p *parser) valueFloat(it item) (interface{}, tomlType) {
 			p.panicItemf(it, "Invalid float value: %q", it.val)
 		}
 	}
-	return num, p.typeOfPrimitive(it)
+	exp := false
+	if strings.ContainsAny(val, "eE") {
+		exp = true
+	}
+	return num, Float{Exponent: exp}
 }
 
 var dtTypes = []struct {
 	fmt  string
 	zone *time.Location
+	f    DatetimeFormat
 }{
-	{time.RFC3339Nano, time.Local},
-	{"2006-01-02T15:04:05.999999999", internal.LocalDatetime},
-	{"2006-01-02", internal.LocalDate},
-	{"15:04:05.999999999", internal.LocalTime},
+	{time.RFC3339Nano, time.Local, DatetimeFormatFull},
+	{"2006-01-02T15:04:05.999999999", internal.LocalDatetime, DatetimeFormatLocal},
+	{"2006-01-02", internal.LocalDate, DatetimeFormatDate},
+	{"15:04:05.999999999", internal.LocalTime, DatetimeFormatTime},
 }
 
 func (p *parser) valueDatetime(it item) (interface{}, tomlType) {
 	it.val = datetimeRepl.Replace(it.val)
-	var (
-		t   time.Time
-		ok  bool
-		err error
-	)
 	for _, dt := range dtTypes {
-		t, err = time.ParseInLocation(dt.fmt, it.val, dt.zone)
+		t, err := time.ParseInLocation(dt.fmt, it.val, dt.zone)
 		if err == nil {
-			ok = true
-			break
+			fmt.Printf("Parsed with %s in %s\n    %s\n", dt.fmt, dt.zone, t)
+			return t, Datetime{Format: dt.f}
 		}
 	}
-	if !ok {
-		p.panicItemf(it, "Invalid TOML Datetime: %q.", it.val)
-	}
-	return t, p.typeOfPrimitive(it)
+	p.panicItemf(it, "Invalid TOML Datetime: %q.", it.val)
+	panic("unreachable")
 }
 
 func (p *parser) valueArray(it item) (interface{}, tomlType) {
-	p.setType(p.currentKey, tomlArray)
+	p.setType(p.currentKey, Array{})
 
-	// p.setType(p.currentKey, typ)
 	var (
 		array []interface{}
 		types []tomlType
 	)
 	for it = p.next(); it.typ != itemArrayEnd; it = p.next() {
 		if it.typ == itemCommentStart {
-			p.expect(itemText)
+			p.expect(itemComment)
 			continue
 		}
 
 		val, typ := p.value(it, true)
 		array = append(array, val)
 		types = append(types, typ)
+		// XXX: types isn't used here, we need it to record the accurate type
+		// information.
+		//
+		// Not entirely sure how to best store this; could use "key[0]",
+		// "key[1]" notation, or maybe store it on the Array type?
 	}
-	return array, tomlArray
+	return array, Array{}
 }
 
 func (p *parser) valueInlineTable(it item, parentIsArray bool) (interface{}, tomlType) {
@@ -380,7 +418,7 @@ func (p *parser) valueInlineTable(it item, parentIsArray bool) (interface{}, tom
 	/// Loop over all table key/value pairs.
 	for it := p.next(); it.typ != itemInlineTableEnd; it = p.next() {
 		if it.typ == itemCommentStart {
-			p.expect(itemText)
+			p.expect(itemComment)
 			continue
 		}
 
@@ -413,7 +451,7 @@ func (p *parser) valueInlineTable(it item, parentIsArray bool) (interface{}, tom
 	}
 	p.context = outerContext
 	p.currentKey = outerKey
-	return hash, tomlHash
+	return hash, Table{}
 }
 
 // numHasLeadingZero checks if this number has leading zeroes, allowing for '0',
@@ -605,7 +643,10 @@ func (p *parser) setType(key string, typ tomlType) {
 func (p *parser) addImplicit(key Key)     { p.implicits[key.String()] = true }
 func (p *parser) removeImplicit(key Key)  { p.implicits[key.String()] = false }
 func (p *parser) isImplicit(key Key) bool { return p.implicits[key.String()] }
-func (p *parser) isArray(key Key) bool    { return p.types[key.String()] == tomlArray }
+func (p *parser) isArray(key Key) bool {
+	_, ok := p.types[key.String()].(Array)
+	return ok
+}
 func (p *parser) addImplicitContext(key Key) {
 	p.addImplicit(key)
 	p.addContext(key, false)

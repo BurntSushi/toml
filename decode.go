@@ -128,11 +128,12 @@ func (dec *Decoder) Decode(v interface{}) (MetaData, error) {
 		return MetaData{}, err
 	}
 	md := MetaData{
-		mapping: p.mapping,
-		types:   p.types,
-		keys:    p.ordered,
-		decoded: make(map[string]bool, len(p.ordered)),
-		context: nil,
+		mapping:  p.mapping,
+		types:    p.types,
+		keys:     p.ordered,
+		comments: p.comments,
+		decoded:  make(map[string]bool, len(p.ordered)),
+		context:  nil,
 	}
 	return md, md.unify(p.mapping, indirect(rv))
 }
@@ -462,6 +463,7 @@ func (md *MetaData) unifyText(data interface{}, v encoding.TextUnmarshaler) erro
 	var s string
 	switch sdata := data.(type) {
 	case Marshaler:
+		fmt.Println("unifyText (Marshaler)", data, "in to", v)
 		text, err := sdata.MarshalTOML()
 		if err != nil {
 			return err
@@ -473,6 +475,7 @@ func (md *MetaData) unifyText(data interface{}, v encoding.TextUnmarshaler) erro
 			return err
 		}
 		s = string(text)
+		// fmt.Println("unifyText (TextMarshaler)", data, "in to", v, "=", s)
 	case fmt.Stringer:
 		s = sdata.String()
 	case string:

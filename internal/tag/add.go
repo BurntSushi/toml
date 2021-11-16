@@ -5,11 +5,12 @@ import (
 	"math"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/BurntSushi/toml/internal"
 )
 
 // Add JSON tags to a data structure as expected by toml-test.
-func Add(key string, tomlData interface{}) interface{} {
+func Add(meta toml.MetaData, key string, tomlData interface{}) interface{} {
 	// Switch on the data type.
 	switch orig := tomlData.(type) {
 	default:
@@ -20,7 +21,7 @@ func Add(key string, tomlData interface{}) interface{} {
 	case map[string]interface{}:
 		typed := make(map[string]interface{}, len(orig))
 		for k, v := range orig {
-			typed[k] = Add(k, v)
+			typed[k] = Add(meta, k, v)
 		}
 		return typed
 
@@ -29,26 +30,41 @@ func Add(key string, tomlData interface{}) interface{} {
 	case []map[string]interface{}:
 		typed := make([]map[string]interface{}, len(orig))
 		for i, v := range orig {
-			typed[i] = Add("", v).(map[string]interface{})
+			typed[i] = Add(meta, "", v).(map[string]interface{})
 		}
 		return typed
 	case []interface{}:
 		typed := make([]interface{}, len(orig))
 		for i, v := range orig {
-			typed[i] = Add("", v)
+			typed[i] = Add(meta, "", v)
 		}
 		return typed
 
 	// Datetime: tag as datetime.
 	case time.Time:
-		switch orig.Location() {
+		dtFmt := toml.DatetimeFormatFull
+		if dt, ok := meta.TypeInfo(key).(toml.Datetime); ok {
+			dtFmt = dt.Format
+		}
+		switch dtFmt {
 		default:
+			panic(fmt.Sprintf("unexpected datetime format: %#v for %q", dtFmt, key))
+		case toml.DatetimeFormatFull:
+			switch orig.Location() {
+			case internal.LocalDatetime:
+				return tag("datetime-local", orig.Format("2006-01-02T15:04:05.999999999"))
+			case internal.LocalDate:
+				return tag("date-local", orig.Format("2006-01-02"))
+			case internal.LocalTime:
+				return tag("time-local", orig.Format("15:04:05.999999999"))
+			}
+
 			return tag("datetime", orig.Format("2006-01-02T15:04:05.999999999Z07:00"))
-		case internal.LocalDatetime:
+		case toml.DatetimeFormatLocal:
 			return tag("datetime-local", orig.Format("2006-01-02T15:04:05.999999999"))
-		case internal.LocalDate:
+		case toml.DatetimeFormatDate:
 			return tag("date-local", orig.Format("2006-01-02"))
-		case internal.LocalTime:
+		case toml.DatetimeFormatTime:
 			return tag("time-local", orig.Format("15:04:05.999999999"))
 		}
 
