@@ -39,6 +39,13 @@ type Primitive struct {
 	context   Key
 }
 
+// The significand precision for float32 and float64 is 24 and 53 bits; this is
+// the range a natural number can be stored in a float without loss of data.
+const (
+	maxSafeFloat32Int = 16777215         // 2^24-1
+	maxSafeFloat64Int = 9007199254740991 // 2^53-1
+)
+
 // PrimitiveDecode is just like the other `Decode*` functions, except it
 // decodes a TOML value that has already been parsed. Valid primitive values
 // can *only* be obtained from values filled by the decoder functions,
@@ -217,9 +224,7 @@ func (md *MetaData) unify(data interface{}, rv reflect.Value) error {
 			return e("unsupported type %s", rv.Type())
 		}
 		return md.unifyAnything(data, rv)
-	case reflect.Float32:
-		fallthrough
-	case reflect.Float64:
+	case reflect.Float32, reflect.Float64:
 		return md.unifyFloat64(data, rv)
 	}
 	return e("unsupported type %s", rv.Kind())
@@ -357,6 +362,9 @@ func (md *MetaData) unifyFloat64(data interface{}, rv reflect.Value) error {
 	if num, ok := data.(float64); ok {
 		switch rv.Kind() {
 		case reflect.Float32:
+			if num < -math.MaxFloat32 || num > math.MaxFloat32 {
+				return e("value %f is out of range for float32", num)
+			}
 			fallthrough
 		case reflect.Float64:
 			rv.SetFloat(num)
@@ -365,6 +373,25 @@ func (md *MetaData) unifyFloat64(data interface{}, rv reflect.Value) error {
 		}
 		return nil
 	}
+
+	if num, ok := data.(int64); ok {
+		switch rv.Kind() {
+		case reflect.Float32:
+			if num < -maxSafeFloat32Int || num > maxSafeFloat32Int {
+				return e("value %d is out of range for float32", num)
+			}
+			fallthrough
+		case reflect.Float64:
+			if num < -maxSafeFloat64Int || num > maxSafeFloat64Int {
+				return e("value %d is out of range for float64", num)
+			}
+			rv.SetFloat(float64(num))
+		default:
+			panic("bug")
+		}
+		return nil
+	}
+
 	return badtype("float", data)
 }
 
