@@ -30,6 +30,11 @@ func parse(data string) (p *parser, err error) {
 				err = pErr
 				return
 			}
+
+			if msg := fmt.Sprintf("%v", r); strings.Contains(msg, "slice bounds out of range") {
+				err = fmt.Errorf("boundsError: %v", r)
+				return
+			}
 			panic(r)
 		}
 	}()
