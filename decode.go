@@ -431,6 +431,12 @@ func (md *MetaData) unifyAnything(data interface{}, rv reflect.Value) error {
 func (md *MetaData) unifyText(data interface{}, v encoding.TextUnmarshaler) error {
 	var s string
 	switch sdata := data.(type) {
+	case Marshaler:
+		text, err := sdata.MarshalTOML()
+		if err != nil {
+			return err
+		}
+		s = string(text)
 	case TextMarshaler:
 		text, err := sdata.MarshalText()
 		if err != nil {

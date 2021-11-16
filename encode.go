@@ -64,13 +64,22 @@ var quotedReplacer = strings.NewReplacer(
 	"\x7f", `\u007f`,
 )
 
+// Marshaler is the interface implemented by types that can marshal themselves
+// into valid TOML.
+type Marshaler interface {
+	MarshalTOML() ([]byte, error)
+}
+
 // Encoder encodes a Go to a TOML document.
 //
 // The mapping between Go values and TOML values should be precisely the same as
-// for the Decode* functions. Similarly, the TextMarshaler interface is
-// supported by encoding the resulting bytes as strings. If you want to write
-// arbitrary binary data then you will need to use something like base64 since
-// TOML does not have any binary types.
+// for the Decode* functions.
+//
+// The toml.Marshaler and encoder.TextMarshaler interfaces are supported to
+// encoding the value as custom TOML.
+//
+// If you want to write arbitrary binary data then you will need to use
+// something like base64 since TOML does not have any binary types.
 //
 // When encoding TOML hashes (Go maps or structs), keys without any sub-hashes
 // are encoded first.
@@ -83,7 +92,7 @@ var quotedReplacer = strings.NewReplacer(
 // structs. (e.g. [][]map[string]string is not allowed but []map[string]string
 // is okay, as is []map[string][]string).
 //
-// NOTE: Only exported keys are encoded due to the use of reflection. Unexported
+// NOTE: only exported keys are encoded due to the use of reflection. Unexported
 // keys are silently discarded.
 type Encoder struct {
 	// The string to use for a single indentation level. The default is two
@@ -130,12 +139,13 @@ func (enc *Encoder) safeEncode(key Key, rv reflect.Value) (err error) {
 }
 
 func (enc *Encoder) encode(key Key, rv reflect.Value) {
-	// Special case. Time needs to be in ISO8601 format.
-	// Special case. If we can marshal the type to text, then we used that.
-	// Basically, this prevents the encoder for handling these types as
-	// generic structs (or whatever the underlying type of a TextMarshaler is).
+	// Special case: time needs to be in ISO8601 format.
+	//
+	// Special case: if we can marshal the type to text, then we used that. This
+	// prevents the encoder for handling these types as generic structs (or
+	// whatever the underlying type of a TextMarshaler is).
 	switch t := rv.Interface().(type) {
-	case time.Time, encoding.TextMarshaler:
+	case time.Time, encoding.TextMarshaler, Marshaler:
 		enc.writeKeyValue(key, rv, false)
 		return
 	// TODO: #76 would make this superfluous after implemented.
@@ -200,13 +210,19 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 			enc.wf(v.In(time.UTC).Format(format))
 		}
 		return
-	case encoding.TextMarshaler:
-		// Use text marshaler if it's available for this value.
-		if s, err := v.MarshalText(); err != nil {
+	case Marshaler:
+		s, err := v.MarshalTOML()
+		if err != nil {
 			encPanic(err)
-		} else {
-			enc.writeQuoted(string(s))
 		}
+		enc.writeQuoted(string(s))
+		return
+	case encoding.TextMarshaler:
+		s, err := v.MarshalText()
+		if err != nil {
+			encPanic(err)
+		}
+		enc.writeQuoted(string(s))
 		return
 	}
 
