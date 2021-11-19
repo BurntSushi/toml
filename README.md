@@ -208,4 +208,4 @@ type clients struct {
 Note that a case insensitive match will be tried if an exact match can't be
 found.
 
-A working example of the above can be found in `_examples/example.{go,toml}`.
+A working example of the above can be found in `_example/example.{go,toml}`.
