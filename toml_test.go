@@ -182,7 +182,8 @@ func (p parser) Encode(input string) (output string, outputIsError bool, retErr 
 	}
 
 	buf := new(bytes.Buffer)
-	err = toml.NewEncoder(buf).Encode(rm)
+	enc := toml.NewEncoder(buf)
+	err = enc.Encode(rm)
 	if err != nil {
 		return err.Error(), true, retErr
 	}
@@ -203,11 +204,12 @@ func (p parser) Decode(input string) (output string, outputIsError bool, retErr 
 	}()
 
 	var d interface{}
-	if _, err := toml.Decode(input, &d); err != nil {
+	meta, err := toml.Decode(input, &d)
+	if err != nil {
 		return err.Error(), true, retErr
 	}
 
-	j, err := json.MarshalIndent(tag.Add("", d), "", "  ")
+	j, err := json.MarshalIndent(tag.Add(meta, "", d), "", "  ")
 	if err != nil {
 		return "", false, err
 	}

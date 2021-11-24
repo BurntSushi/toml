@@ -31,13 +31,14 @@ func main() {
 	}
 
 	var decoded interface{}
-	if _, err := toml.DecodeReader(os.Stdin, &decoded); err != nil {
+	meta, err := toml.DecodeReader(os.Stdin, &decoded)
+	if err != nil {
 		log.Fatalf("Error decoding TOML: %s", err)
 	}
 
 	j := json.NewEncoder(os.Stdout)
 	j.SetIndent("", "  ")
-	if err := j.Encode(tag.Add("", decoded)); err != nil {
+	if err := j.Encode(tag.Add(meta, "", decoded)); err != nil {
 		log.Fatalf("Error encoding JSON: %s", err)
 	}
 }

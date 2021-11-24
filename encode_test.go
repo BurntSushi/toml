@@ -11,6 +11,137 @@ import (
 	"time"
 )
 
+// Copy from _example/example.go
+type (
+	example struct {
+		Title    string `toml:"title"`
+		Integers []int  `toml:"integers"`
+		//Times      []fmtTime         `toml:"times"`
+		Times    []time.Time `toml:"times"`
+		Duration []duration  `toml:"duration"`
+		//Distros    []distro          `toml:"distros"`
+		//Servers    map[string]server `toml:"servers"`
+		//Characters map[string][]struct {
+		//	Name string `toml:"name"`
+		//	Rank string `toml:"rank"`
+		//} `toml:"characters"`
+	}
+
+	server struct {
+		IP       string `toml:"ip"`
+		Hostname string `toml:"hostname"`
+		Enabled  bool   `toml:"enabled"`
+	}
+
+	distro struct {
+		Name     string `toml:"name"`
+		Packages string `toml:"packages"`
+	}
+
+	duration struct{ time.Duration }
+	//fmtTime  struct{ time.Time }
+)
+
+func (d *duration) UnmarshalText(text []byte) (err error) {
+	d.Duration, err = time.ParseDuration(string(text))
+	return err
+}
+
+func (d duration) MarshalText() ([]byte, error) {
+	return []byte(d.Duration.String()), nil
+}
+
+//func (t fmtTime) String() string {
+//	f := "2006-01-02 15:04:05.999999999"
+//	if t.Time.Hour() == 0 {
+//		f = "2006-01-02"
+//	}
+//	if t.Time.Year() == 0 {
+//		f = "15:04:05.999999999"
+//	}
+//	if t.Time.Location() == time.UTC {
+//		f += " UTC"
+//	} else {
+//		f += " -0700"
+//	}
+//	return t.Time.Format(`"` + f + `"`)
+//}
+
+func TestXXX(t *testing.T) {
+	{
+		var m struct {
+			// TODO: this doesn't work if the `toml:"d"` struct tag isn't
+			// present.
+			//
+			// In WriteKeyValue() it uses key.String(), which is "D2" rather
+			// than "d2" as it should be.
+			//
+			// This is set wrong: it should be set to D2. Actually, both are
+			// "correct", since the TOML has "d2", but it will write as "D2".
+			// Maybe add helper or something?
+			//
+			// This is already a problem in the existing implementation, but I
+			// guess not too many people use IsDefined() etc.
+			D time.Time `toml:"d"`
+			//D2 time.Time
+		}
+		//meta, _ := Decode("d = 2020-01-02\nd2 = 2020-01-02", &m)
+		meta, _ := Decode("d = 2020-01-02", &m)
+		//fmt.Printf("d  → %s %s %#v\n", m.D, m.D.Location(), meta.TypeInfo("d"))
+		//fmt.Printf("d2 → %s %s %#v\n", m.D2, m.D2.Location(), meta.TypeInfo("d2"))
+		//fmt.Printf("D2 → %s %s %#v\n\n", m.D2, m.D2.Location(), meta.TypeInfo("D2"))
+
+		// Wrong because unifyText() doesn't do the right thing? Used to work?
+		// Hmm...
+		NewEncoder(os.Stdout).Encode(m)
+		// fmt.Println()
+		// NewEncoder(os.Stdout).MetaData(meta).Encode(m)
+		_ = meta
+	}
+
+	return
+	var decoded example
+	meta, err := DecodeFile("_example/example.toml", &decoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	buf := new(bytes.Buffer)
+	enc := NewEncoder(buf)
+	enc.MetaData(meta)
+	err = enc.Encode(decoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Println("types")
+	for k, v := range meta.types {
+		fmt.Printf("  %-24s %v\n", k, v)
+	}
+	fmt.Println()
+
+	fmt.Println("keys")
+	for _, k := range meta.keys {
+		fmt.Printf("  %s\n", k)
+	}
+
+	fmt.Println("mapping")
+	for k, v := range meta.mapping {
+		fmt.Printf("  %-24s %v\n", k, v)
+	}
+	fmt.Println()
+
+	//fmt.Println("comments")
+	//for k, v := range meta.comments {
+	//	fmt.Printf("  %-24s %v\n", k, v)
+	//}
+	//fmt.Println()
+
+	fmt.Println(strings.Repeat("-", 60))
+	fmt.Print(buf)
+	fmt.Println(strings.Repeat("-", 60))
+}
+
 func TestEncodeRoundTrip(t *testing.T) {
 	type Config struct {
 		Age        int
@@ -466,6 +597,46 @@ func TestEncode32bit(t *testing.T) {
 		Outer{Inner{"a", "b", "c"}},
 		"A = \"a\"\nB = \"b\"\nC = \"c\"\n",
 		nil)
+}
+
+func TestEncodeHints(t *testing.T) {
+	return
+	foo := struct {
+		ML  string    `toml:"ml"`
+		Lit string    `toml:"lit"`
+		Cmt string    `toml:"cmt"`
+		N   int       `toml:"n"`
+		N2  int       `toml:"n2"`
+		F1  float64   `toml:"f1"`
+		D1  time.Time `toml:"d1"`
+	}{}
+
+	meta, err := NewDecoder(strings.NewReader(`
+		ml   = """ MULTI """
+		lit  = 'asd'
+		# A test comment.
+		cmt  = ''' asd '''
+		n    = 0x42
+		n2   = +11231
+		f1   = 2e-2
+		d1   = 15:19:11
+	`)).Decode(&foo)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	meta.Doc("ml", "Hello").Comment("ml", "inline")
+	meta.SetType("n", Int{Width: 4, Base: 16})
+
+	buf := new(bytes.Buffer)
+	enc := NewEncoder(buf)
+	enc.MetaData(meta)
+	err = enc.Encode(foo)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Println(buf.String())
 }
 
 func encodeExpected(t *testing.T, label string, val interface{}, want string, wantErr error) {

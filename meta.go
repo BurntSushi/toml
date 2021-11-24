@@ -1,16 +1,78 @@
 package toml
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
-// MetaData allows access to meta information about TOML data that may not be
-// inferable via reflection. In particular, whether a key has been defined and
-// the TOML type of a key.
+// MetaData allows access to meta information about TOML.
+//
+// It allows determining whether a key has been defined, the TOML type of a
+// key, and how it's formatted. It also records comments in the TOML file.
 type MetaData struct {
-	mapping map[string]interface{}
-	types   map[string]tomlType
-	keys    []Key
-	decoded map[string]bool
-	context Key // Used only during decoding.
+	mapping  map[string]interface{}
+	types    map[string]tomlType  // TOML types.
+	keys     []Key                // List of defined keys.
+	decoded  map[string]bool      // Decoded keys.
+	context  Key                  // Used only during decoding.
+	comments map[string][]comment // Record comments.
+}
+
+const (
+	_              = iota
+	commentDoc     // Above the key.
+	commentComment // "Inline" after the key.
+)
+
+type comment struct {
+	where int
+	text  string
+}
+
+func NewMetaData() MetaData {
+	return MetaData{}
+}
+
+type (
+	Doc     string
+	Comment string
+)
+
+func (enc *MetaData) Key(key string, args ...interface{}) *MetaData {
+	for _, a := range args {
+		switch aa := a.(type) {
+		default:
+			panic(fmt.Sprintf("toml.MetaData.Key: unsupported type: %T", a))
+		case tomlType:
+			enc.SetType(key, aa)
+		case Doc:
+			enc.Doc(key, string(aa))
+		case Comment:
+			enc.Comment(key, string(aa))
+		}
+	}
+	return enc
+}
+
+func (enc *MetaData) SetType(key string, t tomlType) *MetaData {
+	enc.types[key] = t
+	return enc
+}
+
+func (enc *MetaData) Doc(key string, doc string) *MetaData {
+	if enc.comments == nil {
+		enc.comments = make(map[string][]comment)
+	}
+	enc.comments[key] = append(enc.comments[key], comment{where: commentDoc, text: doc})
+	return enc
+}
+
+func (enc *MetaData) Comment(key string, doc string) *MetaData {
+	if enc.comments == nil {
+		enc.comments = make(map[string][]comment)
+	}
+	enc.comments[key] = append(enc.comments[key], comment{where: commentComment, text: doc})
+	return enc
 }
 
 // IsDefined reports if the key exists in the TOML data.
@@ -45,11 +107,19 @@ func (md *MetaData) IsDefined(key ...string) bool {
 // Type will return the empty string if given an empty key or a key that does
 // not exist. Keys are case sensitive.
 func (md *MetaData) Type(key ...string) string {
-	fullkey := strings.Join(key, ".")
-	if typ, ok := md.types[fullkey]; ok {
-		return typ.typeString()
+	if t, ok := md.types[Key(key).String()]; ok {
+		return t.String()
 	}
 	return ""
+}
+
+func (md *MetaData) TypeInfo(key ...string) tomlType {
+	// TODO(v2): Type() would be a better name for this, but that's already
+	//           used. We can change this to:
+	//
+	//   meta.TypeInfo()   → meta.Type()
+	//   meta.IsDefined()  → meta.Type() == nil
+	return md.types[Key(key).String()]
 }
 
 // Keys returns a slice of every key in the TOML data, including key groups.

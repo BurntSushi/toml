@@ -78,6 +78,21 @@ func untag(typed map[string]interface{}) (interface{}, error) {
 			return nil, fmt.Errorf("untag: %w", err)
 		}
 		return f, nil
+
+	// XXX: this loses the "meta" information that's required.
+	// this is a bit annoying: the datetime is the only type that requires
+	// access to the metadata to be semantically correct. All the other values
+	// have different notations, but are semantically identical (0x10 == 16).
+	//
+	// Maybe add back the special timezones we used before, so the time.Time
+	// is "self-contained"?
+	//
+	// When decoding -> set both meta and type
+	//
+	// When encoding -> use meta if set, falling back to the TZ.
+	//
+	// time.Now() will encode as "full", unless meta is set.
+	// Decoding a time and setting meta to "full" will encode as such.
 	case "datetime":
 		return parseTime(v, "2006-01-02T15:04:05.999999999Z07:00", nil)
 	case "datetime-local":
@@ -86,6 +101,7 @@ func untag(typed map[string]interface{}) (interface{}, error) {
 		return parseTime(v, "2006-01-02", internal.LocalDate)
 	case "time-local":
 		return parseTime(v, "15:04:05.999999999", internal.LocalTime)
+
 	case "bool":
 		switch v {
 		case "true":

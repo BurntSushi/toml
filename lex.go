@@ -15,7 +15,11 @@ const (
 	itemError itemType = iota
 	itemNIL            // used in the parser to indicate no type
 	itemEOF
-	itemText
+	itemCommentStart
+	itemComment
+	itemKeyStart
+	itemKeyEnd
+	itemKey
 	itemString
 	itemRawString
 	itemMultilineString
@@ -24,15 +28,12 @@ const (
 	itemInteger
 	itemFloat
 	itemDatetime
-	itemArray // the start of an array
+	itemArrayStart
 	itemArrayEnd
 	itemTableStart
 	itemTableEnd
 	itemArrayTableStart
 	itemArrayTableEnd
-	itemKeyStart
-	itemKeyEnd
-	itemCommentStart
 	itemInlineTableStart
 	itemInlineTableEnd
 )
@@ -401,7 +402,7 @@ func lexBareName(lx *lexer) stateFn {
 		return lexBareName
 	}
 	lx.backup()
-	lx.emit(itemText)
+	lx.emit(itemKey)
 	return lx.pop()
 }
 
@@ -500,7 +501,7 @@ func lexValue(lx *lexer) stateFn {
 	switch r {
 	case '[':
 		lx.ignore()
-		lx.emit(itemArray)
+		lx.emit(itemArrayStart)
 		return lexArrayValue
 	case '{':
 		lx.ignore()
@@ -1121,8 +1122,8 @@ func lexBool(lx *lexer) stateFn {
 	return lx.errorf("expected value but found %q instead", s)
 }
 
-// lexCommentStart begins the lexing of a comment. It will emit
-// itemCommentStart and consume no characters, passing control to lexComment.
+// lexCommentStart begins the lexing of a comment. It will emit itemCommentStart
+// and consume no characters, passing control to lexComment.
 func lexCommentStart(lx *lexer) stateFn {
 	lx.ignore()
 	lx.emit(itemCommentStart)
@@ -1136,7 +1137,7 @@ func lexComment(lx *lexer) stateFn {
 	switch r := lx.next(); {
 	case isNL(r) || r == eof:
 		lx.backup()
-		lx.emit(itemText)
+		lx.emit(itemComment)
 		return lx.pop()
 	case isControl(r):
 		return lx.errorControlChar(r)
@@ -1170,8 +1171,10 @@ func (itype itemType) String() string {
 		return "NIL"
 	case itemEOF:
 		return "EOF"
-	case itemText:
-		return "Text"
+	case itemKey:
+		return "BareKey"
+	case itemComment:
+		return "Comment"
 	case itemString, itemRawString, itemMultilineString, itemRawMultilineString:
 		return "String"
 	case itemBool:
@@ -1190,8 +1193,8 @@ func (itype itemType) String() string {
 		return "KeyStart"
 	case itemKeyEnd:
 		return "KeyEnd"
-	case itemArray:
-		return "Array"
+	case itemArrayStart:
+		return "ArrayStart"
 	case itemArrayEnd:
 		return "ArrayEnd"
 	case itemCommentStart:
