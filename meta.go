@@ -1,34 +1,38 @@
 package toml
 
-import "strings"
+import (
+	"strings"
+)
 
-// MetaData allows access to meta information about TOML data that may not be
-// inferable via reflection. In particular, whether a key has been defined and
-// the TOML type of a key.
+// MetaData allows access to meta information about TOML data that's not
+// accessible otherwise.
+//
+// It allows checking if a key is defined in the TOML data, whether any keys
+// were undecoded, and the TOML type of a key.
 type MetaData struct {
 	mapping map[string]interface{}
 	types   map[string]tomlType
 	keys    []Key
-	decoded map[string]bool
+	decoded map[string]struct{}
 	context Key // Used only during decoding.
 }
 
 // IsDefined reports if the key exists in the TOML data.
 //
 // The key should be specified hierarchically, for example to access the TOML
-// key "a.b.c" you would use:
+// key "a.b.c" you would use IsDefined("a", "b", "c"). Keys are case sensitive.
 //
-//	IsDefined("a", "b", "c")
-//
-// IsDefined will return false if an empty key given. Keys are case sensitive.
+// Returns false for an empty key.
 func (md *MetaData) IsDefined(key ...string) bool {
 	if len(key) == 0 {
 		return false
 	}
 
-	var hash map[string]interface{}
-	var ok bool
-	var hashOrVal interface{} = md.mapping
+	var (
+		hash      map[string]interface{}
+		ok        bool
+		hashOrVal interface{} = md.mapping
+	)
 	for _, k := range key {
 		if hash, ok = hashOrVal.(map[string]interface{}); !ok {
 			return false
@@ -77,7 +81,7 @@ func (md *MetaData) Keys() []Key {
 func (md *MetaData) Undecoded() []Key {
 	undecoded := make([]Key, 0, len(md.keys))
 	for _, key := range md.keys {
-		if !md.decoded[key.String()] {
+		if _, ok := md.decoded[key.String()]; !ok {
 			undecoded = append(undecoded, key)
 		}
 	}

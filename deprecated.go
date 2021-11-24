@@ -13,7 +13,7 @@ type TextUnmarshaler encoding.TextUnmarshaler
 
 // Deprecated: use MetaData.PrimitiveDecode.
 func PrimitiveDecode(primValue Primitive, v interface{}) error {
-	md := MetaData{decoded: make(map[string]bool)}
+	md := MetaData{decoded: make(map[string]struct{})}
 	return md.unify(primValue.undecoded, rvalue(v))
 }
 

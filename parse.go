@@ -15,11 +15,11 @@ type parser struct {
 	types   map[string]tomlType
 	lx      *lexer
 
-	ordered    []Key           // List of keys in the order that they appear in the TOML data.
-	context    Key             // Full key for the current hash in scope.
-	currentKey string          // Base key name for everything except hashes.
-	pos        Position        // Position
-	implicits  map[string]bool // Record implied keys (e.g. 'key.group.names').
+	ordered    []Key               // List of keys in the order that they appear in the TOML data.
+	context    Key                 // Full key for the current hash in scope.
+	currentKey string              // Base key name for everything except hashes.
+	pos        Position            // Position
+	implicits  map[string]struct{} // Record implied keys (e.g. 'key.group.names').
 }
 
 func parse(data string) (p *parser, err error) {
@@ -61,7 +61,7 @@ func parse(data string) (p *parser, err error) {
 		types:     make(map[string]tomlType),
 		lx:        lex(data),
 		ordered:   make([]Key, 0),
-		implicits: make(map[string]bool),
+		implicits: make(map[string]struct{}),
 	}
 	for {
 		item := p.next()
@@ -359,6 +359,12 @@ func (p *parser) valueArray(it item) (interface{}, tomlType) {
 		val, typ := p.value(it, true)
 		array = append(array, val)
 		types = append(types, typ)
+
+		// XXX: types isn't used here, we need it to record the accurate type
+		// information.
+		//
+		// Not entirely sure how to best store this; could use "key[0]",
+		// "key[1]" notation, or maybe store it on the Array type?
 	}
 	return array, tomlArray
 }
@@ -602,9 +608,9 @@ func (p *parser) setType(key string, typ tomlType) {
 
 // Implicit keys need to be created when tables are implied in "a.b.c.d = 1" and
 // "[a.b.c]" (the "a", "b", and "c" hashes are never created explicitly).
-func (p *parser) addImplicit(key Key)     { p.implicits[key.String()] = true }
-func (p *parser) removeImplicit(key Key)  { p.implicits[key.String()] = false }
-func (p *parser) isImplicit(key Key) bool { return p.implicits[key.String()] }
+func (p *parser) addImplicit(key Key)     { p.implicits[key.String()] = struct{}{} }
+func (p *parser) removeImplicit(key Key)  { delete(p.implicits, key.String()) }
+func (p *parser) isImplicit(key Key) bool { _, ok := p.implicits[key.String()]; return ok }
 func (p *parser) isArray(key Key) bool    { return p.types[key.String()] == tomlArray }
 func (p *parser) addImplicitContext(key Key) {
 	p.addImplicit(key)

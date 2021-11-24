@@ -127,11 +127,12 @@ func (dec *Decoder) Decode(v interface{}) (MetaData, error) {
 	if err != nil {
 		return MetaData{}, err
 	}
+
 	md := MetaData{
 		mapping: p.mapping,
 		types:   p.types,
 		keys:    p.ordered,
-		decoded: make(map[string]bool, len(p.ordered)),
+		decoded: make(map[string]struct{}, len(p.ordered)),
 		context: nil,
 	}
 	return md, md.unify(p.mapping, indirect(rv))
@@ -263,7 +264,7 @@ func (md *MetaData) unifyStruct(mapping interface{}, rv reflect.Value) error {
 			}
 
 			if isUnifiable(subv) {
-				md.decoded[md.context.add(key).String()] = true
+				md.decoded[md.context.add(key).String()] = struct{}{}
 				md.context = append(md.context, key)
 				err := md.unify(datum, subv)
 				if err != nil {
@@ -296,7 +297,7 @@ func (md *MetaData) unifyMap(mapping interface{}, rv reflect.Value) error {
 		rv.Set(reflect.MakeMap(rv.Type()))
 	}
 	for k, v := range tmap {
-		md.decoded[md.context.add(k).String()] = true
+		md.decoded[md.context.add(k).String()] = struct{}{}
 		md.context = append(md.context, k)
 
 		rvkey := indirect(reflect.New(rv.Type().Key()))
