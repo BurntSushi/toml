@@ -1,3 +1,4 @@
+//go:build go1.16
 // +build go1.16
 
 package toml_test
@@ -6,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -42,11 +44,28 @@ func TestToml(t *testing.T) {
 		}
 	}
 
+	// TODO: bit of a hack to make sure not all test run; without this "-run=.."
+	// will still run alll tests, but just report the errors for the -run value.
+	// This is annoying in cases where you have some debug printf.
+	//
+	// Need to update toml-test a bit to make this easier, but this good enough
+	// for now.
+	var runTests []string
+	for _, a := range os.Args {
+		if strings.HasPrefix(a, "-test.run=TestToml/") {
+			a = strings.TrimPrefix(a, "-test.run=TestToml/encode/")
+			a = strings.TrimPrefix(a, "-test.run=TestToml/decode/")
+			runTests = []string{a, a + "/*"}
+			break
+		}
+	}
+
 	run := func(t *testing.T, enc bool) {
 		r := tomltest.Runner{
-			Files:   tomltest.EmbeddedTests(),
-			Encoder: enc,
-			Parser:  parser{},
+			Files:    tomltest.EmbeddedTests(),
+			Encoder:  enc,
+			Parser:   parser{},
+			RunTests: runTests,
 			SkipTests: []string{
 				// This one is annoying to fix, and such an obscure edge case
 				// it's okay to leave it like this for now.
