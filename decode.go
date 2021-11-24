@@ -116,8 +116,8 @@ func (dec *Decoder) Decode(v interface{}) (MetaData, error) {
 		return MetaData{}, e("Decode of nil %s", reflect.TypeOf(v))
 	}
 
-	// TODO: have parser should read from io.Reader? Or at the very least, make
-	// it read from []byte rather than string
+	// TODO: parser should read from io.Reader? Or at the very least, make it
+	// read from []byte rather than string
 	data, err := ioutil.ReadAll(dec.r)
 	if err != nil {
 		return MetaData{}, err
@@ -128,8 +128,11 @@ func (dec *Decoder) Decode(v interface{}) (MetaData, error) {
 		return MetaData{}, err
 	}
 	md := MetaData{
-		p.mapping, p.types, p.ordered,
-		make(map[string]bool, len(p.ordered)), nil,
+		mapping: p.mapping,
+		types:   p.types,
+		keys:    p.ordered,
+		decoded: make(map[string]bool, len(p.ordered)),
+		context: nil,
 	}
 	return md, md.unify(p.mapping, indirect(rv))
 }
@@ -258,17 +261,17 @@ func (md *MetaData) unifyStruct(mapping interface{}, rv reflect.Value) error {
 			for _, i := range f.index {
 				subv = indirect(subv.Field(i))
 			}
+
 			if isUnifiable(subv) {
 				md.decoded[md.context.add(key).String()] = true
 				md.context = append(md.context, key)
-				if err := md.unify(datum, subv); err != nil {
+				err := md.unify(datum, subv)
+				if err != nil {
 					return err
 				}
 				md.context = md.context[0 : len(md.context)-1]
 			} else if f.name != "" {
-				// Bad user! No soup for you!
-				return e("cannot write unexported field %s.%s",
-					rv.Type().String(), f.name)
+				return e("cannot write unexported field %s.%s", rv.Type().String(), f.name)
 			}
 		}
 	}

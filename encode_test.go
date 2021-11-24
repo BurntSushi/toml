@@ -22,39 +22,34 @@ func TestEncodeRoundTrip(t *testing.T) {
 	}
 
 	var inputs = Config{
-		13,
-		[]string{"one", "two", "three"},
-		3.145,
-		[]int{11, 2, 3, 4},
-		time.Now(),
-		net.ParseIP("192.168.59.254"),
+		Age:        13,
+		Cats:       []string{"one", "two", "three"},
+		Pi:         3.145,
+		Perfection: []int{11, 2, 3, 4},
+		DOB:        time.Now(),
+		Ipaddress:  net.ParseIP("192.168.59.254"),
 	}
 
-	var firstBuffer bytes.Buffer
-	e := NewEncoder(&firstBuffer)
-	err := e.Encode(inputs)
+	var (
+		firstBuffer  bytes.Buffer
+		secondBuffer bytes.Buffer
+		outputs      Config
+	)
+	err := NewEncoder(&firstBuffer).Encode(inputs)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var outputs Config
-	if _, err := Decode(firstBuffer.String(), &outputs); err != nil {
-		t.Logf("Could not decode:\n-----\n%s\n-----\n",
-			firstBuffer.String())
+	_, err = Decode(firstBuffer.String(), &outputs)
+	if err != nil {
+		t.Logf("Could not decode:\n%s\n", firstBuffer.String())
 		t.Fatal(err)
 	}
-
-	// could test each value individually, but I'm lazy
-	var secondBuffer bytes.Buffer
-	e2 := NewEncoder(&secondBuffer)
-	err = e2.Encode(outputs)
+	err = NewEncoder(&secondBuffer).Encode(outputs)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if firstBuffer.String() != secondBuffer.String() {
-		t.Error(
-			firstBuffer.String(),
-			"\n\n is not identical to\n\n",
-			secondBuffer.String())
+		t.Errorf("%s\n\nIS NOT IDENTICAL TO\n\n%s", firstBuffer.String(), secondBuffer.String())
 	}
 }
 

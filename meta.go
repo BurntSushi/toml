@@ -52,44 +52,6 @@ func (md *MetaData) Type(key ...string) string {
 	return ""
 }
 
-// Key represents any TOML key, including key groups. Use (MetaData).Keys to get
-// values of this type.
-type Key []string
-
-func (k Key) String() string { return strings.Join(k, ".") }
-
-func (k Key) maybeQuotedAll() string {
-	var ss []string
-	for i := range k {
-		ss = append(ss, k.maybeQuoted(i))
-	}
-	return strings.Join(ss, ".")
-}
-
-func (k Key) maybeQuoted(i int) string {
-	if k[i] == "" {
-		return `""`
-	}
-	quote := false
-	for _, c := range k[i] {
-		if !isBareKeyChar(c) {
-			quote = true
-			break
-		}
-	}
-	if quote {
-		return `"` + quotedReplacer.Replace(k[i]) + `"`
-	}
-	return k[i]
-}
-
-func (k Key) add(piece string) Key {
-	newKey := make(Key, len(k)+1)
-	copy(newKey, k)
-	newKey[len(k)] = piece
-	return newKey
-}
-
 // Keys returns a slice of every key in the TOML data, including key groups.
 //
 // Each key is itself a slice, where the first element is the top of the
@@ -120,4 +82,42 @@ func (md *MetaData) Undecoded() []Key {
 		}
 	}
 	return undecoded
+}
+
+// Key represents any TOML key, including key groups. Use (MetaData).Keys to get
+// values of this type.
+type Key []string
+
+func (k Key) String() string { return strings.Join(k, ".") }
+
+func (k Key) maybeQuotedAll() string {
+	var ss []string
+	for i := range k {
+		ss = append(ss, k.maybeQuoted(i))
+	}
+	return strings.Join(ss, ".")
+}
+
+func (k Key) maybeQuoted(i int) string {
+	if k[i] == "" {
+		return `""`
+	}
+	quote := false
+	for _, c := range k[i] {
+		if !isBareKeyChar(c) {
+			quote = true
+			break
+		}
+	}
+	if quote {
+		return `"` + dblQuotedReplacer.Replace(k[i]) + `"`
+	}
+	return k[i]
+}
+
+func (k Key) add(piece string) Key {
+	newKey := make(Key, len(k)+1)
+	copy(newKey, k)
+	newKey[len(k)] = piece
+	return newKey
 }

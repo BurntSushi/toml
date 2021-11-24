@@ -26,7 +26,7 @@ var (
 	errAnything        = errors.New("") // used in testing
 )
 
-var quotedReplacer = strings.NewReplacer(
+var dblQuotedReplacer = strings.NewReplacer(
 	"\"", "\\\"",
 	"\\", "\\\\",
 	"\x00", `\u0000`,
@@ -95,13 +95,11 @@ type Marshaler interface {
 // NOTE: only exported keys are encoded due to the use of reflection. Unexported
 // keys are silently discarded.
 type Encoder struct {
-	// The string to use for a single indentation level. The default is two
-	// spaces.
+	// String to use for a single indentation level; default is two spaces.
 	Indent string
 
-	// hasWritten is whether we have written any output to w yet.
-	hasWritten bool
 	w          *bufio.Writer
+	hasWritten bool // written any output to w yet?
 }
 
 // NewEncoder create a new Encoder.
@@ -276,7 +274,7 @@ func floatAddDecimal(fstr string) string {
 }
 
 func (enc *Encoder) writeQuoted(s string) {
-	enc.wf("\"%s\"", quotedReplacer.Replace(s))
+	enc.wf("\"%s\"", dblQuotedReplacer.Replace(s))
 }
 
 func (enc *Encoder) eArrayOrSliceElement(rv reflect.Value) {
@@ -344,7 +342,7 @@ func (enc *Encoder) eMap(key Key, rv reflect.Value, inline bool) {
 	var mapKeysDirect, mapKeysSub []string
 	for _, mapKey := range rv.MapKeys() {
 		k := mapKey.String()
-		if typeIsHash(tomlTypeOfGo(rv.MapIndex(mapKey))) {
+		if typeIsTable(tomlTypeOfGo(rv.MapIndex(mapKey))) {
 			mapKeysSub = append(mapKeysSub, k)
 		} else {
 			mapKeysDirect = append(mapKeysDirect, k)
@@ -426,7 +424,7 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value, inline bool) {
 				}
 			}
 
-			if typeIsHash(tomlTypeOfGo(frv)) {
+			if typeIsTable(tomlTypeOfGo(frv)) {
 				fieldsSub = append(fieldsSub, append(start, f.Index...))
 			} else {
 				// Copy so it works correct on 32bit archs; not clear why this
@@ -490,13 +488,13 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value, inline bool) {
 	}
 }
 
-// tomlTypeName returns the TOML type name of the Go value's type. It is
-// used to determine whether the types of array elements are mixed (which is
-// forbidden). If the Go value is nil, then it is illegal for it to be an array
-// element, and valueIsNil is returned as true.
-
-// Returns the TOML type of a Go value. The type may be `nil`, which means
-// no concrete TOML type could be found.
+// tomlTypeOfGo returns the TOML type name of the Go value's type.
+//
+// It is used to determine whether the types of array elements are mixed (which
+// is forbidden). If the Go value is nil, then it is illegal for it to be an
+// array element, and valueIsNil is returned as true.
+//
+// The type may be `nil`, which means no concrete TOML type could be found.
 func tomlTypeOfGo(rv reflect.Value) tomlType {
 	if isNil(rv) || !rv.IsValid() {
 		return nil
@@ -632,7 +630,14 @@ func (enc *Encoder) newline() {
 //
 //   key = <any value>
 //
-// If inline is true it won't add a newline at the end.
+// This is also used for "k = v" in inline tables; so something like this will
+// be written in three calls:
+//
+//     ┌────────────────────┐
+//     │      ┌───┐  ┌─────┐│
+//     v      v   v  v     vv
+//     key = {k = v, k2 = v2}
+//
 func (enc *Encoder) writeKeyValue(key Key, val reflect.Value, inline bool) {
 	if len(key) == 0 {
 		encPanic(errNoKey)
@@ -645,7 +650,8 @@ func (enc *Encoder) writeKeyValue(key Key, val reflect.Value, inline bool) {
 }
 
 func (enc *Encoder) wf(format string, v ...interface{}) {
-	if _, err := fmt.Fprintf(enc.w, format, v...); err != nil {
+	_, err := fmt.Fprintf(enc.w, format, v...)
+	if err != nil {
 		encPanic(err)
 	}
 	enc.hasWritten = true
