@@ -346,6 +346,10 @@ func TestDecodeSizedInts(t *testing.T) {
 	}
 }
 
+type NopUnmarshalTOML int
+
+func (NopUnmarshalTOML) UnmarshalTOML(p interface{}) error { return nil }
+
 func TestDecodeTypes(t *testing.T) {
 	type mystr string
 
@@ -353,16 +357,27 @@ func TestDecodeTypes(t *testing.T) {
 		v    interface{}
 		want string
 	}{
-		{new(map[string]int64), ""},
-		{new(map[mystr]int64), ""},
+		{new(map[string]bool), ""},
+		{new(map[mystr]bool), ""},
+		{new(NopUnmarshalTOML), ""},
 
-		{3, "non-pointer int"},
-		{(*int)(nil), "nil"},
+		{3, `toml: cannot decode to non-pointer "int"`},
+		{map[string]interface{}{}, `toml: cannot decode to non-pointer "map[string]interface {}"`},
+
+		{(*int)(nil), `toml: cannot decode to nil value of "*int"`},
+		{(*Unmarshaler)(nil), `toml: cannot decode to nil value of "*toml.Unmarshaler"`},
+		{nil, `toml: cannot decode to non-pointer <nil>`},
+
 		{new(map[int]string), "cannot decode to a map with non-string key type"},
 		{new(map[interface{}]string), "cannot decode to a map with non-string key type"},
+
+		{new(struct{ F int }), `toml: incompatible types: TOML key "F" has type bool; destination has type integer`},
+		{new(map[string]int), `toml: incompatible types: TOML key "F" has type bool; destination has type integer`},
+		{new(int), `toml: cannot decode to type int`},
+		{new([]int), "toml: cannot decode to type []int"},
 	} {
 		t.Run(fmt.Sprintf("%T", tt.v), func(t *testing.T) {
-			_, err := Decode(`x = 3`, tt.v)
+			_, err := Decode(`F = true`, tt.v)
 			if !errorContains(err, tt.want) {
 				t.Errorf("wrong error\nhave: %q\nwant: %q", err, tt.want)
 			}
