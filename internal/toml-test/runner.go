@@ -1,6 +1,3 @@
-//go:build go1.16
-// +build go1.16
-
 //go:generate ./gen-multi.py
 
 package tomltest
@@ -310,7 +307,7 @@ func (t Test) runValid(p Parser, fsys fs.FS) Test {
 			//return t.fail("decode TOML from encoder %q:\n  %s", cmd, err)
 			return t.fail("decode TOML from encoder:\n  %s", err)
 		}
-		return t.cmpTOML(want, have)
+		return t.CompareTOML(want, have)
 	}
 
 	// Compare for decoder test
@@ -324,7 +321,7 @@ func (t Test) runValid(p Parser, fsys fs.FS) Test {
 		return t.fail("decode JSON output from parser:\n  %s", err)
 	}
 
-	return t.cmpJSON(want, have)
+	return t.CompareJSON(want, have)
 }
 
 // ReadInput reads the file sent to the encoder.

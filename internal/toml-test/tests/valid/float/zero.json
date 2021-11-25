@@ -1,29 +1,29 @@
 {
-  "f1": {
+  "zero": {
     "type": "float",
     "value": "0"
   },
-  "f2": {
+  "signed-pos": {
     "type": "float",
     "value": "0"
   },
-  "f3": {
+  "signed-neg": {
     "type": "float",
     "value": "0"
   },
-  "f4": {
+  "exponent": {
     "type": "float",
     "value": "0"
   },
-  "f5": {
+  "exponent-two-0": {
     "type": "float",
     "value": "0"
   },
-  "f6": {
+  "exponent-signed-pos": {
     "type": "float",
     "value": "0"
   },
-  "f7": {
+  "exponent-signed-neg": {
     "type": "float",
     "value": "0"
   }

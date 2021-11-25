@@ -47,9 +47,10 @@ At line 9, column 3-8:
 		{"datetime/trailing-t.toml", `
 toml: error: Invalid TOML Datetime: "2006-01-30T".
 
-At line 1, column 4-15:
+At line 2, column 4-15:
 
-      1 | d = 2006-01-30T
+      1 | # Date cannot end with trailing T
+      2 | d = 2006-01-30T
               ^^^^^^^^^^^`},
 	}
 

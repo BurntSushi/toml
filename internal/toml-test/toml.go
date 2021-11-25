@@ -1,6 +1,3 @@
-//go:build go1.16
-// +build go1.16
-
 package tomltest
 
 import (
@@ -8,13 +5,15 @@ import (
 	"reflect"
 )
 
-// cmpTOML consumes the recursive structure of both want and have
-// simultaneously. If anything is unequal the result has failed and comparison
-// stops.
+// CompareTOML compares the given arguments.
 //
-// reflect.DeepEqual could work here, but it won't tell us how the two
+// The returned value is a copy of Test with Failure set to a (human-readable)
+// description of the first element that is unequal. If both arguments are equal
+// Test is returned unchanged.
+//
+// Reflect.DeepEqual could work here, but it won't tell us how the two
 // structures are different.
-func (r Test) cmpTOML(want, have interface{}) Test {
+func (r Test) CompareTOML(want, have interface{}) Test {
 	if isTomlValue(want) {
 		if !isTomlValue(have) {
 			return r.fail("Type for key '%s' differs:\n"+
@@ -64,7 +63,7 @@ func (r Test) cmpTOMLMap(want map[string]interface{}, have interface{}) Test {
 
 	// Okay, now make sure that each value is equivalent.
 	for k := range want {
-		if sub := r.kjoin(k).cmpTOML(want[k], haveMap[k]); sub.Failed() {
+		if sub := r.kjoin(k).CompareTOML(want[k], haveMap[k]); sub.Failed() {
 			return sub
 		}
 	}
@@ -96,7 +95,7 @@ func (r Test) cmpTOMLArrays(want []interface{}, have interface{}) Test {
 			r.Key, want, haveSlice, len(want), len(haveSlice))
 	}
 	for i := 0; i < len(want); i++ {
-		if sub := r.cmpTOML(want[i], haveSlice[i]); sub.Failed() {
+		if sub := r.CompareTOML(want[i], haveSlice[i]); sub.Failed() {
 			return sub
 		}
 	}

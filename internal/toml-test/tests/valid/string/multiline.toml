@@ -1,8 +1,13 @@
 # NOTE: this file includes some literal tab characters.
 
 multiline_empty_one = """"""
+
+# A newline immediately following the opening delimiter will be trimmed.
 multiline_empty_two = """
 """
+
+# \ at the end of line trims newlines as well; note that last \ is followed by
+# two spaces, which are ignored.
 multiline_empty_three = """\
     """
 multiline_empty_four = """\
@@ -33,6 +38,7 @@ whitespace-after-bs = """\
 no-space = """a\
     b"""
 
+# Has tab character.
 keep-ws-before = """a   	\
    b"""
 
