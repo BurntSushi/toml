@@ -720,25 +720,23 @@ func TestDecodeDatetime(t *testing.T) {
 }
 
 func TestMetaDotConflict(t *testing.T) {
-	// See comment in the metaTest map in toml_test.go
-	t.Skip()
-
 	var m map[string]interface{}
 	meta, err := Decode(`
 		"a.b" = "str"
 		a.b   = 1
+		""    = 2
 	`, &m)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	want := "a.b=String; a|b=Integer"
+	want := `"a.b"=String; a.b=Integer; ""=Integer`
 	have := ""
 	for i, k := range meta.Keys() {
 		if i > 0 {
 			have += "; "
 		}
-		have += strings.Join(k, "|") + "=" + meta.Type(k...)
+		have += k.String() + "=" + meta.Type(k...)
 	}
 	if have != want {
 		t.Errorf("\nhave: %s\nwant: %s", have, want)

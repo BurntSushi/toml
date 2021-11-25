@@ -299,7 +299,7 @@ func (enc *Encoder) eArrayOfTables(key Key, rv reflect.Value) {
 			continue
 		}
 		enc.newline()
-		enc.wf("%s[[%s]]", enc.indentStr(key), key.maybeQuotedAll())
+		enc.wf("%s[[%s]]", enc.indentStr(key), key)
 		enc.newline()
 		enc.eMapOrStruct(key, trv, false)
 	}
@@ -312,7 +312,7 @@ func (enc *Encoder) eTable(key Key, rv reflect.Value) {
 		enc.newline()
 	}
 	if len(key) > 0 {
-		enc.wf("%s[%s]", enc.indentStr(key), key.maybeQuotedAll())
+		enc.wf("%s[%s]", enc.indentStr(key), key)
 		enc.newline()
 	}
 	enc.eMapOrStruct(key, rv, false)

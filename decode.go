@@ -320,13 +320,13 @@ func (md *MetaData) unifyMap(mapping interface{}, rv reflect.Value) error {
 		md.decoded[md.context.add(k).String()] = struct{}{}
 		md.context = append(md.context, k)
 
-		rvkey := indirect(reflect.New(rv.Type().Key()))
 		rvval := reflect.Indirect(reflect.New(rv.Type().Elem()))
 		if err := md.unify(v, rvval); err != nil {
 			return err
 		}
 		md.context = md.context[0 : len(md.context)-1]
 
+		rvkey := indirect(reflect.New(rv.Type().Key()))
 		rvkey.SetString(k)
 		rv.SetMapIndex(rvkey, rvval)
 	}

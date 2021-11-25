@@ -31,75 +31,75 @@ var errorTests = map[string][]string{
 // Test metadata; all keys listed as "keyname: type".
 var metaTests = map[string]string{
 	"implicit-and-explicit-after": `
-		(a).(b).(c):           Hash
-		(a).(b).(c).(answer):  Integer
-		(a):                   Hash
-		(a).(better):          Integer
+		a.b.c:         Hash
+		a.b.c.answer:  Integer
+		a:             Hash
+		a.better:      Integer
 	`,
 	"implicit-and-explicit-before": `
-		(a):                   Hash
-		(a).(better):          Integer
-		(a).(b).(c):           Hash
-		(a).(b).(c).(answer):  Integer
+		a:             Hash
+		a.better:      Integer
+		a.b.c:         Hash
+		a.b.c.answer:  Integer
 	`,
 	"key/case-sensitive": `
-		(sectioN):        String
-		(section):        Hash
-		(section).(name):  String
-		(section).(NAME):  String
-		(section).(Name):  String
-		(Section):        Hash
-		(Section).(name):  String
-		(Section).(μ):     String
-		(Section).(Μ):     String
-		(Section).(M):     String
+		sectioN:       String
+		section:       Hash
+		section.name:  String
+		section.NAME:  String
+		section.Name:  String
+		Section:       Hash
+		Section.name:  String
+		Section."μ":   String
+		Section."Μ":   String
+		Section.M:     String
 	`,
 	"key/dotted": `
-		(name).(first):                          String
-		(name).(last):                           String
-		(many).(dots).(here).(dot).(dot).(dot):  Integer
-		(count).(a):                             Integer
-		(count).(b):                             Integer
-		(count).(c):                             Integer
-		(count).(d):                             Integer
-		(count).(e):                             Integer
-		(count).(f):                             Integer
-		(count).(g):                             Integer
-		(count).(h):                             Integer
-		(count).(i):                             Integer
-		(count).(j):                             Integer
-		(count).(k):                             Integer
-		(count).(l):                             Integer
-		(tbl):                                   Hash
-		(tbl).(a).(b).(c):                       Float
-		(a).(few).(dots):                        Hash
-		(a).(few).(dots).(polka).(dot):          String
-		(a).(few).(dots).(polka).(dance-with):   String
-		(arr):                                   ArrayHash
-		(arr).(a).(b).(c):                       Integer
-		(arr).(a).(b).(d):                       Integer
-		(arr):                                   ArrayHash
-		(arr).(a).(b).(c):                       Integer
-		(arr).(a).(b).(d):                       Integer
+		name.first:                   String
+		name.last:                    String
+		many.dots.here.dot.dot.dot:   Integer
+		count.a:                      Integer
+		count.b:                      Integer
+		count.c:                      Integer
+		count.d:                      Integer
+		count.e:                      Integer
+		count.f:                      Integer
+		count.g:                      Integer
+		count.h:                      Integer
+		count.i:                      Integer
+		count.j:                      Integer
+		count.k:                      Integer
+		count.l:                      Integer
+		tbl:                          Hash
+		tbl.a.b.c:                    Float
+		a.few.dots:                   Hash
+		a.few.dots.polka.dot:         String
+		a.few.dots.polka.dance-with:  String
+		arr:                          ArrayHash
+		arr.a.b.c:                    Integer
+		arr.a.b.d:                    Integer
+		arr:                          ArrayHash
+		arr.a.b.c:                    Integer
+		arr.a.b.d:                    Integer
 	 `,
 	"key/empty": `
-		(): String
+		"": String
 	`,
 	"key/quoted-dots": `
-		(plain):                            Integer
-		(with.dot):                         Integer
-		(plain_table):                      Hash
-		(plain_table).(plain):              Integer
-		(plain_table).(with.dot):           Integer
-		(table).(withdot):                  Hash
-		(table).(withdot).(plain):          Integer
-		(table).(withdot).(key.with.dots):  Integer
+		plain:                          Integer
+		"with.dot":                     Integer
+		plain_table:                    Hash
+		plain_table.plain:              Integer
+		plain_table."with.dot":         Integer
+		table.withdot:                  Hash
+		table.withdot.plain:            Integer
+		table.withdot."key.with.dots":  Integer
 	`,
 	"key/space": `
-		(a b): Integer
+		"a b": Integer
 	`,
 	"key/special-chars": "\n" +
-		"(~!@$^&*()_+-`1234567890[]|/?><.,;:'): Integer\n",
+		"\"~!@$^&*()_+-`1234567890[]|/?><.,;:'\": Integer\n",
 
 	// TODO: "(albums): Hash" is missing; the problem is that this is an
 	// "implied key", which is recorded in the parser in implicits, rather than
@@ -121,20 +121,9 @@ var metaTests = map[string]string{
 	//     (a).(better):          Integer
 	//
 	// So if we want to add "(a).(b): Hash", where should this be in the order?
-	//
-	// Related problem: keys are stored as strings, rather than keys (i.e.
-	// []string); this is a problem because the key:
-	//
-	//   "foo.bar" = 42
-	//   foo.bar   = 42
-	//
-	// Will have the same string value, but are not identical!
-	//
-	// Hashes need to have comparable types in the key, and slices aren't; but
-	// we can use pointers. Or maybe store it as "key\x00val" in the map.
 	"table/array-implicit": `
-		(albums).(songs):        ArrayHash
-		(albums).(songs).(name): String
+		albums.songs:       ArrayHash
+		albums.songs.name:  String
 	`,
 
 	// TODO: people and people.* listed many times; not entirely sure if that's
@@ -143,93 +132,107 @@ var metaTests = map[string]string{
 	// It certainly causes problems, because keys is a slice, and types a map.
 	// So if array entry 1 differs in type from array entry 2 then that won't be
 	// recorded right. This related to the problem in the above comment.
+	//
+	// people:                ArrayHash
+	//
+	// people[0]:             Hash
+	// people[0].first_name:  String
+	// people[0].last_name:   String
+	//
+	// people[1]:             Hash
+	// people[1].first_name:  String
+	// people[1].last_name:   String
+	//
+	// people[2]:             Hash
+	// people[2].first_name:  String
+	// people[2].last_name:   String
 	"table/array-many": `
-		(people):               ArrayHash
-		(people).(first_name):  String
-		(people).(last_name):   String
-		(people):               ArrayHash
-		(people).(first_name):  String
-		(people).(last_name):   String
-		(people):               ArrayHash
-		(people).(first_name):  String
-		(people).(last_name):   String
+		people:             ArrayHash
+		people.first_name:  String
+		people.last_name:   String
+		people:             ArrayHash
+		people.first_name:  String
+		people.last_name:   String
+		people:             ArrayHash
+		people.first_name:  String
+		people.last_name:   String
 	`,
 	"table/array-nest": `
-		(albums):                 ArrayHash
-		(albums).(name):          String
-		(albums).(songs):         ArrayHash
-		(albums).(songs).(name):  String
-		(albums).(songs):         ArrayHash
-		(albums).(songs).(name):  String
-		(albums):                 ArrayHash
-		(albums).(name):          String
-		(albums).(songs):         ArrayHash
-		(albums).(songs).(name):  String
-		(albums).(songs):         ArrayHash
-		(albums).(songs).(name):  String
+		albums:             ArrayHash
+		albums.name:        String
+		albums.songs:       ArrayHash
+		albums.songs.name:  String
+		albums.songs:       ArrayHash
+		albums.songs.name:  String
+		albums:             ArrayHash
+		albums.name:        String
+		albums.songs:       ArrayHash
+		albums.songs.name:  String
+		albums.songs:       ArrayHash
+		albums.songs.name:  String
 	`,
 	"table/array-one": `
-		(people):               ArrayHash
-		(people).(first_name):  String
-		(people).(last_name):   String
+		people:             ArrayHash
+		people.first_name:  String
+		people.last_name:   String
 	`,
 	"table/array-table-array": `
-		(a):              ArrayHash
-		(a).(b):          ArrayHash
-		(a).(b).(c):      Hash
-		(a).(b).(c).(d):  String
-		(a).(b):          ArrayHash
-		(a).(b).(c):      Hash
-		(a).(b).(c).(d):  String
+		a:        ArrayHash
+		a.b:      ArrayHash
+		a.b.c:    Hash
+		a.b.c.d:  String
+		a.b:      ArrayHash
+		a.b.c:    Hash
+		a.b.c.d:  String
 	`,
 	"table/empty": `
-		(a): Hash
+		a: Hash
 	`,
 	"table/keyword": `
-		(true): Hash
-		(false): Hash
-		(inf): Hash
-		(nan): Hash
+		true:   Hash
+		false:  Hash
+		inf:    Hash
+		nan:    Hash
 	`,
 	"table/names": `
-		(a).(b).(c): Hash
-		(a).(b.c):   Hash
-		(a).(d.e):   Hash
-		(a).( x ):   Hash
-		(d).(e).(f): Hash
-		(g).(h).(i): Hash
-		(j).(ʞ).(l): Hash
-		(x).(1).(2): Hash
+		a.b.c:    Hash
+		a."b.c":  Hash
+		a."d.e":  Hash
+		a." x ":  Hash
+		d.e.f:    Hash
+		g.h.i:    Hash
+		j."ʞ".l:  Hash
+		x.1.2:    Hash
 	`,
 	"table/no-eol": `
-		(table): Hash
+		table: Hash
 	`,
 	"table/sub-empty": `
-		(a):      Hash
-		(a).(b):  Hash
+		a:    Hash
+		a.b:  Hash
 	`,
 	"table/whitespace": `
-		(valid key): Hash
+		"valid key": Hash
 	`,
 	"table/with-literal-string": `
-		(a):                     Hash
-		(a).("b"):               Hash
-		(a).("b").(c):           Hash
-		(a).("b").(c).(answer):  Integer
+		a:                   Hash
+		a."\"b\"":           Hash
+		a."\"b\"".c:         Hash
+		a."\"b\"".c.answer:  Integer
 	`,
 	"table/with-pound": `
-		(key#group):           Hash
-		(key#group).(answer):  Integer
+		"key#group":         Hash
+		"key#group".answer:  Integer
 	`,
 	"table/with-single-quotes": `
-		(a):                   Hash
-		(a).(b):               Hash
-		(a).(b).(c):           Hash
-		(a).(b).(c).(answer):  Integer
+		a:             Hash
+		a.b:           Hash
+		a.b.c:         Hash
+		a.b.c.answer:  Integer
 	`,
 	"table/without-super": `
-		(x).(y).(z).(w):  Hash
-		(x):              Hash
+		x.y.z.w:  Hash
+		x:        Hash
 	`,
 }
 
@@ -357,7 +360,7 @@ func testMeta(t *testing.T, test tomltest.Test) {
 		if i > 0 {
 			b.WriteByte('\n')
 		}
-		fmt.Fprintf(b, "(%s): %s", strings.Join(k, ").("), meta.Type(k...))
+		fmt.Fprintf(b, "%s: %s", k, meta.Type(k...))
 	}
 	have := b.String()
 

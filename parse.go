@@ -530,8 +530,8 @@ func (p *parser) addContext(key Key, array bool) {
 
 // set calls setValue and setType.
 func (p *parser) set(key string, val interface{}, typ tomlType) {
-	p.setValue(p.currentKey, val)
-	p.setType(p.currentKey, typ)
+	p.setValue(key, val)
+	p.setType(key, typ)
 }
 
 // setValue sets the given key to the given value in the current context.
@@ -590,8 +590,8 @@ func (p *parser) setValue(key string, value interface{}) {
 	hash[key] = value
 }
 
-// setType sets the type of a particular value at a given key.
-// It should be called immediately AFTER setValue.
+// setType sets the type of a particular value at a given key. It should be
+// called immediately AFTER setValue.
 //
 // Note that if `key` is empty, then the type given will be applied to the
 // current context (which is either a table or an array of tables).
@@ -600,6 +600,12 @@ func (p *parser) setType(key string, typ tomlType) {
 	keyContext = append(keyContext, p.context...)
 	if len(key) > 0 { // allow type setting for hashes
 		keyContext = append(keyContext, key)
+	}
+	// Special case to make empty keys ("" = 1) work.
+	// Without it it will set "" rather than `""`.
+	// TODO: why is this needed? And why is this only needed here?
+	if len(keyContext) == 0 {
+		keyContext = Key{""}
 	}
 	p.types[keyContext.String()] = typ
 }
@@ -678,7 +684,7 @@ func stripEscapedNewlines(s string) string {
 }
 
 func (p *parser) replaceEscapes(it item, str string) string {
-	var replaced []rune
+	replaced := make([]rune, 0, len(str))
 	s := []byte(str)
 	r := 0
 	for r < len(s) {

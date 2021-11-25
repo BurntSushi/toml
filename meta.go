@@ -10,11 +10,12 @@ import (
 // It allows checking if a key is defined in the TOML data, whether any keys
 // were undecoded, and the TOML type of a key.
 type MetaData struct {
+	context Key // Used only during decoding.
+
 	mapping map[string]interface{}
 	types   map[string]tomlType
 	keys    []Key
 	decoded map[string]struct{}
-	context Key // Used only during decoding.
 }
 
 // IsDefined reports if the key exists in the TOML data.
@@ -49,8 +50,7 @@ func (md *MetaData) IsDefined(key ...string) bool {
 // Type will return the empty string if given an empty key or a key that does
 // not exist. Keys are case sensitive.
 func (md *MetaData) Type(key ...string) string {
-	fullkey := strings.Join(key, ".")
-	if typ, ok := md.types[fullkey]; ok {
+	if typ, ok := md.types[Key(key).String()]; ok {
 		return typ.typeString()
 	}
 	return ""
@@ -92,12 +92,10 @@ func (md *MetaData) Undecoded() []Key {
 // values of this type.
 type Key []string
 
-func (k Key) String() string { return strings.Join(k, ".") }
-
-func (k Key) maybeQuotedAll() string {
-	var ss []string
+func (k Key) String() string {
+	ss := make([]string, len(k))
 	for i := range k {
-		ss = append(ss, k.maybeQuoted(i))
+		ss[i] = k.maybeQuoted(i)
 	}
 	return strings.Join(ss, ".")
 }
@@ -106,15 +104,10 @@ func (k Key) maybeQuoted(i int) string {
 	if k[i] == "" {
 		return `""`
 	}
-	quote := false
 	for _, c := range k[i] {
 		if !isBareKeyChar(c) {
-			quote = true
-			break
+			return `"` + dblQuotedReplacer.Replace(k[i]) + `"`
 		}
-	}
-	if quote {
-		return `"` + dblQuotedReplacer.Replace(k[i]) + `"`
 	}
 	return k[i]
 }
