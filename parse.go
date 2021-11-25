@@ -425,7 +425,7 @@ func (p *parser) valueInlineTable(it item, parentIsArray bool) (interface{}, tom
 // numHasLeadingZero checks if this number has leading zeroes, allowing for '0',
 // +/- signs, and base prefixes.
 func numHasLeadingZero(s string) bool {
-	if len(s) > 1 && s[0] == '0' && isDigit(rune(s[1])) { // >1 to allow "0" and isDigit to allow 0x
+	if len(s) > 1 && s[0] == '0' && !(s[1] == 'b' || s[1] == 'o' || s[1] == 'x') { // Allow 0b, 0o, 0x
 		return true
 	}
 	if len(s) > 2 && (s[0] == '-' || s[0] == '+') && s[1] == '0' {

@@ -289,7 +289,6 @@ func TestToml(t *testing.T) {
 				"invalid/datetime/time-no-leads",        // https://github.com/BurntSushi/toml/issues/320
 				"invalid/control/bare-null",             // https://github.com/BurntSushi/toml/issues/317
 				"invalid/control/comment-cr",            // https://github.com/BurntSushi/toml/issues/321
-				"invalid/integer/leading-zero-3",        // https://github.com/BurntSushi/toml/issues/326
 				"invalid/string/multiline-bad-escape-3", // https://github.com/BurntSushi/toml/issues/322
 			},
 		}
