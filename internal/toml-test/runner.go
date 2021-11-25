@@ -1,4 +1,6 @@
 //go:generate ./gen-multi.py
+//go:build go1.16
+// +build go1.16
 
 package tomltest
 
