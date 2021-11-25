@@ -102,7 +102,7 @@ func untag(typed map[string]interface{}) (interface{}, error) {
 func parseTime(v, format string, l *time.Location) (time.Time, error) {
 	t, err := time.Parse(format, v)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("Could not parse %q as a datetime: %w", v, err)
+		return time.Time{}, fmt.Errorf("could not parse %q as a datetime: %w", v, err)
 	}
 	if l != nil {
 		t = t.In(l)

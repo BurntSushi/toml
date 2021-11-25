@@ -367,7 +367,7 @@ func (t *Test) ReadWantTOML(fsys fs.FS) (v interface{}, err error) {
 	}
 	_, err = toml.Decode(t.Want, &v)
 	if err != nil {
-		return nil, fmt.Errorf("Could not decode TOML file %q:\n  %s", path, err)
+		return nil, fmt.Errorf("could not decode TOML file %q:\n  %s", path, err)
 	}
 	return v, nil
 }

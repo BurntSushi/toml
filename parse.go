@@ -11,15 +11,15 @@ import (
 )
 
 type parser struct {
-	mapping map[string]interface{}
-	types   map[string]tomlType
-	lx      *lexer
+	lx         *lexer
+	context    Key      // Full key for the current hash in scope.
+	currentKey string   // Base key name for everything except hashes.
+	pos        Position // Current position in the TOML file.
 
-	ordered    []Key               // List of keys in the order that they appear in the TOML data.
-	context    Key                 // Full key for the current hash in scope.
-	currentKey string              // Base key name for everything except hashes.
-	pos        Position            // Position
-	implicits  map[string]struct{} // Record implied keys (e.g. 'key.group.names').
+	ordered   []Key                  // List of keys in the order that they appear in the TOML data.
+	mapping   map[string]interface{} // Map keyname → key value.
+	types     map[string]tomlType    // Map keyname → TOML type.
+	implicits map[string]struct{}    // Record implicit keys (e.g. "key.group.names").
 }
 
 func parse(data string) (p *parser, err error) {
@@ -597,9 +597,7 @@ func (p *parser) setValue(key string, value interface{}) {
 // current context (which is either a table or an array of tables).
 func (p *parser) setType(key string, typ tomlType) {
 	keyContext := make(Key, 0, len(p.context)+1)
-	for _, k := range p.context {
-		keyContext = append(keyContext, k)
-	}
+	keyContext = append(keyContext, p.context...)
 	if len(key) > 0 { // allow type setting for hashes
 		keyContext = append(keyContext, key)
 	}

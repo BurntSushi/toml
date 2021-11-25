@@ -21,7 +21,6 @@ type tomlEncodeError struct{ error }
 var (
 	errArrayNilElement = errors.New("toml: cannot encode array with nil element")
 	errNonString       = errors.New("toml: cannot encode a map with non-string key type")
-	errAnonNonStruct   = errors.New("toml: cannot encode an anonymous field that is not a struct")
 	errNoKey           = errors.New("toml: top-level values must be Go maps or structs")
 	errAnything        = errors.New("") // used in testing
 )
@@ -521,30 +520,41 @@ func tomlTypeOfGo(rv reflect.Value) tomlType {
 	case reflect.Map:
 		return tomlHash
 	case reflect.Struct:
-		switch rv.Interface().(type) {
-		case time.Time:
+		if _, ok := rv.Interface().(time.Time); ok {
 			return tomlDatetime
-		case encoding.TextMarshaler:
-			return tomlString
-		default:
-			// Someone used a pointer receiver: we can make it work for pointer
-			// values.
-			if rv.CanAddr() {
-				_, ok := rv.Addr().Interface().(encoding.TextMarshaler)
-				if ok {
-					return tomlString
-				}
-			}
-			return tomlHash
 		}
+		if isMarshaler(rv) {
+			return tomlString
+		}
+		return tomlHash
 	default:
-		_, ok := rv.Interface().(encoding.TextMarshaler)
-		if ok {
+		if isMarshaler(rv) {
 			return tomlString
 		}
+
 		encPanic(errors.New("unsupported type: " + rv.Kind().String()))
-		panic("") // Need *some* return value
+		panic("unreachable")
 	}
+}
+
+func isMarshaler(rv reflect.Value) bool {
+	switch rv.Interface().(type) {
+	case encoding.TextMarshaler:
+		return true
+	case Marshaler:
+		return true
+	}
+
+	// Someone used a pointer receiver: we can make it work for pointer values.
+	if rv.CanAddr() {
+		if _, ok := rv.Addr().Interface().(encoding.TextMarshaler); ok {
+			return true
+		}
+		if _, ok := rv.Addr().Interface().(Marshaler); ok {
+			return true
+		}
+	}
+	return false
 }
 
 // tomlArrayType returns the element type of a TOML array. The type returned

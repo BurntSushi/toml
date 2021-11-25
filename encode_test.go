@@ -408,22 +408,22 @@ func TestEncodeTOMLMarshaler(t *testing.T) {
 	x := struct {
 		Name    string
 		Labels  map[string]string
-		Sound   sound
-		Sound2  *sound
-		Food    food
-		Food2   *food
-		Complex cplx
-		Fun     fun
+		Sound   sound2
+		Sound2  *sound2
+		Food    food2
+		Food2   *food2
+		Complex cplx2
+		Fun     fun2
 	}{
 		Name:   "Goblok",
-		Sound:  sound{"miauw"},
-		Sound2: &sound{"miauw"},
+		Sound:  sound2{"miauw"},
+		Sound2: &sound2{"miauw"},
 		Labels: map[string]string{
 			"type":  "cat",
 			"color": "black",
 		},
-		Food:    food{[]string{"chicken", "fish"}},
-		Food2:   &food{[]string{"chicken", "fish"}},
+		Food:    food2{[]string{"chicken", "fish"}},
+		Food2:   &food2{[]string{"chicken", "fish"}},
 		Complex: complex(42, 666),
 		Fun:     func() { panic("x") },
 	}

@@ -218,16 +218,6 @@ func (r Test) cmpAsDatetimes(kind, want, have string) Test {
 	return r
 }
 
-func (r Test) cmpAsDatetimesLocal(want, have string) Test {
-	if datetimeRepl.Replace(want) != datetimeRepl.Replace(have) {
-		return r.fail("Values for key '%s' don't match:\n"+
-			"  Expected:     %v\n"+
-			"  Your encoder: %v",
-			r.Key, want, have)
-	}
-	return r
-}
-
 func (r Test) kjoin(key string) Test {
 	if len(r.Key) == 0 {
 		r.Key = key
