@@ -9,6 +9,7 @@ linters:
     - gci
     - gofmt
     - gofumpt
+    - goimports
     - gosimple
     - misspell
     - unconvert
