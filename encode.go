@@ -348,7 +348,7 @@ func (enc *Encoder) eMap(key Key, rv reflect.Value, inline bool) {
 		}
 	}
 
-	var writeMapKeys = func(mapKeys []string, trailC bool) {
+	writeMapKeys := func(mapKeys []string, trailC bool) {
 		sort.Strings(mapKeys)
 		for i, mapKey := range mapKeys {
 			val := rv.MapIndex(reflect.ValueOf(mapKey))

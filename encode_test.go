@@ -21,7 +21,7 @@ func TestEncodeRoundTrip(t *testing.T) {
 		Ipaddress  net.IP
 	}
 
-	var inputs = Config{
+	inputs := Config{
 		Age:        13,
 		Cats:       []string{"one", "two", "three"},
 		Pi:         3.145,
@@ -66,10 +66,14 @@ func TestEncodeNestedTableArrays(t *testing.T) {
 	}
 	value := springsteen{
 		[]album{
-			{"Born to Run",
-				[]song{{"Jungleland"}, {"Meeting Across the River"}}},
-			{"Born in the USA",
-				[]song{{"Glory Days"}, {"Dancing in the Dark"}}},
+			{
+				"Born to Run",
+				[]song{{"Jungleland"}, {"Meeting Across the River"}},
+			},
+			{
+				"Born in the USA",
+				[]song{{"Glory Days"}, {"Dancing in the Dark"}},
+			},
 		},
 	}
 	expected := `[[albums]]

@@ -169,7 +169,7 @@ type (
 		Packages string
 	}
 
-	//duration struct{ time.Duration }
+	// duration struct{ time.Duration }
 	fmtTime struct{ time.Time }
 )
 

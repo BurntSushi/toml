@@ -11,7 +11,7 @@ import (
 
 func ExampleEncoder_Encode() {
 	date, _ := time.Parse(time.RFC822, "14 Mar 10 18:00 UTC")
-	var config = map[string]interface{}{
+	config := map[string]interface{}{
 		"date":   date,
 		"counts": []int{1, 1, 2, 3, 5, 8},
 		"hash": map[string]string{
@@ -38,7 +38,7 @@ func ExampleMetaData_PrimitiveDecode() {
 	var md toml.MetaData
 	var err error
 
-	var tomlBlob = `
+	tomlBlob := `
 ranking = ["Springsteen", "J Geils"]
 
 [bands.Springsteen]
@@ -93,7 +93,7 @@ albums = ["The J. Geils Band", "Full House", "Blow Your Face Out"]
 }
 
 func ExampleDecode() {
-	var tomlBlob = `
+	tomlBlob := `
 # Some comments.
 [alpha]
 ip = "10.0.0.1"
@@ -204,7 +204,7 @@ duration = "8m03s"
 // for returning an error to the user if they've included extraneous fields
 // in their configuration.
 func Example_strictDecoding() {
-	var blob = `
+	blob := `
 key1 = "value1"
 key2 = "value2"
 key3 = "value3"
@@ -271,7 +271,6 @@ func (c *cable) Name() string {
 }
 
 func (o *order) UnmarshalTOML(data interface{}) error {
-
 	// NOTE the example below contains detailed type casting to show how
 	// the 'data' is retrieved. In operational use, a type cast wrapper
 	// may be preferred e.g.
@@ -348,8 +347,7 @@ func (o *order) UnmarshalTOML(data interface{}) error {
 // struct in cases where the actual type is not known until the data is
 // examined.
 func Example_unmarshalTOML() {
-
-	var blob = `
+	blob := `
 [[parts]]
 type = "valve"
 id = "valve-1"
@@ -512,5 +510,4 @@ rating = 3.1
 	// VALVE: valve-2
 	// PIPE: pipe-1
 	// CABLE: cable-1
-
 }

@@ -13,9 +13,7 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-var (
-	flagTypes = false
-)
+var flagTypes = false
 
 func init() {
 	log.SetFlags(0)

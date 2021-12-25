@@ -4,3 +4,6 @@ linters:
     - govet
     - staticcheck
     - unused
+  enable:
+    - gofmt
+    - gofumpt 

@@ -306,7 +306,7 @@ func (t Test) runValid(p Parser, fsys fs.FS) Test {
 		}
 		var have interface{}
 		if _, err := toml.Decode(t.Output, &have); err != nil {
-			//return t.fail("decode TOML from encoder %q:\n  %s", cmd, err)
+			// return t.fail("decode TOML from encoder %q:\n  %s", cmd, err)
 			return t.fail("decode TOML from encoder:\n  %s", err)
 		}
 		return t.CompareTOML(want, have)
@@ -361,6 +361,7 @@ func (t *Test) ReadWantJSON(fsys fs.FS) (v interface{}, err error) {
 	}
 	return v, nil
 }
+
 func (t *Test) ReadWantTOML(fsys fs.FS) (v interface{}, err error) {
 	var path string
 	path, t.Want, err = t.ReadWant(fsys)
@@ -386,6 +387,7 @@ func (t Test) fail(format string, v ...interface{}) Test {
 	t.Failure = fmt.Sprintf(format, v...)
 	return t
 }
+
 func (t Test) bug(format string, v ...interface{}) Test {
 	return t.fail("BUG IN TEST CASE: "+format, v...)
 }

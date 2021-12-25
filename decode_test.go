@@ -140,7 +140,7 @@ Number = 123
 }
 
 func TestDecodeTableArrays(t *testing.T) {
-	var tomlTableArrays = `
+	tomlTableArrays := `
 [[albums]]
 name = "Born to Run"
 
@@ -386,7 +386,7 @@ func TestDecodeTypes(t *testing.T) {
 }
 
 func TestUnmarshaler(t *testing.T) {
-	var tomlBlob = `
+	tomlBlob := `
 [dishes.hamboogie]
 name = "Hamboogie with fries"
 price = 10.99
@@ -456,7 +456,6 @@ name = "Rice"
 	if _, err := Decode(tomlBlob, &o); err != nil {
 		t.Fatal(err)
 	}
-
 }
 
 func TestDecodeInlineTable(t *testing.T) {
@@ -686,24 +685,24 @@ func TestDecodeDatetime(t *testing.T) {
 		want time.Time
 	}{
 		// Offset datetime
-		{"1979-05-27T07:32:00Z", time.Date(1979, 05, 27, 07, 32, 0, 0, time.UTC)},
-		{"1979-05-27T07:32:00.999999Z", time.Date(1979, 05, 27, 07, 32, 0, 999999000, time.UTC)},
-		{"1979-05-27T00:32:00-07:00", time.Date(1979, 05, 27, 00, 32, 0, 0, tz7)},
-		{"1979-05-27T00:32:00.999999-07:00", time.Date(1979, 05, 27, 00, 32, 0, 999999000, tz7)},
-		{"1979-05-27T00:32:00.24-07:00", time.Date(1979, 05, 27, 00, 32, 0, 240000000, tz7)},
-		{"1979-05-27 07:32:00Z", time.Date(1979, 05, 27, 07, 32, 0, 0, time.UTC)},
-		{"1979-05-27t07:32:00z", time.Date(1979, 05, 27, 07, 32, 0, 0, time.UTC)},
+		{"1979-05-27T07:32:00Z", time.Date(1979, 0o5, 27, 0o7, 32, 0, 0, time.UTC)},
+		{"1979-05-27T07:32:00.999999Z", time.Date(1979, 0o5, 27, 0o7, 32, 0, 999999000, time.UTC)},
+		{"1979-05-27T00:32:00-07:00", time.Date(1979, 0o5, 27, 0o0, 32, 0, 0, tz7)},
+		{"1979-05-27T00:32:00.999999-07:00", time.Date(1979, 0o5, 27, 0o0, 32, 0, 999999000, tz7)},
+		{"1979-05-27T00:32:00.24-07:00", time.Date(1979, 0o5, 27, 0o0, 32, 0, 240000000, tz7)},
+		{"1979-05-27 07:32:00Z", time.Date(1979, 0o5, 27, 0o7, 32, 0, 0, time.UTC)},
+		{"1979-05-27t07:32:00z", time.Date(1979, 0o5, 27, 0o7, 32, 0, 0, time.UTC)},
 
 		// Make sure the space between the datetime and "#" isn't lexed.
-		{"1979-05-27T07:32:12-07:00  # c", time.Date(1979, 05, 27, 07, 32, 12, 0, tz7)},
+		{"1979-05-27T07:32:12-07:00  # c", time.Date(1979, 0o5, 27, 0o7, 32, 12, 0, tz7)},
 
 		// Local times.
-		{"1979-05-27T07:32:00", time.Date(1979, 05, 27, 07, 32, 0, 0, internal.LocalDatetime)},
-		{"1979-05-27T07:32:00.999999", time.Date(1979, 05, 27, 07, 32, 0, 999999000, internal.LocalDatetime)},
-		{"1979-05-27T07:32:00.25", time.Date(1979, 05, 27, 07, 32, 0, 250000000, internal.LocalDatetime)},
-		{"1979-05-27", time.Date(1979, 05, 27, 0, 0, 0, 0, internal.LocalDate)},
-		{"07:32:00", time.Date(0, 1, 1, 07, 32, 0, 0, internal.LocalTime)},
-		{"07:32:00.999999", time.Date(0, 1, 1, 07, 32, 0, 999999000, internal.LocalTime)},
+		{"1979-05-27T07:32:00", time.Date(1979, 0o5, 27, 0o7, 32, 0, 0, internal.LocalDatetime)},
+		{"1979-05-27T07:32:00.999999", time.Date(1979, 0o5, 27, 0o7, 32, 0, 999999000, internal.LocalDatetime)},
+		{"1979-05-27T07:32:00.25", time.Date(1979, 0o5, 27, 0o7, 32, 0, 250000000, internal.LocalDatetime)},
+		{"1979-05-27", time.Date(1979, 0o5, 27, 0, 0, 0, 0, internal.LocalDate)},
+		{"07:32:00", time.Date(0, 1, 1, 0o7, 32, 0, 0, internal.LocalTime)},
+		{"07:32:00.999999", time.Date(0, 1, 1, 0o7, 32, 0, 999999000, internal.LocalTime)},
 	} {
 		t.Run(tt.in, func(t *testing.T) {
 			var x struct{ D time.Time }
