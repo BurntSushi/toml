@@ -66,7 +66,7 @@ type ParseError struct {
 type Position struct {
 	Line  int // Line number, starting at 1.
 	Start int // Start of error, as byte offset starting at 0.
-	Len   int // Lenght in bytes.
+	Len   int // Length in bytes.
 }
 
 func (pe ParseError) Error() string {

@@ -10,6 +10,7 @@ linters:
     - gofmt
     - gofumpt
     - gosimple
+    - misspell
     - unconvert
 issues:
   max-same-issues: 0
