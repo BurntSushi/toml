@@ -1,38 +1,82 @@
----
-name: go test
-'on':
-- push
-- pull_request
-jobs:
-  test:
-    strategy:
-      matrix:
-        go-version:
-        - 1.13
-        - 1.14
-        - 1.15
-        - 1.16
-        - 1.17
-        os:
-        - ubuntu-latest
-        - macos-latest
-        - windows-latest
-    runs-on: "${{ matrix.os }}"
-    env:
-      GOPROXY: direct
-    steps:
-    - name: Install Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: "${{ matrix.go-version }}"
-    - name: Checkout code
-      uses: actions/checkout@v2
-    - name: Test
-      run: go test -v -coverprofile='coverage.out' -covermode=atomic ./...
-    - name: Upload Code Coverage
-      uses: codecov/codecov-action@v2
-      with:
-        fail_ci_if_error: true
-        files: coverage.out
-        flags: ${{ runner.os }},go-${{ matrix.go-version }}
-        token: ${{ secrets.CODECOV_TOKEN }}
+{
+  "name": "go test",
+  "on": [
+    "push",
+    "pull_request"
+  ],
+  "jobs": {
+    "golangci": {
+      "runs-on": "ubuntu-latest",
+      "steps": [
+        {
+          "name": "Setup go",
+          "uses": "actions/setup-go@v2",
+          "with": {
+            "go-version": 1.17
+          }
+        },
+        {
+          "name": "Checkout repository",
+          "uses": "actions/checkout@v2"
+        },
+        {
+          "name": "Setup golangci-lint",
+          "uses": "golangci/golangci-lint-action@v2",
+          "with": {
+            "version": "latest",
+            "args": "--verbose"
+          }
+        }
+      ]
+    },
+    "test": {
+      "strategy": {
+        "matrix": {
+          "go-version": [
+            1.13,
+            1.14,
+            1.15,
+            1.16,
+            1.17
+          ],
+          "os": [
+            "ubuntu-latest",
+            "macos-latest",
+            "windows-latest"
+          ]
+        }
+      },
+      "runs-on": "${{ matrix.os }}",
+      "env": {
+        "GOPROXY": "direct"
+      },
+      "steps": [
+        {
+          "name": "Install Go",
+          "uses": "actions/setup-go@v2",
+          "with": {
+            "go-version": "${{ matrix.go-version }}"
+          }
+        },
+        {
+          "name": "Checkout code",
+          "uses": "actions/checkout@v2"
+        },
+        {
+          "name": "Test",
+          "run": "go test -v -coverprofile='coverage.out' -covermode=atomic ./..."
+        },
+        {
+          "name": "Upload Code Coverage",
+          "uses": "codecov/codecov-action@v2",
+          "with": {
+            "fail_ci_if_error": true,
+            "files": "coverage.out",
+            "flags": "${{ runner.os }},go-${{ matrix.go-version }}",
+            "token": "${{ secrets.CODECOV_TOKEN }}"
+          }
+        }
+      ]
+    }
+  }
+}
