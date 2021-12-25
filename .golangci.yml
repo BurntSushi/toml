@@ -9,6 +9,7 @@ linters:
     - gci
     - gofmt
     - gofumpt
+    - gosimple
     - unconvert
 issues:
   max-same-issues: 0
