@@ -8,6 +8,7 @@ linters:
     - errorlint
     - gci
     - gofmt
-    - gofumpt 
+    - gofumpt
+    - unconvert
 issues:
   max-same-issues: 0
