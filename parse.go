@@ -697,7 +697,7 @@ func (p *parser) replaceEscapes(it item, str string) string {
 			replaced = append(replaced, c)
 			continue
 		}
-		r += 1
+		r++
 		if r >= len(s) {
 			p.bug("Escape sequence at end of string.")
 			return ""
@@ -711,25 +711,25 @@ func (p *parser) replaceEscapes(it item, str string) string {
 			return ""
 		case 'b':
 			replaced = append(replaced, rune(0x0008))
-			r += 1
+			r++
 		case 't':
 			replaced = append(replaced, rune(0x0009))
-			r += 1
+			r++
 		case 'n':
 			replaced = append(replaced, rune(0x000A))
-			r += 1
+			r++
 		case 'f':
 			replaced = append(replaced, rune(0x000C))
-			r += 1
+			r++
 		case 'r':
 			replaced = append(replaced, rune(0x000D))
-			r += 1
+			r++
 		case '"':
 			replaced = append(replaced, rune(0x0022))
-			r += 1
+			r++
 		case '\\':
 			replaced = append(replaced, rune(0x005C))
-			r += 1
+			r++
 		case 'u':
 			// At this point, we know we have a Unicode escape of the form
 			// `uXXXX` at [r, r+5). (Because the lexer guarantees this

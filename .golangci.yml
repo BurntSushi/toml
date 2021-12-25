@@ -12,6 +12,11 @@ linters:
     - goimports
     - gosimple
     - misspell
+    - revive
     - unconvert
 issues:
   max-same-issues: 0
+  exclude-rules:
+    - linters:
+        - revive
+      text:  "unexported-return"

@@ -9,9 +9,9 @@ import (
 )
 
 // Remove JSON tags to a data structure as returned by toml-test.
-func Remove(typedJson interface{}) (interface{}, error) {
+func Remove(typedJSON interface{}) (interface{}, error) {
 	// Switch on the data type.
-	switch v := typedJson.(type) {
+	switch v := typedJSON.(type) {
 
 	// Object: this can either be a TOML table or a primitive with tags.
 	case map[string]interface{}:
@@ -50,7 +50,7 @@ func Remove(typedJson interface{}) (interface{}, error) {
 	}
 
 	// The top level must be an object or array.
-	return nil, fmt.Errorf("tag.Remove: unrecognized JSON format '%T'", typedJson)
+	return nil, fmt.Errorf("tag.Remove: unrecognized JSON format '%T'", typedJSON)
 }
 
 // Check if key is in the table m.
