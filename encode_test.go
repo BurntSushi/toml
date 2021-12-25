@@ -2,6 +2,7 @@ package toml
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -478,9 +479,9 @@ func encodeExpected(t *testing.T, label string, val interface{}, want string, wa
 	t.Run(label, func(t *testing.T) {
 		var buf bytes.Buffer
 		err := NewEncoder(&buf).Encode(val)
-		if err != wantErr {
+		if !errors.Is(err, wantErr) {
 			if wantErr != nil {
-				if wantErr == errAnything && err != nil {
+				if errors.Is(wantErr, errAnything) && err != nil {
 					return
 				}
 				t.Errorf("want Encode error %v, got %v", wantErr, err)

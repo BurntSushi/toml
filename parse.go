@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -265,7 +266,8 @@ func (p *parser) valueInteger(it item) (interface{}, tomlType) {
 		// out of range of valid values (which the lexer cannot determine).
 		// So mark the former as a bug but the latter as a legitimate user
 		// error.
-		if e, ok := err.(*strconv.NumError); ok && e.Err == strconv.ErrRange {
+		var e *strconv.NumError
+		if errors.As(err, &e) && errors.Is(e.Err, strconv.ErrRange) {
 			p.panicItemf(it, "Integer '%s' is out of the range of 64-bit signed integers.", it.val)
 		} else {
 			p.bug("Expected integer value, but got '%s'.", it.val)
@@ -303,7 +305,8 @@ func (p *parser) valueFloat(it item) (interface{}, tomlType) {
 	}
 	num, err := strconv.ParseFloat(val, 64)
 	if err != nil {
-		if e, ok := err.(*strconv.NumError); ok && e.Err == strconv.ErrRange {
+		var e *strconv.NumError
+		if errors.As(err, &e) && errors.Is(e.Err, strconv.ErrRange) {
 			p.panicItemf(it, "Float '%s' is out of the range of 64-bit IEEE-754 floating-point numbers.", it.val)
 		} else {
 			p.panicItemf(it, "Invalid float value: %q", it.val)

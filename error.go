@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -127,7 +128,8 @@ func (pe ParseError) ErrorWithPosition() string {
 // See the documentation on ParseError.
 func (pe ParseError) ErrorWithUsage() string {
 	m := pe.ErrorWithPosition()
-	if u, ok := pe.err.(interface{ Usage() string }); ok && u.Usage() != "" {
+	var u interface{ Usage() string }
+	if errors.As(pe.err, &u) && u.Usage() != "" {
 		return m + "Error help:\n\n    " +
 			strings.ReplaceAll(strings.TrimSpace(u.Usage()), "\n", "\n    ") +
 			"\n"

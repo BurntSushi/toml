@@ -5,6 +5,9 @@ linters:
     - staticcheck
     - unused
   enable:
+    - errorlint
     - gci
     - gofmt
     - gofumpt 
+issues:
+  max-same-issues: 0
