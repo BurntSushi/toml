@@ -618,6 +618,17 @@ func TestDecodeSlices(t *testing.T) {
 	}
 }
 
+func TestDecodeInterfaceSlice(t *testing.T) {
+	var v map[string]interface{}
+	if _, err := Decode(`S = []`, &v); err != nil {
+		t.Errorf(err.Error())
+	}
+	// S = [] should decode into a non-nil []interface{} (see issue #338).
+	if reflect.ValueOf(v["S"]).IsNil() {
+		t.Errorf("S is nil")
+	}
+}
+
 func TestDecodePrimitive(t *testing.T) {
 	type S struct {
 		P Primitive
