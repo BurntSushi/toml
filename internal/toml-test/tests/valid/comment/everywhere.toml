@@ -24,4 +24,5 @@ more = [ # Comment
 ] # Hopefully not.
 
 # Make sure the space between the datetime and "#" isn't lexed.
-d = 1979-05-27T07:32:12-07:00  # c
+dt = 1979-05-27T07:32:12-07:00  # c
+d = 1979-05-27 # Comment

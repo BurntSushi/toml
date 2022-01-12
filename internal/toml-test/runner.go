@@ -1,6 +1,4 @@
 //go:generate ./gen-multi.py
-//go:build go1.16
-// +build go1.16
 
 package tomltest
 
@@ -293,7 +291,7 @@ func (t Test) runValid(p Parser, fsys fs.FS) Test {
 	}
 	if t.Output == "" {
 		// Special case: we expect an empty output here.
-		if t.Path != "valid/empty-file" {
+		if t.Path != "valid/empty-file" && t.Path != "valid/comment/noeol" {
 			return t.fail("stdout is empty")
 		}
 	}
