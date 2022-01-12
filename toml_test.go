@@ -287,16 +287,19 @@ func TestToml(t *testing.T) {
 				// https://github.com/BurntSushi/toml/issues/329
 				"invalid/encoding/bad-utf8-at-end",
 
+				// "15" in time.Parse() accepts both "1" and "01". The TOML
+				// specification says that times *must* start with a leading
+				// zero, but this requires writing out own datetime parser.
+				// I think it's actually okay to just accept both really.
+				// https://github.com/BurntSushi/toml/issues/320
+				"invalid/datetime/time-no-leads",
+
 				// TODO: fix this.
 				"invalid/table/append-with-dotted*",
 				"invalid/inline-table/add",
 				"invalid/table/duplicate-key-dotted-table",
 				"invalid/table/duplicate-key-dotted-table2",
 
-				"invalid/datetime/time-no-leads", // https://github.com/BurntSushi/toml/issues/320
-				"invalid/control/bare-null",      // https://github.com/BurntSushi/toml/issues/317
-				"invalid/control/comment-cr",     // https://github.com/BurntSushi/toml/issues/321
-				"invalid/control/bare-cr",
 				"invalid/string/multiline-bad-escape-3", // https://github.com/BurntSushi/toml/issues/322
 			},
 		}

@@ -162,6 +162,12 @@ func (lx *lexer) next() (r rune) {
 		return utf8.RuneError
 	}
 
+	// Note: don't use peek() here, as this calls next().
+	if isControl(r) || (r == '\r' && (len(lx.input)-1 == lx.pos || lx.input[lx.pos+1] != '\n')) {
+		lx.errorControlChar(r)
+		return utf8.RuneError
+	}
+
 	lx.prevWidths[0] = w
 	lx.pos += w
 	return r
@@ -669,8 +675,6 @@ func lexString(lx *lexer) stateFn {
 	switch {
 	case r == eof:
 		return lx.errorf(`unexpected EOF; expected '"'`)
-	case isControl(r) || r == '\r':
-		return lx.errorControlChar(r)
 	case isNL(r):
 		return lx.errorPrevLine(errLexStringNL{})
 	case r == '\\':
@@ -691,13 +695,10 @@ func lexString(lx *lexer) stateFn {
 func lexMultilineString(lx *lexer) stateFn {
 	r := lx.next()
 	switch r {
+	default:
+		return lexMultilineString
 	case eof:
 		return lx.errorf(`unexpected EOF; expected '"""'`)
-	case '\r':
-		if lx.peek() != '\n' {
-			return lx.errorControlChar(r)
-		}
-		return lexMultilineString
 	case '\\':
 		return lexMultilineStringEscape
 	case '"':
@@ -730,12 +731,8 @@ func lexMultilineString(lx *lexer) stateFn {
 			}
 			lx.backup()
 		}
+		return lexMultilineString
 	}
-
-	if isControl(r) {
-		return lx.errorControlChar(r)
-	}
-	return lexMultilineString
 }
 
 // lexRawString consumes a raw string. Nothing can be escaped in such a string.
@@ -743,10 +740,10 @@ func lexMultilineString(lx *lexer) stateFn {
 func lexRawString(lx *lexer) stateFn {
 	r := lx.next()
 	switch {
+	default:
+		return lexRawString
 	case r == eof:
 		return lx.errorf(`unexpected EOF; expected "'"`)
-	case isControl(r) || r == '\r':
-		return lx.errorControlChar(r)
 	case isNL(r):
 		return lx.errorPrevLine(errLexStringNL{})
 	case r == '\'':
@@ -756,7 +753,6 @@ func lexRawString(lx *lexer) stateFn {
 		lx.ignore()
 		return lx.pop()
 	}
-	return lexRawString
 }
 
 // lexMultilineRawString consumes a raw string. Nothing can be escaped in such
@@ -765,13 +761,10 @@ func lexRawString(lx *lexer) stateFn {
 func lexMultilineRawString(lx *lexer) stateFn {
 	r := lx.next()
 	switch r {
+	default:
+		return lexMultilineRawString
 	case eof:
 		return lx.errorf(`unexpected EOF; expected "'''"`)
-	case '\r':
-		if lx.peek() != '\n' {
-			return lx.errorControlChar(r)
-		}
-		return lexMultilineRawString
 	case '\'':
 		/// Found ' → try to read two more ''.
 		if lx.accept('\'') {
@@ -802,12 +795,8 @@ func lexMultilineRawString(lx *lexer) stateFn {
 			}
 			lx.backup()
 		}
+		return lexMultilineRawString
 	}
-
-	if isControl(r) {
-		return lx.errorControlChar(r)
-	}
-	return lexMultilineRawString
 }
 
 // lexMultilineStringEscape consumes an escaped character. It assumes that the
@@ -1138,8 +1127,6 @@ func lexComment(lx *lexer) stateFn {
 		lx.backup()
 		lx.emit(itemText)
 		return lx.pop()
-	case isControl(r):
-		return lx.errorControlChar(r)
 	default:
 		return lexComment
 	}
