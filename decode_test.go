@@ -590,42 +590,66 @@ type ingredient struct {
 }
 
 func TestDecodeSlices(t *testing.T) {
-	type T struct {
-		S []string
-	}
-	for i, tt := range []struct {
-		v     T
-		input string
-		want  T
+	type (
+		T struct {
+			Arr []string
+			Tbl map[string]interface{}
+		}
+		M map[string]interface{}
+	)
+	tests := []struct {
+		input    string
+		in, want T
 	}{
-		{T{}, "", T{}},
-		{T{[]string{}}, "", T{[]string{}}},
-		{T{[]string{"a", "b"}}, "", T{[]string{"a", "b"}}},
-		{T{}, "S = []", T{[]string{}}},
-		{T{[]string{}}, "S = []", T{[]string{}}},
-		{T{[]string{"a", "b"}}, "S = []", T{[]string{}}},
-		{T{}, `S = ["x"]`, T{[]string{"x"}}},
-		{T{[]string{}}, `S = ["x"]`, T{[]string{"x"}}},
-		{T{[]string{"a", "b"}}, `S = ["x"]`, T{[]string{"x"}}},
-	} {
-		if _, err := Decode(tt.input, &tt.v); err != nil {
-			t.Errorf("[%d] %s", i, err)
-			continue
-		}
-		if !reflect.DeepEqual(tt.v, tt.want) {
-			t.Errorf("[%d] got %#v; want %#v", i, tt.v, tt.want)
-		}
-	}
-}
+		{"",
+			T{}, T{}},
 
-func TestDecodeInterfaceSlice(t *testing.T) {
-	var v map[string]interface{}
-	if _, err := Decode(`S = []`, &v); err != nil {
-		t.Errorf(err.Error())
+		// Leave existing values alone.
+		{"",
+			T{[]string{}, M{"arr": []string{}}},
+			T{[]string{}, M{"arr": []string{}}}},
+		{"",
+			T{[]string{"a"}, M{"arr": []string{"b"}}},
+			T{[]string{"a"}, M{"arr": []string{"b"}}}},
+
+		// Empty array always allocates (see #339)
+		{`arr = []
+		tbl = {arr = []}`,
+			T{},
+			T{[]string{}, M{"arr": []interface{}{}}}},
+		{`arr = []
+		tbl = {}`,
+			T{[]string{}, M{}},
+			T{[]string{}, M{}}},
+
+		{`arr = []`,
+			T{[]string{"a"}, M{}},
+			T{[]string{}, M{}}},
+
+		{`arr = ["x"]
+		 tbl = {arr=["y"]}`,
+			T{},
+			T{[]string{"x"}, M{"arr": []interface{}{"y"}}}},
+		{`arr = ["x"]
+		 tbl = {arr=["y"]}`,
+			T{[]string{}, M{}},
+			T{[]string{"x"}, M{"arr": []interface{}{"y"}}}},
+		{`arr = ["x"]
+		tbl = {arr=["y"]}`,
+			T{[]string{"a", "b"}, M{"arr": []interface{}{"c", "d"}}},
+			T{[]string{"x"}, M{"arr": []interface{}{"y"}}}},
 	}
-	// S = [] should decode into a non-nil []interface{} (see issue #338).
-	if reflect.ValueOf(v["S"]).IsNil() {
-		t.Errorf("S is nil")
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			_, err := Decode(tt.input, &tt.in)
+			if err != nil {
+				t.Error(err)
+			}
+			if !reflect.DeepEqual(tt.in, tt.want) {
+				t.Errorf("\nhave: %#v\nwant: %#v", tt.in, tt.want)
+			}
+		})
 	}
 }
 
