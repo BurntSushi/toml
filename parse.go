@@ -350,6 +350,10 @@ func (p *parser) valueArray(it item) (interface{}, tomlType) {
 		array []interface{}
 		types []tomlType
 	)
+	// Initialize to a non-nil empty slice. This makes it
+	// consistent with how S = [] decodes into a non-nil slice
+	// inside something like struct { S []string }.
+	array = []interface{}{}
 	for it = p.next(); it.typ != itemArrayEnd; it = p.next() {
 		if it.typ == itemCommentStart {
 			p.expect(itemText)
