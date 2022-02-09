@@ -347,12 +347,14 @@ func (c cplx) MarshalText() ([]byte, error) {
 	return []byte(fmt.Sprintf("(%f+%fi)", real(cplx), imag(cplx))), nil
 }
 
-func (s *sound2) MarshalTOML() ([]byte, error) { return []byte(s.S), nil }
-func (f food2) MarshalTOML() ([]byte, error)   { return []byte(strings.Join(f.F, ", ")), nil }
-func (f fun2) MarshalTOML() ([]byte, error)    { return []byte("why would you do this?"), nil }
+func (s *sound2) MarshalTOML() ([]byte, error) { return []byte("\"" + s.S + "\""), nil }
+func (f food2) MarshalTOML() ([]byte, error) {
+	return []byte("[\"" + strings.Join(f.F, "\", \"") + "\"]"), nil
+}
+func (f fun2) MarshalTOML() ([]byte, error) { return []byte("\"why would you do this?\""), nil }
 func (c cplx2) MarshalTOML() ([]byte, error) {
 	cplx := complex128(c)
-	return []byte(fmt.Sprintf("(%f+%fi)", real(cplx), imag(cplx))), nil
+	return []byte(fmt.Sprintf("\"(%f+%fi)\"", real(cplx), imag(cplx))), nil
 }
 
 func TestEncodeTextMarshaler(t *testing.T) {
@@ -435,8 +437,8 @@ func TestEncodeTOMLMarshaler(t *testing.T) {
 
 	want := `Name = "Goblok"
 Sound2 = "miauw"
-Food = "chicken, fish"
-Food2 = "chicken, fish"
+Food = ["chicken", "fish"]
+Food2 = ["chicken", "fish"]
 Complex = "(42.000000+666.000000i)"
 Fun = "why would you do this?"
 
