@@ -121,7 +121,7 @@ func TestParseError(t *testing.T) {
 		fmt.Println("\x1b[1m━━━", path, strings.Repeat("━", 65-len(path)), "\x1b[0m")
 		fmt.Print(pErr.Error())
 		fmt.Println()
-		fmt.Println("─── ErrorWithLocation()", strings.Repeat("–", 47))
+		fmt.Println("─── ErrorWithPosition()", strings.Repeat("–", 47))
 		fmt.Print(pErr.ErrorWithPosition())
 		fmt.Println("─── ErrorWithUsage()", strings.Repeat("–", 50))
 		fmt.Print(pErr.ErrorWithUsage())
