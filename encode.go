@@ -398,6 +398,10 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value, inline bool) {
 			if f.PkgPath != "" && !f.Anonymous { /// Skip unexported fields.
 				continue
 			}
+			opts := getOptions(f.Tag)
+			if opts.skip {
+				continue
+			}
 
 			frv := rv.Field(i)
 

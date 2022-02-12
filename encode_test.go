@@ -468,6 +468,33 @@ func TestEncode32bit(t *testing.T) {
 		nil)
 }
 
+// Skip invalid types if it has toml:"-"
+//
+// https://github.com/BurntSushi/toml/issues/345
+func TestEncodeSkipInvalidType(t *testing.T) {
+	buf := new(bytes.Buffer)
+	err := NewEncoder(buf).Encode(struct {
+		Str  string                 `toml:"str"`
+		Arr  []func()               `toml:"-"`
+		Map  map[string]interface{} `toml:"-"`
+		Func func()                 `toml:"-"`
+	}{
+		Str:  "a",
+		Arr:  []func(){func() {}},
+		Map:  map[string]interface{}{"f": func() {}},
+		Func: func() {},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	have := buf.String()
+	want := "str = \"a\"\n"
+	if have != want {
+		t.Errorf("\nwant: %q\nhave: %q\n", want, have)
+	}
+}
+
 func encodeExpected(t *testing.T, label string, val interface{}, want string, wantErr error) {
 	t.Helper()
 
