@@ -299,8 +299,6 @@ func TestToml(t *testing.T) {
 				"invalid/inline-table/add",
 				"invalid/table/duplicate-key-dotted-table",
 				"invalid/table/duplicate-key-dotted-table2",
-
-				"invalid/string/multiline-bad-escape-3", // https://github.com/BurntSushi/toml/issues/322
 			},
 		}
 
