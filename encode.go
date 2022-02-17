@@ -212,7 +212,7 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 		if err != nil {
 			encPanic(err)
 		}
-		enc.writeQuoted(string(s))
+		enc.w.Write(s)
 		return
 	case encoding.TextMarshaler:
 		s, err := v.MarshalText()
