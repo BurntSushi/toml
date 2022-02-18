@@ -348,6 +348,34 @@ func TestDecodeIntOverflow(t *testing.T) {
 	}
 }
 
+func TestDecodeStringDuration(t *testing.T) {
+	type table struct {
+		Value time.Duration
+	}
+	var tab table
+	if _, err := Decode(`value = "5m4s"`, &tab); err != nil {
+		t.Fatalf("Cannot decode duration string: %s", err)
+	}
+
+	if tab.Value != 5*time.Minute+4*time.Second {
+		t.Fatalf("Unexpected value: %q", tab.Value)
+	}
+}
+
+func TestDecodeIntegerDuration(t *testing.T) {
+	type table struct {
+		Value time.Duration
+	}
+	var tab table
+	if _, err := Decode(`value = 12345678`, &tab); err != nil {
+		t.Fatalf("Cannot decode duration integer: %s", err)
+	}
+
+	if tab.Value != 12345678 {
+		t.Fatalf("Unexpected value: %q", tab.Value)
+	}
+}
+
 func TestDecodeFloatOverflow(t *testing.T) {
 	tests := []struct {
 		value    string

@@ -145,7 +145,10 @@ func (enc *Encoder) encode(key Key, rv reflect.Value) {
 	case time.Time, encoding.TextMarshaler, Marshaler:
 		enc.writeKeyValue(key, rv, false)
 		return
-	// TODO: #76 would make this superfluous after implemented.
+		// TODO: #76 would make this superfluous after implemented.
+	case time.Duration:
+		enc.writeKeyValue(key, reflect.ValueOf(t.String()), false)
+		return
 	case Primitive:
 		enc.encode(key, reflect.ValueOf(t.undecoded))
 		return

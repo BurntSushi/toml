@@ -268,6 +268,26 @@ func TestEncodeNaN(t *testing.T) {
 	encodeExpected(t, "", s2, "nan = nan\ninf = -inf\n", nil)
 }
 
+func TestEncodeDuration(t *testing.T) {
+	cases := []time.Duration{
+		0,
+		time.Second,
+		time.Minute,
+		time.Hour,
+		248*time.Hour + 45*time.Minute + 24*time.Second,
+		12345678 * time.Nanosecond,
+		12345678 * time.Second,
+	}
+
+	for _, d := range cases {
+		encodeExpected(t, d.String(), struct {
+			Dur time.Duration
+		}{
+			Dur: d,
+		}, fmt.Sprintf("Dur = %q", d), nil)
+	}
+}
+
 func TestEncodePrimitive(t *testing.T) {
 	type MyStruct struct {
 		Data  Primitive

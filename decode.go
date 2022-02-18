@@ -10,6 +10,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 )
 
 // Unmarshaler is the interface implemented by objects that can unmarshal a
@@ -415,6 +416,17 @@ func (md *MetaData) unifyInt(data interface{}, rv reflect.Value) error {
 	num, ok := data.(int64)
 	if !ok {
 		return md.badtype("integer", data)
+	}
+
+	if _, ok := rv.Interface().(time.Duration); ok {
+		if s, ok := data.(string); ok {
+			dur, err := time.ParseDuration(s)
+			if err != nil {
+				return md.e("value %q is not a valid duration: %w", s, err)
+			}
+			rv.SetInt(int64(dur))
+			return nil
+		}
 	}
 
 	rvk := rv.Kind()
