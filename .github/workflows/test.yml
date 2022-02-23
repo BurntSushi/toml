@@ -24,7 +24,11 @@
         {
           "name": "Test",
           "run": "go test -v ./..."
-        }
+        },
+        {
+          "name": "Test 32bit",
+          "run": "GOARCH=386 go test -v ./..."
+        },
       ]
     }
   }
