@@ -42,8 +42,8 @@ type Primitive struct {
 // The significand precision for float32 and float64 is 24 and 53 bits; this is
 // the range a natural number can be stored in a float without loss of data.
 const (
-	maxSafeFloat32Int = 16777215         // 2^24-1
-	maxSafeFloat64Int = 9007199254740991 // 2^53-1
+	maxSafeFloat32Int = 16777215                // 2^24-1
+	maxSafeFloat64Int = int64(9007199254740991) // 2^53-1
 )
 
 // PrimitiveDecode is just like the other `Decode*` functions, except it
