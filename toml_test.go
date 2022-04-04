@@ -23,7 +23,7 @@ import (
 //
 // Filepaths are glob'd
 var errorTests = map[string][]string{
-	"encoding/bad-utf8-in*":         {"invalid UTF-8 byte"},
+	"encoding/bad-utf8*":            {"invalid UTF-8 byte"},
 	"encoding/utf16*":               {"files cannot contain NULL bytes; probably using UTF-16"},
 	"string/multiline-escape-space": {`invalid escape: '\ '`},
 }
@@ -282,11 +282,6 @@ func TestToml(t *testing.T) {
 			Parser:   parser{},
 			RunTests: runTests,
 			SkipTests: []string{
-				// This one is annoying to fix, and such an obscure edge case
-				// it's okay to leave it like this for now.
-				// https://github.com/BurntSushi/toml/issues/329
-				"invalid/encoding/bad-utf8-at-end",
-
 				// "15" in time.Parse() accepts both "1" and "01". The TOML
 				// specification says that times *must* start with a leading
 				// zero, but this requires writing out own datetime parser.
