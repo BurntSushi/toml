@@ -10,6 +10,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 )
 
 // Unmarshaler is the interface implemented by objects that can unmarshal a
@@ -204,6 +205,14 @@ func (md *MetaData) unify(data interface{}, rv reflect.Value) error {
 		}
 	}
 
+	// Special case. Handle time.Time values specifically.
+	// TODO: Remove this code when we decide to drop support for Go 1.1.
+	// This isn't necessary in Go 1.2 because time.Time satisfies the encoding
+	// interfaces.
+	if rv.Type().AssignableTo(rvalue(time.Time{}).Type()) {
+		return md.unifyDatetime(data, rv)
+	}
+	
 	// Special case. Look for a value satisfying the TextUnmarshaler interface.
 	if v, ok := rv.Interface().(encoding.TextUnmarshaler); ok {
 		return md.unifyText(data, v)
@@ -373,6 +382,14 @@ func (md *MetaData) unifySliceArray(data, rv reflect.Value) error {
 		}
 	}
 	return nil
+}
+
+func (md *MetaData) unifyDatetime(data interface{}, rv reflect.Value) error {
+	if _, ok := data.(time.Time); ok {
+		rv.Set(reflect.ValueOf(data))
+		return nil
+	}
+	return e("time.Time", data)
 }
 
 func (md *MetaData) unifyString(data interface{}, rv reflect.Value) error {
