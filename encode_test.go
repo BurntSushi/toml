@@ -165,6 +165,22 @@ unsigned = 5
 	encodeExpected(t, "simple with omitzero, non-zero", value, expected, nil)
 }
 
+func TestEncodeWithOmitZeroWithIsZeroer(t *testing.T) {
+	type simple struct {
+		Time time.Time `toml:"time,omitzero"`
+	}
+
+	value := simple{time.Time{}}
+	expected := ""
+
+	encodeExpected(t, "simple with omitzero, iszeroer, zero", value, expected, nil)
+
+	value.Time = time.Date(2006, time.January, 2, 15, 4, 5, 0, time.UTC)
+	expected = `time = 2006-01-02T15:04:05Z
+`
+	encodeExpected(t, "simple with omitzero, iszeroer, non-zero", value, expected, nil)
+}
+
 func TestEncodeOmitemptyWithEmptyName(t *testing.T) {
 	type simple struct {
 		S []int `toml:",omitempty"`

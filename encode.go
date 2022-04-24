@@ -612,7 +612,14 @@ func getOptions(tag reflect.StructTag) tagOptions {
 	return opts
 }
 
+type isZeroer interface {
+	IsZero() bool
+}
+
 func isZero(rv reflect.Value) bool {
+	if z, ok := rv.Interface().(isZeroer); ok {
+		return z.IsZero()
+	}
 	switch rv.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return rv.Int() == 0
