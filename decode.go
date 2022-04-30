@@ -198,13 +198,14 @@ func (md *MetaData) unify(data interface{}, rv reflect.Value) error {
 		return nil
 	}
 
+	rvi := rv.Interface()
 	// Special case. Unmarshaler Interface support.
-	if v, ok := rv.Interface().(Unmarshaler); ok {
+	if v, ok := rvi.(Unmarshaler); ok {
 		return v.UnmarshalTOML(data)
 	}
 
 	// Special case. Look for a value satisfying the TextUnmarshaler interface.
-	if v, ok := rv.Interface().(encoding.TextUnmarshaler); ok {
+	if v, ok := rvi.(encoding.TextUnmarshaler); ok {
 		return md.unifyText(data, v)
 	}
 	// TODO:
@@ -224,7 +225,7 @@ func (md *MetaData) unify(data interface{}, rv reflect.Value) error {
 	switch k {
 	case reflect.Ptr:
 		elem := reflect.New(rv.Type().Elem())
-		err := md.unify(data, indirect(elem))
+		err := md.unify(data, reflect.Indirect(elem))
 		if err != nil {
 			return err
 		}
