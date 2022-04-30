@@ -197,6 +197,7 @@ func TestDecodePointers(t *testing.T) {
 		BaseObject  *Object
 		Strptr      *string
 		Strptrs     []*string
+		TimeMap     map[string]time.Time
 	}
 	s1, s2, s3 := "blah", "abc", "def"
 	expected := &Dict{
@@ -207,6 +208,9 @@ func TestDecodePointers(t *testing.T) {
 			"bar": {"BAR", "ba-ba-ba-ba-barrrr!!!"},
 		},
 		BaseObject: &Object{"BASE", "da base"},
+		TimeMap: map[string]time.Time{
+			"foo": time.Date(1987, 7, 5, 5, 45, 0, 0, time.UTC),
+		},
 	}
 
 	ex1 := `
@@ -224,6 +228,9 @@ Description = "ba-ba-ba-ba-barrrr!!!"
 [BaseObject]
 Type = "BASE"
 Description = "da base"
+
+[TimeMap]
+foo = 1987-07-05T05:45:00Z
 `
 	dict := new(Dict)
 	_, err := Decode(ex1, dict)
