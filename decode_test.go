@@ -197,7 +197,6 @@ func TestDecodePointers(t *testing.T) {
 		BaseObject  *Object
 		Strptr      *string
 		Strptrs     []*string
-		TimeMap     map[string]time.Time
 	}
 	s1, s2, s3 := "blah", "abc", "def"
 	expected := &Dict{
@@ -208,9 +207,6 @@ func TestDecodePointers(t *testing.T) {
 			"bar": {"BAR", "ba-ba-ba-ba-barrrr!!!"},
 		},
 		BaseObject: &Object{"BASE", "da base"},
-		TimeMap: map[string]time.Time{
-			"foo": time.Date(1987, 7, 5, 5, 45, 0, 0, time.UTC),
-		},
 	}
 
 	ex1 := `
@@ -228,9 +224,6 @@ Description = "ba-ba-ba-ba-barrrr!!!"
 [BaseObject]
 Type = "BASE"
 Description = "da base"
-
-[TimeMap]
-foo = 1987-07-05T05:45:00Z
 `
 	dict := new(Dict)
 	_, err := Decode(ex1, dict)
@@ -758,6 +751,38 @@ func TestDecodeDatetime(t *testing.T) {
 				t.Errorf("\nhave: %s\nwant: %s", h, w)
 			}
 		})
+	}
+}
+
+func TestDecodeTextUnmarshaler(t *testing.T) {
+	type Dict struct {
+		Time    time.Time
+		TimeP   *time.Time
+		TimeMap map[string]time.Time
+	}
+
+	tm := time.Date(1987, 7, 5, 5, 45, 0, 0, time.UTC)
+	expected := &Dict{
+		Time:    tm,
+		TimeP:   &tm,
+		TimeMap: map[string]time.Time{"foo": tm},
+	}
+
+	ex1 := `
+Time = 1987-07-05T05:45:00Z
+TimeP = 1987-07-05T05:45:00Z
+
+[TimeMap]
+foo = 1987-07-05T05:45:00Z
+`
+
+	dict := new(Dict)
+	_, err := Decode(ex1, dict)
+	if err != nil {
+		t.Errorf("Decode error: %v", err)
+	}
+	if !reflect.DeepEqual(expected, dict) {
+		t.Fatalf("\n%#v\n!=\n%#v\n", expected, dict)
 	}
 }
 
