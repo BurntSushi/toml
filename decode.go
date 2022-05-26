@@ -199,15 +199,13 @@ func (md *MetaData) unify(data interface{}, rv reflect.Value) error {
 	}
 
 	rvi := rv.Interface()
-	// Special case. Unmarshaler Interface support.
 	if v, ok := rvi.(Unmarshaler); ok {
 		return v.UnmarshalTOML(data)
 	}
-
-	// Special case. Look for a value satisfying the TextUnmarshaler interface.
 	if v, ok := rvi.(encoding.TextUnmarshaler); ok {
 		return md.unifyText(data, v)
 	}
+
 	// TODO:
 	// The behavior here is incorrect whenever a Go type satisfies the
 	// encoding.TextUnmarshaler interface but also corresponds to a TOML hash or

@@ -755,34 +755,50 @@ func TestDecodeDatetime(t *testing.T) {
 }
 
 func TestDecodeTextUnmarshaler(t *testing.T) {
-	type Dict struct {
-		Time    time.Time
-		TimeP   *time.Time
-		TimeMap map[string]time.Time
+	tests := []struct {
+		name string
+		t    interface{}
+		toml string
+		want string
+	}{
+		{
+			"time.Time",
+			struct{ Time time.Time }{},
+			"Time = 1987-07-05T05:45:00Z",
+			"map[Time:1987-07-05 05:45:00 +0000 UTC]",
+		},
+		{
+			"*time.Time",
+			struct{ Time *time.Time }{},
+			"Time = 1988-07-05T05:45:00Z",
+			"map[Time:1988-07-05 05:45:00 +0000 UTC]",
+		},
+		{
+			"map[string]time.Time",
+			struct{ Times map[string]time.Time }{},
+			"Times.one = 1989-07-05T05:45:00Z\nTimes.two = 1990-07-05T05:45:00Z",
+			"map[Times:map[one:1989-07-05 05:45:00 +0000 UTC two:1990-07-05 05:45:00 +0000 UTC]]",
+		},
+		{
+			"map[string]*time.Time",
+			struct{ Times map[string]*time.Time }{},
+			"Times.one = 1989-07-05T05:45:00Z\nTimes.two = 1990-07-05T05:45:00Z",
+			"map[Times:map[one:1989-07-05 05:45:00 +0000 UTC two:1990-07-05 05:45:00 +0000 UTC]]",
+		},
 	}
 
-	tm := time.Date(1987, 7, 5, 5, 45, 0, 0, time.UTC)
-	expected := &Dict{
-		Time:    tm,
-		TimeP:   &tm,
-		TimeMap: map[string]time.Time{"foo": tm},
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Decode(tt.toml, &tt.t)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	ex1 := `
-Time = 1987-07-05T05:45:00Z
-TimeP = 1987-07-05T05:45:00Z
-
-[TimeMap]
-foo = 1987-07-05T05:45:00Z
-`
-
-	dict := new(Dict)
-	_, err := Decode(ex1, dict)
-	if err != nil {
-		t.Errorf("Decode error: %v", err)
-	}
-	if !reflect.DeepEqual(expected, dict) {
-		t.Fatalf("\n%#v\n!=\n%#v\n", expected, dict)
+			have := fmt.Sprintf("%v", tt.t)
+			if have != tt.want {
+				t.Errorf("\nhave: %s\nwant: %s", have, tt.want)
+			}
+		})
 	}
 }
 
