@@ -815,14 +815,21 @@ func TestDecodeDuration(t *testing.T) {
 		{`t = 0`, 0, ""},
 		{`t = 12345678`, 12345678, ""},
 
+		{`t = "99 bottles of beer"`, 0, `unknown unit " bottles of beer" in duration "99 bottles of beer"`},
+		{`t = "one bottle of beer"`, 0, `invalid duration "one bottle of beer"`},
 		{`t = 1.2`, 0, "incompatible types"},
 		{`t = {}`, 0, "incompatible types"},
 		{`t = []`, 0, "incompatible types"},
+
+		// TODO: also test *time.Duration, map[string]time.Duration
 	}
 
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
-			var have struct{ T time.Duration }
+			var have struct {
+				T time.Duration
+				D time.Time
+			}
 
 			_, err := Decode(tt.toml, &have)
 			if !errorContains(err, tt.wantErr) {

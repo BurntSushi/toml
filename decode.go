@@ -423,61 +423,70 @@ func (md *MetaData) unifyFloat64(data interface{}, rv reflect.Value) error {
 }
 
 func (md *MetaData) unifyInt(data interface{}, rv reflect.Value) error {
-	if _, ok := rv.Interface().(time.Duration); ok {
+	_, ok := rv.Interface().(time.Duration)
+	if ok {
+		// Parse as string duration, and fall back to regular integer parsing
+		// (as nanosecond) if this is not a string.
 		if s, ok := data.(string); ok {
 			dur, err := time.ParseDuration(s)
 			if err != nil {
-				return e("value %q is not a valid duration: %w", s, err)
+				return e("could not parse time.Duration: %w", err)
 			}
 			rv.SetInt(int64(dur))
 			return nil
 		}
 	}
 
-	if num, ok := data.(int64); ok {
-		if rv.Kind() >= reflect.Int && rv.Kind() <= reflect.Int64 {
-			switch rv.Kind() {
-			case reflect.Int, reflect.Int64:
-				// No bounds checking necessary.
-			case reflect.Int8:
-				if num < math.MinInt8 || num > math.MaxInt8 {
-					return e("value %d is out of range for int8", num)
-				}
-			case reflect.Int16:
-				if num < math.MinInt16 || num > math.MaxInt16 {
-					return e("value %d is out of range for int16", num)
-				}
-			case reflect.Int32:
-				if num < math.MinInt32 || num > math.MaxInt32 {
-					return e("value %d is out of range for int32", num)
-				}
+	num, ok := data.(int64)
+	if !ok {
+		return md.badtype("integer", data)
+	}
+
+	switch {
+	default:
+		panic("unreachable")
+
+	case rv.Kind() >= reflect.Int && rv.Kind() <= reflect.Int64:
+		switch rv.Kind() {
+		case reflect.Int, reflect.Int64:
+			// No bounds checking necessary.
+		case reflect.Int8:
+			if num < math.MinInt8 || num > math.MaxInt8 {
+				return e("value %d is out of range for int8", num)
 			}
-			rv.SetInt(num)
-		} else if rv.Kind() >= reflect.Uint && rv.Kind() <= reflect.Uint64 {
-			unum := uint64(num)
-			switch rv.Kind() {
-			case reflect.Uint, reflect.Uint64:
-				// No bounds checking necessary.
-			case reflect.Uint8:
-				if num < 0 || unum > math.MaxUint8 {
-					return e("value %d is out of range for uint8", num)
-				}
-			case reflect.Uint16:
-				if num < 0 || unum > math.MaxUint16 {
-					return e("value %d is out of range for uint16", num)
-				}
-			case reflect.Uint32:
-				if num < 0 || unum > math.MaxUint32 {
-					return e("value %d is out of range for uint32", num)
-				}
+		case reflect.Int16:
+			if num < math.MinInt16 || num > math.MaxInt16 {
+				return e("value %d is out of range for int16", num)
 			}
-			rv.SetUint(unum)
-		} else {
-			panic("unreachable")
+		case reflect.Int32:
+			if num < math.MinInt32 || num > math.MaxInt32 {
+				return e("value %d is out of range for int32", num)
+			}
 		}
+		rv.SetInt(num)
+		return nil
+
+	case rv.Kind() >= reflect.Uint && rv.Kind() <= reflect.Uint64:
+		unum := uint64(num)
+		switch rv.Kind() {
+		case reflect.Uint, reflect.Uint64:
+			// No bounds checking necessary.
+		case reflect.Uint8:
+			if num < 0 || unum > math.MaxUint8 {
+				return e("value %d is out of range for uint8", num)
+			}
+		case reflect.Uint16:
+			if num < 0 || unum > math.MaxUint16 {
+				return e("value %d is out of range for uint16", num)
+			}
+		case reflect.Uint32:
+			if num < 0 || unum > math.MaxUint32 {
+				return e("value %d is out of range for uint32", num)
+			}
+		}
+		rv.SetUint(unum)
 		return nil
 	}
-	return md.badtype("integer", data)
 }
 
 func (md *MetaData) unifyBool(data interface{}, rv reflect.Value) error {
