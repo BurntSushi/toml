@@ -3,6 +3,7 @@ package toml
 import (
 	"bufio"
 	"encoding"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -139,20 +140,14 @@ func (enc *Encoder) safeEncode(key Key, rv reflect.Value) (err error) {
 }
 
 func (enc *Encoder) encode(key Key, rv reflect.Value) {
-	// Special case: time needs to be in RFC 3339 format.
-	//
-	// Special case: if we can marshal the type to text, then we used that. This
-	// prevents the encoder for handling these types as generic structs (or
-	// whatever the underlying type of a TextMarshaler is).
+	// If we can marshal the type to text, then we use that. This prevents the
+	// encoder for handling these types as generic structs (or whatever the
+	// underlying type of a TextMarshaler is).
 	switch t := rv.Interface().(type) {
-	case time.Time, encoding.TextMarshaler, Marshaler:
+	case encoding.TextMarshaler, Marshaler:
 		enc.writeKeyValue(key, rv, false)
 		return
-	case time.Duration:
-		enc.writeKeyValue(key, reflect.ValueOf(t.String()), false)
-		return
-	// TODO: #76 would make this superfluous after implemented.
-	case Primitive:
+	case Primitive: // TODO: #76 would make this superfluous after implemented.
 		enc.encode(key, reflect.ValueOf(t.undecoded))
 		return
 	}
@@ -227,9 +222,29 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 		}
 		enc.writeQuoted(string(s))
 		return
+	case time.Duration:
+		enc.writeQuoted(v.String())
+		return
+	case json.Number:
+		n, _ := rv.Interface().(json.Number)
+
+		if n == "" { /// Useful zero value.
+			enc.w.WriteByte('0')
+			return
+		} else if v, err := n.Int64(); err == nil {
+			enc.eElement(reflect.ValueOf(v))
+			return
+		} else if v, err := n.Float64(); err == nil {
+			enc.eElement(reflect.ValueOf(v))
+			return
+		}
+		encPanic(errors.New(fmt.Sprintf("Unable to convert \"%s\" to neither int64 nor float64", n)))
 	}
 
 	switch rv.Kind() {
+	case reflect.Ptr:
+		enc.eElement(rv.Elem())
+		return
 	case reflect.String:
 		enc.writeQuoted(rv.String())
 	case reflect.Bool:
@@ -265,7 +280,7 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 	case reflect.Interface:
 		enc.eElement(rv.Elem())
 	default:
-		encPanic(fmt.Errorf("unexpected primitive type: %T", rv.Interface()))
+		encPanic(fmt.Errorf("unexpected type: %T", rv.Interface()))
 	}
 }
 

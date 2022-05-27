@@ -109,7 +109,7 @@ func (p *parser) panicf(format string, v ...interface{}) {
 
 func (p *parser) next() item {
 	it := p.lx.nextItem()
-	//fmt.Printf("ITEM %-18s line %-3d │ %q\n", it.typ, it.line, it.val)
+	//fmt.Printf("ITEM %-18s line %-3d │ %q\n", it.typ, it.pos.Line, it.val)
 	if it.typ == itemError {
 		if it.err != nil {
 			panic(ParseError{
