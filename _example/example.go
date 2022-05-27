@@ -18,7 +18,7 @@ type (
 		Integers   []int
 		Floats     []float64
 		Times      []fmtTime
-		Duration   []duration
+		Duration   []time.Duration
 		Distros    []distro
 		Servers    map[string]server
 		Characters map[string][]struct {
@@ -38,14 +38,8 @@ type (
 		Packages string
 	}
 
-	duration struct{ time.Duration }
-	fmtTime  struct{ time.Time }
+	fmtTime struct{ time.Time }
 )
-
-func (d *duration) UnmarshalText(text []byte) (err error) {
-	d.Duration, err = time.ParseDuration(string(text))
-	return err
-}
 
 func (t fmtTime) String() string {
 	f := "2006-01-02 15:04:05.999999999"

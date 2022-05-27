@@ -267,34 +267,6 @@ func TestDecodeIntOverflow(t *testing.T) {
 	}
 }
 
-func TestDecodeStringDuration(t *testing.T) {
-	type table struct {
-		Value time.Duration
-	}
-	var tab table
-	if _, err := Decode(`value = "5m4s"`, &tab); err != nil {
-		t.Fatalf("Cannot decode duration string: %s", err)
-	}
-
-	if tab.Value != 5*time.Minute+4*time.Second {
-		t.Fatalf("Unexpected value: %q", tab.Value)
-	}
-}
-
-func TestDecodeIntegerDuration(t *testing.T) {
-	type table struct {
-		Value time.Duration
-	}
-	var tab table
-	if _, err := Decode(`value = 12345678`, &tab); err != nil {
-		t.Fatalf("Cannot decode duration integer: %s", err)
-	}
-
-	if tab.Value != 12345678 {
-		t.Fatalf("Unexpected value: %q", tab.Value)
-	}
-}
-
 func TestDecodeFloatOverflow(t *testing.T) {
 	tests := []struct {
 		value    string
@@ -825,6 +797,40 @@ func TestDecodeTextUnmarshaler(t *testing.T) {
 			have := fmt.Sprintf("%v", tt.t)
 			if have != tt.want {
 				t.Errorf("\nhave: %s\nwant: %s", have, tt.want)
+			}
+		})
+	}
+}
+
+func TestDecodeDuration(t *testing.T) {
+	tests := []struct {
+		toml    string
+		want    time.Duration
+		wantErr string
+	}{
+		{`t = "0s"`, 0, ""},
+		{`t = "5m4s"`, 5*time.Minute + 4*time.Second, ""},
+		{`t = "4.000000002s"`, 4*time.Second + 2*time.Nanosecond, ""},
+
+		{`t = 0`, 0, ""},
+		{`t = 12345678`, 12345678, ""},
+
+		{`t = 1.2`, 0, "incompatible types"},
+		{`t = {}`, 0, "incompatible types"},
+		{`t = []`, 0, "incompatible types"},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			var have struct{ T time.Duration }
+
+			_, err := Decode(tt.toml, &have)
+			if !errorContains(err, tt.wantErr) {
+				t.Fatal(err)
+			}
+
+			if have.T != tt.want {
+				t.Errorf("\nhave: %s\nwant: %s", have.T, tt.want)
 			}
 		})
 	}

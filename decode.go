@@ -76,6 +76,9 @@ const (
 // TOML datetimes correspond to Go time.Time values. Local datetimes are parsed
 // in the local timezone.
 //
+// time.Duration types are treated as nanoseconds if the TOML value is an
+// integer, or they're parsed with time.ParseDuration() if they're strings.
+//
 // All other TOML types (float, string, int, bool and array) correspond to the
 // obvious Go types.
 //
@@ -83,7 +86,7 @@ const (
 // interface, in which case any primitive TOML value (floats, strings, integers,
 // booleans, datetimes) will be converted to a []byte and given to the value's
 // UnmarshalText method. See the Unmarshaler example for a demonstration with
-// time duration strings.
+// email addresses.
 //
 // Key mapping
 //

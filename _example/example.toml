@@ -20,7 +20,7 @@ times = [
 	15:16:17,                   # local time.
 ]
 
-# Custom Unmarshal.
+# Durations.
 duration = ["4m49s", "8m03s", "1231h15m55s"]
 
 # Table with inline tables.
