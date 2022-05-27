@@ -754,6 +754,54 @@ func TestDecodeDatetime(t *testing.T) {
 	}
 }
 
+func TestDecodeTextUnmarshaler(t *testing.T) {
+	tests := []struct {
+		name string
+		t    interface{}
+		toml string
+		want string
+	}{
+		{
+			"time.Time",
+			struct{ Time time.Time }{},
+			"Time = 1987-07-05T05:45:00Z",
+			"map[Time:1987-07-05 05:45:00 +0000 UTC]",
+		},
+		{
+			"*time.Time",
+			struct{ Time *time.Time }{},
+			"Time = 1988-07-05T05:45:00Z",
+			"map[Time:1988-07-05 05:45:00 +0000 UTC]",
+		},
+		{
+			"map[string]time.Time",
+			struct{ Times map[string]time.Time }{},
+			"Times.one = 1989-07-05T05:45:00Z\nTimes.two = 1990-07-05T05:45:00Z",
+			"map[Times:map[one:1989-07-05 05:45:00 +0000 UTC two:1990-07-05 05:45:00 +0000 UTC]]",
+		},
+		{
+			"map[string]*time.Time",
+			struct{ Times map[string]*time.Time }{},
+			"Times.one = 1989-07-05T05:45:00Z\nTimes.two = 1990-07-05T05:45:00Z",
+			"map[Times:map[one:1989-07-05 05:45:00 +0000 UTC two:1990-07-05 05:45:00 +0000 UTC]]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Decode(tt.toml, &tt.t)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			have := fmt.Sprintf("%v", tt.t)
+			if have != tt.want {
+				t.Errorf("\nhave: %s\nwant: %s", have, tt.want)
+			}
+		})
+	}
+}
+
 func TestMetaDotConflict(t *testing.T) {
 	var m map[string]interface{}
 	meta, err := Decode(`

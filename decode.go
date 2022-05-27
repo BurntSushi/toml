@@ -111,6 +111,7 @@ func NewDecoder(r io.Reader) *Decoder {
 var (
 	unmarshalToml = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
 	unmarshalText = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
+	primitiveType = reflect.TypeOf((*Primitive)(nil)).Elem()
 )
 
 // Decode TOML data in to the pointer `v`.
@@ -185,7 +186,7 @@ func (md *MetaData) PrimitiveDecode(primValue Primitive, v interface{}) error {
 func (md *MetaData) unify(data interface{}, rv reflect.Value) error {
 	// Special case. Look for a `Primitive` value.
 	// TODO: #76 would make this superfluous after implemented.
-	if rv.Type() == reflect.TypeOf((*Primitive)(nil)).Elem() {
+	if rv.Type() == primitiveType {
 		// Save the undecoded data and the key context into the primitive
 		// value.
 		context := make(Key, len(md.context))
@@ -197,17 +198,14 @@ func (md *MetaData) unify(data interface{}, rv reflect.Value) error {
 		return nil
 	}
 
-	// Special case. Unmarshaler Interface support.
-	if rv.CanAddr() {
-		if v, ok := rv.Addr().Interface().(Unmarshaler); ok {
-			return v.UnmarshalTOML(data)
-		}
+	rvi := rv.Interface()
+	if v, ok := rvi.(Unmarshaler); ok {
+		return v.UnmarshalTOML(data)
 	}
-
-	// Special case. Look for a value satisfying the TextUnmarshaler interface.
-	if v, ok := rv.Interface().(encoding.TextUnmarshaler); ok {
+	if v, ok := rvi.(encoding.TextUnmarshaler); ok {
 		return md.unifyText(data, v)
 	}
+
 	// TODO:
 	// The behavior here is incorrect whenever a Go type satisfies the
 	// encoding.TextUnmarshaler interface but also corresponds to a TOML hash or
@@ -322,7 +320,7 @@ func (md *MetaData) unifyMap(mapping interface{}, rv reflect.Value) error {
 		md.context = append(md.context, k)
 
 		rvval := reflect.Indirect(reflect.New(rv.Type().Elem()))
-		if err := md.unify(v, rvval); err != nil {
+		if err := md.unify(v, indirect(rvval)); err != nil {
 			return err
 		}
 		md.context = md.context[0 : len(md.context)-1]
@@ -534,7 +532,11 @@ func indirect(v reflect.Value) reflect.Value {
 	if v.Kind() != reflect.Ptr {
 		if v.CanSet() {
 			pv := v.Addr()
-			if _, ok := pv.Interface().(encoding.TextUnmarshaler); ok {
+			pvi := pv.Interface()
+			if _, ok := pvi.(encoding.TextUnmarshaler); ok {
+				return pv
+			}
+			if _, ok := pvi.(Unmarshaler); ok {
 				return pv
 			}
 		}
@@ -550,7 +552,11 @@ func isUnifiable(rv reflect.Value) bool {
 	if rv.CanSet() {
 		return true
 	}
-	if _, ok := rv.Interface().(encoding.TextUnmarshaler); ok {
+	rvi := rv.Interface()
+	if _, ok := rvi.(encoding.TextUnmarshaler); ok {
+		return true
+	}
+	if _, ok := rvi.(Unmarshaler); ok {
 		return true
 	}
 	return false
