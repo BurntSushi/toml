@@ -18,7 +18,7 @@ type Unmarshaler interface {
 	UnmarshalTOML(interface{}) error
 }
 
-// Unmarshal decodes the contents of `p` in TOML format into a pointer `v`.
+// Unmarshal decodes the contents of `data` in TOML format into a pointer `v`.
 func Unmarshal(data []byte, v interface{}) error {
 	_, err := NewDecoder(bytes.NewReader(data)).Decode(v)
 	return err
