@@ -348,34 +348,6 @@ func TestDecodeIntOverflow(t *testing.T) {
 	}
 }
 
-func TestDecodeStringDuration(t *testing.T) {
-	type table struct {
-		Value time.Duration
-	}
-	var tab table
-	if _, err := Decode(`value = "5m4s"`, &tab); err != nil {
-		t.Fatalf("Cannot decode duration string: %s", err)
-	}
-
-	if tab.Value != 5*time.Minute+4*time.Second {
-		t.Fatalf("Unexpected value: %q", tab.Value)
-	}
-}
-
-func TestDecodeIntegerDuration(t *testing.T) {
-	type table struct {
-		Value time.Duration
-	}
-	var tab table
-	if _, err := Decode(`value = 12345678`, &tab); err != nil {
-		t.Fatalf("Cannot decode duration integer: %s", err)
-	}
-
-	if tab.Value != 12345678 {
-		t.Fatalf("Unexpected value: %q", tab.Value)
-	}
-}
-
 func TestDecodeFloatOverflow(t *testing.T) {
 	tests := []struct {
 		value    string
@@ -904,6 +876,60 @@ func TestDecodeTextUnmarshaler(t *testing.T) {
 			}
 
 			have := fmt.Sprintf("%v", tt.t)
+			if have != tt.want {
+				t.Errorf("\nhave: %s\nwant: %s", have, tt.want)
+			}
+		})
+	}
+}
+
+func TestDecodeDuration(t *testing.T) {
+	tests := []struct {
+		in                  interface{}
+		toml, want, wantErr string
+	}{
+		{&struct{ T time.Duration }{}, `t = "0s"`,
+			"&{0s}", ""},
+		{&struct{ T time.Duration }{}, `t = "5m4s"`,
+			"&{5m4s}", ""},
+		{&struct{ T time.Duration }{}, `t = "4.000000002s"`,
+			"&{4.000000002s}", ""},
+
+		{&struct{ T time.Duration }{}, `t = 0`,
+			"&{0s}", ""},
+		{&struct{ T time.Duration }{}, `t = 12345678`,
+			"&{12.345678ms}", ""},
+
+		{&struct{ T *time.Duration }{}, `T = "5s"`,
+			"&{5s}", ""},
+		{&struct{ T *time.Duration }{}, `T = 5`,
+			"&{5ns}", ""},
+
+		{&struct{ T map[string]time.Duration }{}, `T.dur = "5s"`,
+			"&{map[dur:5s]}", ""},
+		{&struct{ T map[string]*time.Duration }{}, `T.dur = "5s"`,
+			"&{map[dur:5s]}", ""},
+
+		{&struct{ T []time.Duration }{}, `T = ["5s"]`,
+			"&{[5s]}", ""},
+		{&struct{ T []*time.Duration }{}, `T = ["5s"]`,
+			"&{[5s]}", ""},
+
+		{&struct{ T time.Duration }{}, `t = "99 bottles of beer"`, "&{0s}", `invalid duration: "99 bottles of beer"`},
+		{&struct{ T time.Duration }{}, `t = "one bottle of beer"`, "&{0s}", `invalid duration: "one bottle of beer"`},
+		{&struct{ T time.Duration }{}, `t = 1.2`, "&{0s}", "incompatible types:"},
+		{&struct{ T time.Duration }{}, `t = {}`, "&{0s}", "incompatible types:"},
+		{&struct{ T time.Duration }{}, `t = []`, "&{0s}", "incompatible types:"},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			_, err := Decode(tt.toml, tt.in)
+			if !errorContains(err, tt.wantErr) {
+				t.Fatal(err)
+			}
+
+			have := fmt.Sprintf("%s", tt.in)
 			if have != tt.want {
 				t.Errorf("\nhave: %s\nwant: %s", have, tt.want)
 			}

@@ -74,6 +74,9 @@ type Marshaler interface {
 // The mapping between Go values and TOML values should be precisely the same as
 // for the Decode* functions.
 //
+// time.Time is encoded as a RFC 3339 string, and time.Duration as its string
+// representation.
+//
 // The toml.Marshaler and encoder.TextMarshaler interfaces are supported to
 // encoding the value as custom TOML.
 //
@@ -136,7 +139,7 @@ func (enc *Encoder) safeEncode(key Key, rv reflect.Value) (err error) {
 }
 
 func (enc *Encoder) encode(key Key, rv reflect.Value) {
-	// Special case: time needs to be in ISO8601 format.
+	// Special case: time needs to be in RFC 3339 format.
 	//
 	// Special case: if we can marshal the type to text, then we used that. This
 	// prevents the encoder for handling these types as generic structs (or
@@ -145,10 +148,10 @@ func (enc *Encoder) encode(key Key, rv reflect.Value) {
 	case time.Time, encoding.TextMarshaler, Marshaler:
 		enc.writeKeyValue(key, rv, false)
 		return
-		// TODO: #76 would make this superfluous after implemented.
 	case time.Duration:
 		enc.writeKeyValue(key, reflect.ValueOf(t.String()), false)
 		return
+	// TODO: #76 would make this superfluous after implemented.
 	case Primitive:
 		enc.encode(key, reflect.ValueOf(t.undecoded))
 		return

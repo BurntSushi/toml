@@ -168,6 +168,7 @@ type (
 		i    interface{} // int or float
 		size string      // "int64", "uint16", etc.
 	}
+	errParseDuration struct{ d string }
 )
 
 func (e errLexControl) Error() string {
@@ -189,6 +190,8 @@ func (e errLexStringNL) Error() string      { return "strings cannot contain new
 func (e errLexStringNL) Usage() string      { return usageStringNewline }
 func (e errParseRange) Error() string       { return fmt.Sprintf("%v is out of range for %s", e.i, e.size) }
 func (e errParseRange) Usage() string       { return usageIntOverflow }
+func (e errParseDuration) Error() string    { return fmt.Sprintf("invalid duration: %q", e.d) }
+func (e errParseDuration) Usage() string    { return usageDuration }
 
 const usageEscape = `
 A '\' inside a "-delimited string is interpreted as an escape character.
@@ -256,4 +259,18 @@ The maximum and minimum values are:
     uint64 │ 0              │ 1.8 × 10¹⁸
 
 int refers to int32 on 32-bit systems and int64 on 64-bit systems.
+`
+
+const usageDuration = `
+A duration must be as "number<unit>", without any spaces. Valid units are:
+
+    ns         nanoseconds (billionth of a second)
+    us, µs     microseconds (millionth of a second)
+    ms         milliseconds (thousands of a second)
+    s          seconds
+    m          minutes
+    h          hours
+
+You can combine multiple units; for example "5m10s" for 5 minutes and 10
+seconds.
 `

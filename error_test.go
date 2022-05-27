@@ -10,6 +10,7 @@ import (
 	"math"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	tomltest "github.com/BurntSushi/toml/internal/toml-test"
@@ -178,6 +179,32 @@ func TestParseError(t *testing.T) {
             |         uint64 │ 0              │ 1.8 × 10¹⁸
             |
             |     int refers to int32 on 32-bit systems and int64 on 64-bit systems.
+			`,
+		},
+
+		{
+			&struct{ D time.Duration }{},
+			`D = "99 bottles"`,
+			`
+			| toml: error: invalid duration: "99 bottles"
+			|
+			| At line 1, column 5-15:
+			|
+			|       1 | D = "99 bottles"
+			|                ^^^^^^^^^^
+			| Error help:
+			|
+			|     A duration must be as "number<unit>", without any spaces. Valid units are:
+			|
+			|         ns         nanoseconds (billionth of a second)
+			|         us, µs     microseconds (millionth of a second)
+			|         ms         milliseconds (thousands of a second)
+			|         s          seconds
+			|         m          minutes
+			|         h          hours
+			|
+			|     You can combine multiple units; for example "5m10s" for 5 minutes and 10
+			|     seconds.
 			`,
 		},
 	}

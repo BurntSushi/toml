@@ -76,6 +76,9 @@ const (
 // TOML datetimes correspond to Go time.Time values. Local datetimes are parsed
 // in the local timezone.
 //
+// time.Duration types are treated as nanoseconds if the TOML value is an
+// integer, or they're parsed with time.ParseDuration() if they're strings.
+//
 // All other TOML types (float, string, int, bool and array) correspond to the
 // obvious Go types.
 //
@@ -83,7 +86,7 @@ const (
 // interface, in which case any primitive TOML value (floats, strings, integers,
 // booleans, datetimes) will be converted to a []byte and given to the value's
 // UnmarshalText method. See the Unmarshaler example for a demonstration with
-// time duration strings.
+// email addresses.
 //
 // Key mapping
 //
@@ -413,20 +416,23 @@ func (md *MetaData) unifyFloat64(data interface{}, rv reflect.Value) error {
 }
 
 func (md *MetaData) unifyInt(data interface{}, rv reflect.Value) error {
-	num, ok := data.(int64)
-	if !ok {
-		return md.badtype("integer", data)
-	}
-
-	if _, ok := rv.Interface().(time.Duration); ok {
+	_, ok := rv.Interface().(time.Duration)
+	if ok {
+		// Parse as string duration, and fall back to regular integer parsing
+		// (as nanosecond) if this is not a string.
 		if s, ok := data.(string); ok {
 			dur, err := time.ParseDuration(s)
 			if err != nil {
-				return md.e("value %q is not a valid duration: %w", s, err)
+				return md.parseErr(errParseDuration{s})
 			}
 			rv.SetInt(int64(dur))
 			return nil
 		}
+	}
+
+	num, ok := data.(int64)
+	if !ok {
+		return md.badtype("integer", data)
 	}
 
 	rvk := rv.Kind()
