@@ -123,6 +123,87 @@ func TestDecodeEmbedded(t *testing.T) {
 	}
 }
 
+func TestDecodeErrors(t *testing.T) {
+	tests := []struct {
+		s       interface{}
+		toml    string
+		wantErr string
+	}{
+		{
+			&struct{ V int8 }{},
+			`V = 999`,
+			`toml: line 1 (last key "V"): 999 is out of range for int8`,
+		},
+		{
+			&struct{ V float32 }{},
+			`V = 999999999999999`,
+			`toml: line 1 (last key "V"): 999999999999999 is out of range for float32`,
+		},
+		{
+			&struct{ V string }{},
+			`V = 5`,
+			`toml: line 1 (last key "V"): incompatible types: TOML value has type int64; destination has type string`,
+		},
+		{
+			&struct{ V interface{ ASD() } }{},
+			`V = 999`,
+			`toml: line 1 (last key "V"): unsupported type interface { ASD() }`,
+		},
+		{
+			&struct{ V struct{ V int } }{},
+			`V = 999`,
+			`toml: line 1 (last key "V"): type mismatch for struct { V int }: expected table but found int64`,
+		},
+		{
+			&struct{ V [1]int }{},
+			`V = [1,2,3]`,
+			`toml: line 1 (last key "V"): expected array length 1; got TOML array of length 3`,
+		},
+		{
+			&struct{ V struct{ N int8 } }{},
+			`V.N = 999`,
+			`toml: line 1 (last key "V.N"): 999 is out of range for int8`,
+		},
+		{
+			&struct{ V struct{ N float32 } }{},
+			`V.N = 999999999999999`,
+			`toml: line 1 (last key "V.N"): 999999999999999 is out of range for float32`,
+		},
+		{
+			&struct{ V struct{ N string } }{},
+			`V.N = 5`,
+			`toml: line 1 (last key "V.N"): incompatible types: TOML value has type int64; destination has type string`,
+		},
+		{
+			&struct {
+				V struct{ N interface{ ASD() } }
+			}{},
+			`V.N = 999`,
+			`toml: line 1 (last key "V.N"): unsupported type interface { ASD() }`,
+		},
+		{
+			&struct{ V struct{ N struct{ V int } } }{},
+			`V.N = 999`,
+			`toml: line 1 (last key "V.N"): type mismatch for struct { V int }: expected table but found int64`,
+		},
+		{
+			&struct{ V struct{ N [1]int } }{},
+			`V.N = [1,2,3]`,
+			`toml: line 1 (last key "V.N"): expected array length 1; got TOML array of length 3`,
+		},
+	}
+
+	for _, tt := range tests {
+		_, err := Decode(tt.toml, tt.s)
+		if err == nil {
+			t.Fatal("err is nil")
+		}
+		if err.Error() != tt.wantErr {
+			t.Errorf("\nhave: %q\nwant: %q", err, tt.wantErr)
+		}
+	}
+}
+
 func TestDecodeIgnoreFields(t *testing.T) {
 	const input = `
 Number = 123
@@ -368,11 +449,11 @@ func TestDecodeTypes(t *testing.T) {
 		{(*Unmarshaler)(nil), `toml: cannot decode to nil value of "*toml.Unmarshaler"`},
 		{nil, `toml: cannot decode to non-pointer <nil>`},
 
-		{new(map[int]string), "cannot decode to a map with non-string key type"},
-		{new(map[interface{}]string), "cannot decode to a map with non-string key type"},
+		{new(map[int]string), "toml: cannot decode to a map with non-string key type"},
+		{new(map[interface{}]string), "toml: cannot decode to a map with non-string key type"},
 
-		{new(struct{ F int }), `toml: incompatible types: TOML key "F" has type bool; destination has type integer`},
-		{new(map[string]int), `toml: incompatible types: TOML key "F" has type bool; destination has type integer`},
+		{new(struct{ F int }), `toml: line 1 (last key "F"): incompatible types: TOML value has type bool; destination has type integer`},
+		{new(map[string]int), `toml: line 1 (last key "F"): incompatible types: TOML value has type bool; destination has type integer`},
 		{new(int), `toml: cannot decode to type int`},
 		{new([]int), "toml: cannot decode to type []int"},
 	} {
@@ -513,8 +594,8 @@ Locations = {NY = {Temp = "not cold", Rating = 4}, MI = {Temp = "freezing", Rati
 	if len(meta.keys) != 12 {
 		t.Errorf("after decode, got %d meta keys; want 12", len(meta.keys))
 	}
-	if len(meta.types) != 12 {
-		t.Errorf("after decode, got %d meta types; want 12", len(meta.types))
+	if len(meta.keyInfo) != 12 {
+		t.Errorf("after decode, got %d meta keyInfo; want 12", len(meta.keyInfo))
 	}
 }
 

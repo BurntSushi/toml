@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"strings"
 	"testing"
 
@@ -83,51 +84,135 @@ At line 2, column 4-15:
 	}
 }
 
-// Useful to print all errors, to see if they look alright.
 func TestParseError(t *testing.T) {
-	return // Doesn't need to be part of the test suite.
+	tests := []struct {
+		in        interface{}
+		toml, err string
+	}{
+		{
+			&struct{ Int int8 }{},
+			"Int = 200",
+			`| toml: error: 200 is out of range for int8
+			 |
+			 | At line 1, column 6-9:
+			 |
+			 |       1 | Int = 200
+			 |                 ^^^
+			 | Error help:
+             |
+			 |     This number is too large; this may be an error in the TOML, but it can also be a
+			 |     bug in the program that uses too small of an integer.
+             |
+			 |     The maximum and minimum values are:
+             |
+			 |         size   │ lowest         │ highest
+			 |         ───────┼────────────────┼──────────
+			 |         int8   │ -128           │ 127
+			 |         int16  │ -32,768        │ 32,767
+			 |         int32  │ -2,147,483,648 │ 2,147,483,647
+			 |         int64  │ -9.2 × 10¹⁷    │ 9.2 × 10¹⁷
+			 |         uint8  │ 0              │ 255
+			 |         uint16 │ 0              │ 65535
+			 |         uint32 │ 0              │ 4294967295
+			 |         uint64 │ 0              │ 1.8 × 10¹⁸
+             |
+			 |     int refers to int32 on 32-bit systems and int64 on 64-bit systems.
+			`,
+		},
+		{
+			&struct{ Int int }{},
+			fmt.Sprintf("Int = %d", uint(math.MaxInt64+1)),
+			`| toml: error: 9223372036854775808 is out of range for int64
+			 |
+			 | At line 1, column 6-25:
+			 |
+			 |       1 | Int = 9223372036854775808
+			 |                 ^^^^^^^^^^^^^^^^^^^
+			 | Error help:
+             |
+			 |     This number is too large; this may be an error in the TOML, but it can also be a
+			 |     bug in the program that uses too small of an integer.
+             |
+			 |     The maximum and minimum values are:
+             |
+			 |         size   │ lowest         │ highest
+			 |         ───────┼────────────────┼──────────
+			 |         int8   │ -128           │ 127
+			 |         int16  │ -32,768        │ 32,767
+			 |         int32  │ -2,147,483,648 │ 2,147,483,647
+			 |         int64  │ -9.2 × 10¹⁷    │ 9.2 × 10¹⁷
+			 |         uint8  │ 0              │ 255
+			 |         uint16 │ 0              │ 65535
+			 |         uint32 │ 0              │ 4294967295
+			 |         uint64 │ 0              │ 1.8 × 10¹⁸
+             |
+			 |     int refers to int32 on 32-bit systems and int64 on 64-bit systems.
+			`,
+		},
+		{
+			&struct{ Float float32 }{},
+			"Float = 1.1e99",
+			`
+            | toml: error: 1.1e+99 is out of range for float32
+            |
+            | At line 1, column 8-14:
+            |
+            |       1 | Float = 1.1e99
+            |                   ^^^^^^
+            | Error help:
+            |
+            |     This number is too large; this may be an error in the TOML, but it can also be a
+            |     bug in the program that uses too small of an integer.
+            |
+            |     The maximum and minimum values are:
+            |
+            |         size   │ lowest         │ highest
+            |         ───────┼────────────────┼──────────
+            |         int8   │ -128           │ 127
+            |         int16  │ -32,768        │ 32,767
+            |         int32  │ -2,147,483,648 │ 2,147,483,647
+            |         int64  │ -9.2 × 10¹⁷    │ 9.2 × 10¹⁷
+            |         uint8  │ 0              │ 255
+            |         uint16 │ 0              │ 65535
+            |         uint32 │ 0              │ 4294967295
+            |         uint64 │ 0              │ 1.8 × 10¹⁸
+            |
+            |     int refers to int32 on 32-bit systems and int64 on 64-bit systems.
+			`,
+		},
+	}
 
-	fsys := tomltest.EmbeddedTests()
-	err := fs.WalkDir(fsys, ".", func(path string, f fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+	prep := func(s string) string {
+		lines := strings.Split(strings.TrimSpace(s), "\n")
+		for i := range lines {
+			if j := strings.IndexByte(lines[i], '|'); j >= 0 {
+				lines[i] = lines[i][j+1:]
+				lines[i] = strings.Replace(lines[i], " ", "", 1)
+			}
 		}
-		if !strings.HasSuffix(path, ".toml") {
-			return nil
-		}
+		return strings.Join(lines, "\n") + "\n"
+	}
 
-		if f.Name() == "string-multiline-escape-space.toml" || f.Name() == "bad-utf8-at-end.toml" {
-			return nil
-		}
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			_, err := toml.Decode(tt.toml, tt.in)
+			if err == nil {
+				t.Fatalf("err is nil; decoded: %#v", tt.in)
+			}
 
-		input, err := fs.ReadFile(fsys, path)
-		if err != nil {
-			t.Fatal(err)
-		}
+			var pErr toml.ParseError
+			if !errors.As(err, &pErr) {
+				t.Fatalf("err is not a ParseError: %#v", err)
+			}
 
-		var x interface{}
-		_, err = toml.Decode(string(input), &x)
-		if err == nil {
-			return nil
-		}
+			tt.err = prep(tt.err)
+			have := pErr.ErrorWithUsage()
 
-		var pErr toml.ParseError
-		if !errors.As(err, &pErr) {
-			t.Errorf("err is not a ParseError: %T %[1]v", err)
-			return nil
-		}
-
-		fmt.Println()
-		fmt.Println("\x1b[1m━━━", path, strings.Repeat("━", 65-len(path)), "\x1b[0m")
-		fmt.Print(pErr.Error())
-		fmt.Println()
-		fmt.Println("─── ErrorWithPosition()", strings.Repeat("–", 47))
-		fmt.Print(pErr.ErrorWithPosition())
-		fmt.Println("─── ErrorWithUsage()", strings.Repeat("–", 50))
-		fmt.Print(pErr.ErrorWithUsage())
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
+			// have = strings.ReplaceAll(have, " ", "·")
+			// tt.err = strings.ReplaceAll(tt.err, " ", "·")
+			if have != tt.err {
+				t.Fatalf("\nwant:\n%s\nhave:\n%s", tt.err, have)
+			}
+		})
 	}
 }
