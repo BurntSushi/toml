@@ -89,6 +89,17 @@ type Marshaler interface {
 //
 // Go maps will be sorted alphabetically by key for deterministic output.
 //
+// The toml struct tag can be used to provide the key name; if omitted the
+// struct field name will be used. If the "omitempty" option is present the
+// following value will be skipped:
+//
+//   - arrays, slices, maps, and string with len of 0
+//   - struct with all zero values
+//   - bool false
+//
+// If omitzero is given all int and float types with a value of 0 will be
+// skipped.
+//
 // Encoding Go values without a corresponding TOML representation will return an
 // error. Examples of this includes maps with non-string keys, slices with nil
 // elements, embedded non-struct types, and nested slices containing maps or
@@ -655,6 +666,8 @@ func isEmpty(rv reflect.Value) bool {
 	switch rv.Kind() {
 	case reflect.Array, reflect.Slice, reflect.Map, reflect.String:
 		return rv.Len() == 0
+	case reflect.Struct:
+		return reflect.Zero(rv.Type()).Interface() == rv.Interface()
 	case reflect.Bool:
 		return !rv.Bool()
 	}

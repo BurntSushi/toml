@@ -116,6 +116,70 @@ func TestEncodeArrayHashWithNormalHashOrder(t *testing.T) {
 	encodeExpected(t, "array hash with normal hash order", val, expected, nil)
 }
 
+func TestEncodeOmitEmptyStruct(t *testing.T) {
+	type (
+		T     struct{ Int int }
+		Tpriv struct {
+			Int     int
+			private int
+		}
+		Ttime struct {
+			Time time.Time
+		}
+	)
+
+	tests := []struct {
+		in   interface{}
+		want string
+	}{
+		{struct {
+			F T `toml:"f,omitempty"`
+		}{}, ""},
+		{struct {
+			F T `toml:"f,omitempty"`
+		}{T{1}}, "[f]\n  Int = 1"},
+
+		{struct {
+			F Tpriv `toml:"f,omitempty"`
+		}{}, ""},
+		{struct {
+			F Tpriv `toml:"f,omitempty"`
+		}{Tpriv{1, 0}}, "[f]\n  Int = 1"},
+
+		// Private field being set also counts as "not empty".
+		{struct {
+			F Tpriv `toml:"f,omitempty"`
+		}{Tpriv{0, 1}}, "[f]\n  Int = 0"},
+
+		// time.Time is common use case, so test that explicitly.
+		{struct {
+			F Ttime `toml:"t,omitempty"`
+		}{}, ""},
+		{struct {
+			F Ttime `toml:"t,omitempty"`
+		}{Ttime{time.Time{}.Add(1)}}, "[t]\n  Time = 0001-01-01T00:00:00.000000001Z"},
+
+		// TODO: also test with MarshalText, MarshalTOML returning non-zero
+		// value.
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			buf := new(bytes.Buffer)
+
+			err := NewEncoder(buf).Encode(tt.in)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			have := strings.TrimSpace(buf.String())
+			if have != tt.want {
+				t.Errorf("\nhave:\n%s\nwant:\n%s", have, tt.want)
+			}
+		})
+	}
+}
+
 func TestEncodeWithOmitEmpty(t *testing.T) {
 	type simple struct {
 		Bool   bool              `toml:"bool,omitempty"`
@@ -123,6 +187,7 @@ func TestEncodeWithOmitEmpty(t *testing.T) {
 		Array  [0]byte           `toml:"array,omitempty"`
 		Slice  []int             `toml:"slice,omitempty"`
 		Map    map[string]string `toml:"map,omitempty"`
+		Time   time.Time         `toml:"time,omitempty"`
 	}
 
 	var v simple
@@ -132,10 +197,12 @@ func TestEncodeWithOmitEmpty(t *testing.T) {
 		String: " ",
 		Slice:  []int{2, 3, 4},
 		Map:    map[string]string{"foo": "bar"},
+		Time:   time.Date(1985, 6, 18, 15, 16, 17, 0, time.UTC),
 	}
 	expected := `bool = true
 string = " "
 slice = [2, 3, 4]
+time = 1985-06-18T15:16:17Z
 
 [map]
   foo = "bar"
