@@ -496,7 +496,7 @@ func (md *MetaData) unifyText(data interface{}, v encoding.TextUnmarshaler) erro
 			return err
 		}
 		s = string(text)
-	case TextMarshaler:
+	case encoding.TextMarshaler:
 		text, err := sdata.MarshalText()
 		if err != nil {
 			return err
