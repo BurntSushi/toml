@@ -3,12 +3,14 @@ package toml
 import (
 	"bytes"
 	"encoding"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -221,7 +223,6 @@ func (md *MetaData) unify(data interface{}, rv reflect.Value) error {
 
 	k := rv.Kind()
 
-	// laziness
 	if k >= reflect.Int && k <= reflect.Uint64 {
 		return md.unifyInt(data, rv)
 	}
@@ -289,6 +290,7 @@ func (md *MetaData) unifyStruct(mapping interface{}, rv reflect.Value) error {
 			if isUnifiable(subv) {
 				md.decoded[md.context.add(key).String()] = struct{}{}
 				md.context = append(md.context, key)
+
 				err := md.unify(datum, subv)
 				if err != nil {
 					return err
@@ -324,7 +326,9 @@ func (md *MetaData) unifyMap(mapping interface{}, rv reflect.Value) error {
 		md.context = append(md.context, k)
 
 		rvval := reflect.Indirect(reflect.New(rv.Type().Elem()))
-		if err := md.unify(v, indirect(rvval)); err != nil {
+
+		err := md.unify(v, indirect(rvval))
+		if err != nil {
 			return err
 		}
 		md.context = md.context[0 : len(md.context)-1]
@@ -378,6 +382,18 @@ func (md *MetaData) unifySliceArray(data, rv reflect.Value) error {
 }
 
 func (md *MetaData) unifyString(data interface{}, rv reflect.Value) error {
+	_, ok := rv.Interface().(json.Number)
+	if ok {
+		if i, ok := data.(int64); ok {
+			rv.SetString(strconv.FormatInt(i, 10))
+		} else if f, ok := data.(float64); ok {
+			rv.SetString(strconv.FormatFloat(f, 'f', -1, 64))
+		} else {
+			return md.badtype("string", data)
+		}
+		return nil
+	}
+
 	if s, ok := data.(string); ok {
 		rv.SetString(s)
 		return nil

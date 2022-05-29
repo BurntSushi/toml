@@ -2,6 +2,7 @@ package toml
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"math"
 	"net"
@@ -513,6 +514,81 @@ func TestEncodeDuration(t *testing.T) {
 		encodeExpected(t, tt.String(),
 			struct{ Dur time.Duration }{Dur: tt},
 			fmt.Sprintf("Dur = %q", tt), nil)
+	}
+}
+
+type jsonT struct {
+	Num  json.Number
+	NumP *json.Number
+	Arr  []json.Number
+	ArrP []*json.Number
+	Tbl  map[string]json.Number
+	TblP map[string]*json.Number
+}
+
+var (
+	n2, n4, n6 = json.Number("2"), json.Number("4"), json.Number("6")
+	f2, f4, f6 = json.Number("2.2"), json.Number("4.4"), json.Number("6.6")
+)
+
+func TestEncodeJSONNumber(t *testing.T) {
+	tests := []struct {
+		in   jsonT
+		want string
+	}{
+		{jsonT{}, "Num = 0"},
+		{jsonT{
+			Num:  "1",
+			NumP: &n2,
+			Arr:  []json.Number{"3"},
+			ArrP: []*json.Number{&n4},
+			Tbl:  map[string]json.Number{"k1": "5"},
+			TblP: map[string]*json.Number{"k2": &n6}}, `
+				Num = 1
+				NumP = 2
+				Arr = [3]
+				ArrP = [4]
+
+				[Tbl]
+				  k1 = 5
+
+				[TblP]
+				  k2 = 6
+		`},
+		{jsonT{
+			Num:  "1.1",
+			NumP: &f2,
+			Arr:  []json.Number{"3.3"},
+			ArrP: []*json.Number{&f4},
+			Tbl:  map[string]json.Number{"k1": "5.5"},
+			TblP: map[string]*json.Number{"k2": &f6}}, `
+				Num = 1.1
+				NumP = 2.2
+				Arr = [3.3]
+				ArrP = [4.4]
+
+				[Tbl]
+				  k1 = 5.5
+
+				[TblP]
+				  k2 = 6.6
+		`},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			var buf bytes.Buffer
+			err := NewEncoder(&buf).Encode(tt.in)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			have := strings.TrimSpace(buf.String())
+			want := strings.ReplaceAll(strings.TrimSpace(tt.want), "\t", "")
+			if have != want {
+				t.Errorf("\nwant:\n%s\nhave:\n%s\n", want, have)
+			}
+		})
 	}
 }
 

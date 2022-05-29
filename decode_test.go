@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -920,6 +921,40 @@ func TestDecodeDuration(t *testing.T) {
 		{&struct{ T time.Duration }{}, `t = 1.2`, "&{0s}", "incompatible types:"},
 		{&struct{ T time.Duration }{}, `t = {}`, "&{0s}", "incompatible types:"},
 		{&struct{ T time.Duration }{}, `t = []`, "&{0s}", "incompatible types:"},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			_, err := Decode(tt.toml, tt.in)
+			if !errorContains(err, tt.wantErr) {
+				t.Fatal(err)
+			}
+
+			have := fmt.Sprintf("%s", tt.in)
+			if have != tt.want {
+				t.Errorf("\nhave: %s\nwant: %s", have, tt.want)
+			}
+		})
+	}
+}
+
+func TestDecodeJSONNumber(t *testing.T) {
+	tests := []struct {
+		in                  interface{}
+		toml, want, wantErr string
+	}{
+		{&struct{ D json.Number }{}, `D = 2`, "&{2}", ""},
+		{&struct{ D json.Number }{}, `D = 2.002`, "&{2.002}", ""},
+		{&struct{ D *json.Number }{}, `D = 2`, "&{2}", ""},
+		{&struct{ D *json.Number }{}, `D = 2.002`, "&{2.002}", ""},
+		{&struct{ D []json.Number }{}, `D = [2, 3.03]`, "&{[2 3.03]}", ""},
+		{&struct{ D []*json.Number }{}, `D = [2, 3.03]`, "&{[2 3.03]}", ""},
+		{&struct{ D map[string]json.Number }{}, `D = {a=2, b=3.03}`, "&{map[a:2 b:3.03]}", ""},
+		{&struct{ D map[string]*json.Number }{}, `D = {a=2, b=3.03}`, "&{map[a:2 b:3.03]}", ""},
+
+		{&struct{ D json.Number }{}, `D = {}`, "&{}", "incompatible types"},
+		{&struct{ D json.Number }{}, `D = []`, "&{}", "incompatible types"},
+		{&struct{ D json.Number }{}, `D = "2"`, "&{}", "incompatible types"},
 	}
 
 	for _, tt := range tests {
