@@ -1,0 +1,6 @@
+{
+  "esc": {
+    "type": "string",
+    "value": "\u001b There is no escape! \u001b"
+  }
+}

@@ -289,6 +289,9 @@ func TestToml(t *testing.T) {
 				// https://github.com/BurntSushi/toml/issues/320
 				"invalid/datetime/time-no-leads",
 
+				// This test is fine, just doesn't deal well with empty output.
+				"valid/comment/noeol",
+
 				// TODO: fix this.
 				"invalid/table/append-with-dotted*",
 				"invalid/inline-table/add",

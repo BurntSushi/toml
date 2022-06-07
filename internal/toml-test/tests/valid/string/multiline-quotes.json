@@ -1,4 +1,8 @@
 {
+  "escaped": {
+    "type": "string",
+    "value": "lol\"\"\""
+  },
   "lit_one": {
     "type": "string",
     "value": "'one quote'"

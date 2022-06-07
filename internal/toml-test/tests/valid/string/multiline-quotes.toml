@@ -13,3 +13,7 @@ two_space = """ ""two quotes"" """
 
 mismatch1 = """aaa'''bbb"""
 mismatch2 = '''aaa"""bbb'''
+
+# Three opening """, then one escaped ", then two "" (allowed), and then three
+# closing """
+escaped = """lol\""""""

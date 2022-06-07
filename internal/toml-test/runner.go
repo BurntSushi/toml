@@ -12,9 +12,9 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -50,6 +50,7 @@ type Runner struct {
 	RunTests  []string // Tests to run; run all if blank.
 	SkipTests []string // Tests to skip.
 	Parser    Parser   // Send data to a parser.
+	Version   string   // TOML version to run tests for.
 }
 
 // A Parser instance is used to call the TOML parser we test.
@@ -101,17 +102,43 @@ type Test struct {
 	OutputFromStderr bool   // The Output came from stderr, not stdout.
 }
 
-// List all tests in Files.
+// List all tests in Files for the current TOML version.
 func (r Runner) List() ([]string, error) {
+	if r.Version == "" {
+		r.Version = "1.0.0"
+	}
+	if _, ok := versions[r.Version]; !ok {
+		v := make([]string, 0, len(versions))
+		for k := range versions {
+			v = append(v, k)
+		}
+		sort.Strings(v)
+		return nil, fmt.Errorf("tomltest.Runner.Run: unknown version: %q (supported: \"%s\")",
+			r.Version, strings.Join(v, `", "`))
+	}
+
+	var (
+		v       = versions[r.Version]
+		exclude = make([]string, 0, 8)
+	)
+	for {
+		exclude = append(exclude, v.exclude...)
+		if v.inherit == "" {
+			break
+		}
+		v = versions[v.inherit]
+	}
+
 	ls := make([]string, 0, 256)
-	if err := r.findTOML("valid", &ls); err != nil {
+	if err := r.findTOML("valid", &ls, exclude); err != nil {
 		return nil, fmt.Errorf("reading 'valid/' dir: %w", err)
 	}
 
 	d := "invalid" + map[bool]string{true: "-encoder", false: ""}[r.Encoder]
-	if err := r.findTOML(d, &ls); err != nil {
+	if err := r.findTOML(d, &ls, exclude); err != nil {
 		return nil, fmt.Errorf("reading %q dir: %w", d, err)
 	}
+
 	return ls, nil
 }
 
@@ -148,8 +175,13 @@ func (r Runner) Run() (Tests, error) {
 }
 
 // find all TOML files in 'path' relative to the test directory.
-func (r Runner) findTOML(path string, appendTo *[]string) error {
-	err := fs.WalkDir(r.Files, path, func(path string, d fs.DirEntry, err error) error {
+func (r Runner) findTOML(path string, appendTo *[]string, exclude []string) error {
+	// It's okay if the directory doesn't exist.
+	if _, err := fs.Stat(r.Files, path); errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+
+	return fs.WalkDir(r.Files, path, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -157,16 +189,16 @@ func (r Runner) findTOML(path string, appendTo *[]string) error {
 			return nil
 		}
 
-		*appendTo = append(*appendTo, strings.TrimSuffix(path, ".toml"))
+		path = strings.TrimSuffix(path, ".toml")
+		for _, e := range exclude {
+			if ok, _ := filepath.Match(e, path); ok {
+				return nil
+			}
+		}
+
+		*appendTo = append(*appendTo, path)
 		return nil
 	})
-
-	// It's okay if the directory doesn't exist.
-	var pErr *os.PathError
-	if errors.As(err, &pErr) && pErr.Op == "open" && pErr.Path == path {
-		return nil
-	}
-	return err
 }
 
 // Expand RunTest glob patterns, or return all tests if RunTests if empty.
@@ -294,7 +326,7 @@ func (t Test) runValid(p Parser, fsys fs.FS) Test {
 	}
 	if t.Output == "" {
 		// Special case: we expect an empty output here.
-		if t.Path != "valid/empty-file" && t.Path != "valid/comment/noeol" {
+		if t.Path != "valid/empty-file" {
 			return t.fail("stdout is empty")
 		}
 	}
