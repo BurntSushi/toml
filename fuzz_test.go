@@ -12,29 +12,59 @@ func FuzzDecode(f *testing.F) {
 	buf := make([]byte, 0, 2048)
 
 	f.Add(`
-# This is a TOML document
+# This is an example TOML document which shows most of its features.
 
-title = "TOML Example"
+# Simple key/value with a string.
+title = "TOML example \U0001F60A"
 
-[owner]
-name = "Tom Preston-Werner"
-dob = 1979-05-27T07:32:00-08:00
+desc = """
+An example TOML document. \
+"""
 
-[database]
-enabled = true
-ports = [ 8000, 8001, 8002 ]
-data = [ ["delta", "phi"], [3.14] ]
-temp_targets = { cpu = 79.5, case = 72.0 }
+# Array with integers and floats in the various allowed formats.
+integers = [42, 0x42, 0o42, 0b0110]
+floats   = [1.42, 1e-02]
 
-[servers]
+# Array with supported datetime formats.
+times = [
+	2021-11-09T15:16:17+01:00,  # datetime with timezone.
+	2021-11-09T15:16:17Z,       # UTC datetime.
+	2021-11-09T15:16:17,        # local datetime.
+	2021-11-09,                 # local date.
+	15:16:17,                   # local time.
+]
 
+# Durations.
+duration = ["4m49s", "8m03s", "1231h15m55s"]
+
+# Table with inline tables.
+distros = [
+	{name = "Arch Linux", packages = "pacman"},
+	{name = "Void Linux", packages = "xbps"},
+	{name = "Debian",     packages = "apt"},
+]
+
+# Create new table; note the "servers" table is created implicitly.
 [servers.alpha]
-ip = "10.0.0.1"
-role = "frontend"
-
+	# You can indent as you please, tabs or spaces.
+	ip        = '10.0.0.1'
+	hostname  = 'server1'
+	enabled   = false
 [servers.beta]
-ip = "10.0.0.2"
-role = "backend"
+	ip        = '10.0.0.2'
+	hostname  = 'server2'
+	enabled   = true
+
+# Start a new table array; note that the "characters" table is created implicitly.
+[[characters.star-trek]]
+	name = "James Kirk"
+	rank = "Captain\u0012 \t"
+[[characters.star-trek]]
+	name = "Spock"
+	rank = "Science officer"
+
+[undecoded] # To show the MetaData.Undecoded() feature.
+	key = "This table intentionally left undecoded"
 `)
 	f.Fuzz(func(t *testing.T, file string) {
 		var m map[string]interface{}

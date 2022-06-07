@@ -18,5 +18,21 @@
         "value": "https://example.com/bazqux"
       }
     }
+  ],
+  "mixed": [
+    {
+      "k": {
+        "type": "string",
+        "value": "a"
+      }
+    },
+    {
+      "type": "string",
+      "value": "b"
+    },
+    {
+      "type": "integer",
+      "value": "1"
+    }
   ]
 }
