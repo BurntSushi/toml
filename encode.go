@@ -213,12 +213,18 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 		if err != nil {
 			encPanic(err)
 		}
+		if s == nil {
+			encPanic(errors.New("MarshalTOML returned nil and no error"))
+		}
 		enc.w.Write(s)
 		return
 	case encoding.TextMarshaler:
 		s, err := v.MarshalText()
 		if err != nil {
 			encPanic(err)
+		}
+		if s == nil {
+			encPanic(errors.New("MarshalText returned nil and no error"))
 		}
 		enc.writeQuoted(string(s))
 		return

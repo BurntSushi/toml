@@ -456,6 +456,44 @@ Fun = "why would you do this?"
 	}
 }
 
+type (
+	retNil1 string
+	retNil2 string
+)
+
+func (r retNil1) MarshalText() ([]byte, error) { return nil, nil }
+func (r retNil2) MarshalTOML() ([]byte, error) { return nil, nil }
+
+func TestEncodeEmpty(t *testing.T) {
+	t.Run("text", func(t *testing.T) {
+		var (
+			s   struct{ Text retNil1 }
+			buf bytes.Buffer
+		)
+		err := NewEncoder(&buf).Encode(s)
+		if err == nil {
+			t.Fatalf("no error, but expected an error; output:\n%s", buf.String())
+		}
+		if buf.String() != "" {
+			t.Error("\n" + buf.String())
+		}
+	})
+
+	t.Run("toml", func(t *testing.T) {
+		var (
+			s   struct{ Text retNil2 }
+			buf bytes.Buffer
+		)
+		err := NewEncoder(&buf).Encode(s)
+		if err == nil {
+			t.Fatalf("no error, but expected an error; output:\n%s", buf.String())
+		}
+		if buf.String() != "" {
+			t.Error("\n" + buf.String())
+		}
+	})
+}
+
 // Would previously fail on 32bit architectures; can test with:
 //   GOARCH=386         go test -c &&  ./toml.test
 //   GOARCH=arm GOARM=7 go test -c && qemu-arm ./toml.test
