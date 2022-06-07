@@ -65,6 +65,11 @@ func BenchmarkEncode(b *testing.B) {
 				g = "top"
 			}
 
+			// "next" version of TOML.
+			if path == "valid/string/escape-esc.toml" {
+				return nil
+			}
+
 			var dec map[string]interface{}
 			_, err := toml.Decode(string(d), &dec)
 			if err != nil {
