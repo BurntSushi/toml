@@ -97,9 +97,12 @@ var metaTests = map[string]string{
 	`,
 	"key/space": `
 		"a b": Integer
+		" c d ": Integer
+		" tbl ": Hash
+		" tbl "."\ttab\ttab\t": String
 	`,
 	"key/special-chars": "\n" +
-		"\"~!@$^&*()_+-`1234567890[]|/?><.,;:'\": Integer\n",
+		"\"=~!@$^&*()_+-`1234567890[]|/?><.,;:'=\": Integer\n",
 
 	// TODO: "(albums): Hash" is missing; the problem is that this is an
 	// "implied key", which is recorded in the parser in implicits, rather than

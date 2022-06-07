@@ -146,6 +146,7 @@ func (r Runner) List() ([]string, error) {
 //
 // TODO: give option to:
 // - Run all tests with \n replaced with \r\n
+// - Run all tests with EOL removed
 // - Run all tests with '# comment' appended to every line.
 func (r Runner) Run() (Tests, error) {
 	skipped, err := r.findTests()

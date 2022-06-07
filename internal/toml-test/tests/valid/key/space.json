@@ -1,4 +1,14 @@
 {
+  " c d ": {
+    "type": "integer",
+    "value": "2"
+  },
+  " tbl ": {
+    "\ttab\ttab\t": {
+      "type": "string",
+      "value": "tab"
+    }
+  },
   "a b": {
     "type": "integer",
     "value": "1"

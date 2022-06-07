@@ -726,10 +726,8 @@ func (p *parser) replaceEscapes(it item, str string) string {
 		switch s[r] {
 		default:
 			p.bug("Expected valid escape code after \\, but got %q.", s[r])
-			return ""
 		case ' ', '\t':
 			p.panicItemf(it, "invalid escape: '\\%c'", s[r])
-			return ""
 		case 'b':
 			replaced = append(replaced, rune(0x0008))
 			r += 1
