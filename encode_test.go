@@ -246,17 +246,22 @@ func TestEncodeOmitemptyWithEmptyName(t *testing.T) {
 
 func TestEncodeAnonymousStruct(t *testing.T) {
 	type Inner struct{ N int }
-	type Outer0 struct{ Inner }
+	type inner struct{ B int }
+	type Outer0 struct {
+		Inner
+		inner
+	}
 	type Outer1 struct {
 		Inner `toml:"inner"`
+		inner `toml:"innerb"`
 	}
 
-	v0 := Outer0{Inner{3}}
-	expected := "N = 3\n"
+	v0 := Outer0{Inner{3}, inner{4}}
+	expected := "N = 3\nB = 4\n"
 	encodeExpected(t, "embedded anonymous untagged struct", v0, expected, nil)
 
-	v1 := Outer1{Inner{3}}
-	expected = "[inner]\n  N = 3\n"
+	v1 := Outer1{Inner{3}, inner{4}}
+	expected = "[inner]\n  N = 3\n\n[innerb]\n  B = 4\n"
 	encodeExpected(t, "embedded anonymous tagged struct", v1, expected, nil)
 }
 
@@ -313,6 +318,33 @@ func TestEncodeNestedAnonymousStructs(t *testing.T) {
 
 	expected := "A = \"a\"\nB = \"b\"\nC = \"c\"\n"
 	encodeExpected(t, "nested anonymous untagged structs", v, expected, nil)
+}
+
+type InnerForNextTest struct{ N int }
+
+func (InnerForNextTest) F() {}
+func (InnerForNextTest) G() {}
+
+func TestEncodeAnonymousNoStructField(t *testing.T) {
+	type Inner interface{ F() }
+	type inner interface{ G() }
+	type IntS []int
+	type intS []int
+	type Outer0 struct {
+		Inner
+		inner
+		IntS
+		intS
+	}
+
+	v0 := Outer0{
+		Inner: InnerForNextTest{3},
+		inner: InnerForNextTest{4},
+		IntS:  []int{5, 6},
+		intS:  []int{7, 8},
+	}
+	expected := "IntS = [5, 6]\n\n[Inner]\n  N = 3\n"
+	encodeExpected(t, "non struct anonymous field", v0, expected, nil)
 }
 
 func TestEncodeIgnoredFields(t *testing.T) {
