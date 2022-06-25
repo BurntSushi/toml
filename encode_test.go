@@ -7,6 +7,7 @@ import (
 	"math"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -245,17 +246,22 @@ func TestEncodeOmitemptyWithEmptyName(t *testing.T) {
 
 func TestEncodeAnonymousStruct(t *testing.T) {
 	type Inner struct{ N int }
-	type Outer0 struct{ Inner }
+	type inner struct{ B int }
+	type Outer0 struct {
+		Inner
+		inner
+	}
 	type Outer1 struct {
 		Inner `toml:"inner"`
+		inner `toml:"innerb"`
 	}
 
-	v0 := Outer0{Inner{3}}
-	expected := "N = 3\n"
+	v0 := Outer0{Inner{3}, inner{4}}
+	expected := "N = 3\nB = 4\n"
 	encodeExpected(t, "embedded anonymous untagged struct", v0, expected, nil)
 
-	v1 := Outer1{Inner{3}}
-	expected = "[inner]\n  N = 3\n"
+	v1 := Outer1{Inner{3}, inner{4}}
+	expected = "[inner]\n  N = 3\n\n[innerb]\n  B = 4\n"
 	encodeExpected(t, "embedded anonymous tagged struct", v1, expected, nil)
 }
 
@@ -312,6 +318,33 @@ func TestEncodeNestedAnonymousStructs(t *testing.T) {
 
 	expected := "A = \"a\"\nB = \"b\"\nC = \"c\"\n"
 	encodeExpected(t, "nested anonymous untagged structs", v, expected, nil)
+}
+
+type InnerForNextTest struct{ N int }
+
+func (InnerForNextTest) F() {}
+func (InnerForNextTest) G() {}
+
+func TestEncodeAnonymousNoStructField(t *testing.T) {
+	type Inner interface{ F() }
+	type inner interface{ G() }
+	type IntS []int
+	type intS []int
+	type Outer0 struct {
+		Inner
+		inner
+		IntS
+		intS
+	}
+
+	v0 := Outer0{
+		Inner: InnerForNextTest{3},
+		inner: InnerForNextTest{4},
+		IntS:  []int{5, 6},
+		intS:  []int{7, 8},
+	}
+	expected := "IntS = [5, 6]\n\n[Inner]\n  N = 3\n"
+	encodeExpected(t, "non struct anonymous field", v0, expected, nil)
 }
 
 func TestEncodeIgnoredFields(t *testing.T) {
@@ -399,11 +432,13 @@ type (
 	food  struct{ F []string }
 	fun   func()
 	cplx  complex128
+	ints  []int
 
 	sound2 struct{ S string }
 	food2  struct{ F []string }
 	fun2   func()
 	cplx2  complex128
+	ints2  []int
 )
 
 // This is intentionally wrong (pointer receiver)
@@ -415,6 +450,26 @@ func (c cplx) MarshalText() ([]byte, error) {
 	return []byte(fmt.Sprintf("(%f+%fi)", real(cplx), imag(cplx))), nil
 }
 
+func intsValue(is []int) []byte {
+	var buf bytes.Buffer
+	buf.WriteByte('<')
+	for i, v := range is {
+		if i > 0 {
+			buf.WriteByte(',')
+		}
+		buf.WriteString(strconv.Itoa(v))
+	}
+	buf.WriteByte('>')
+	return buf.Bytes()
+}
+
+func (is *ints) MarshalText() ([]byte, error) {
+	if is == nil {
+		return []byte("[]"), nil
+	}
+	return intsValue(*is), nil
+}
+
 func (s *sound2) MarshalTOML() ([]byte, error) { return []byte("\"" + s.S + "\""), nil }
 func (f food2) MarshalTOML() ([]byte, error) {
 	return []byte("[\"" + strings.Join(f.F, "\", \"") + "\"]"), nil
@@ -423,6 +478,13 @@ func (f fun2) MarshalTOML() ([]byte, error) { return []byte("\"why would you do 
 func (c cplx2) MarshalTOML() ([]byte, error) {
 	cplx := complex128(c)
 	return []byte(fmt.Sprintf("\"(%f+%fi)\"", real(cplx), imag(cplx))), nil
+}
+func (is *ints2) MarshalTOML() ([]byte, error) {
+	// MarshalTOML must quote by self
+	if is == nil {
+		return []byte(`"[]"`), nil
+	}
+	return []byte(fmt.Sprintf(`"%s"`, intsValue(*is))), nil
 }
 
 func TestEncodeTextMarshaler(t *testing.T) {
@@ -435,6 +497,8 @@ func TestEncodeTextMarshaler(t *testing.T) {
 		Food2   *food
 		Complex cplx
 		Fun     fun
+		Ints    ints
+		Ints2   *ints2
 	}{
 		Name:   "Goblok",
 		Sound:  sound{"miauw"},
@@ -447,26 +511,28 @@ func TestEncodeTextMarshaler(t *testing.T) {
 		Food2:   &food{[]string{"chicken", "fish"}},
 		Complex: complex(42, 666),
 		Fun:     func() { panic("x") },
+		Ints:    ints{1, 2, 3, 4},
+		Ints2:   &ints2{1, 2, 3, 4},
 	}
 
 	var buf bytes.Buffer
-	if err := NewEncoder(&buf).Encode(x); err != nil {
+	if err := NewEncoder(&buf).Encode(&x); err != nil {
 		t.Fatal(err)
 	}
 
 	want := `Name = "Goblok"
+Sound = "miauw"
 Sound2 = "miauw"
 Food = "chicken, fish"
 Food2 = "chicken, fish"
 Complex = "(42.000000+666.000000i)"
 Fun = "why would you do this?"
+Ints = "<1,2,3,4>"
+Ints2 = "<1,2,3,4>"
 
 [Labels]
   color = "black"
   type = "cat"
-
-[Sound]
-  S = "miauw"
 `
 
 	if buf.String() != want {
