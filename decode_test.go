@@ -1,12 +1,15 @@
 package toml
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -1011,6 +1014,129 @@ func TestMetaDotConflict(t *testing.T) {
 	}
 	if have != want {
 		t.Errorf("\nhave: %s\nwant: %s", have, want)
+	}
+}
+
+type (
+	Outer struct {
+		Int   *InnerInt
+		Enum  *Enum
+		Slice *InnerArrayString
+	}
+	Enum             int
+	InnerString      struct{ value string }
+	InnerInt         struct{ value int }
+	InnerBool        struct{ value bool }
+	InnerArrayString struct{ value []string }
+)
+
+const (
+	NoValue Enum = iota
+	OtherValue
+)
+
+func (e *Enum) Value() string {
+	switch *e {
+	case OtherValue:
+		return "OTHER_VALUE"
+	}
+	return ""
+}
+
+func (e *Enum) MarshalTOML() ([]byte, error) {
+	return []byte(`"` + e.Value() + `"`), nil
+}
+
+func (e *Enum) UnmarshalTOML(value interface{}) error {
+	sValue, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("value %v is not a string type", value)
+	}
+	for _, enum := range []Enum{NoValue, OtherValue} {
+		if enum.Value() == sValue {
+			*e = enum
+			return nil
+		}
+	}
+	return errors.New("invalid enum value")
+}
+
+func (i *InnerInt) MarshalTOML() ([]byte, error) {
+	return []byte(strconv.Itoa(i.value)), nil
+}
+func (i *InnerInt) UnmarshalTOML(value interface{}) error {
+	iValue, ok := value.(int64)
+	if !ok {
+		return fmt.Errorf("value %v is not a int type", value)
+	}
+	i.value = int(iValue)
+	return nil
+}
+
+func (as *InnerArrayString) MarshalTOML() ([]byte, error) {
+	return []byte("[\"" + strings.Join(as.value, "\", \"") + "\"]"), nil
+}
+
+func (as *InnerArrayString) UnmarshalTOML(value interface{}) error {
+	if value != nil {
+		asValue, ok := value.([]interface{})
+		if !ok {
+			return fmt.Errorf("value %v is not a [] type", value)
+		}
+		as.value = []string{}
+		for _, value := range asValue {
+			as.value = append(as.value, value.(string))
+		}
+	}
+	return nil
+}
+
+// Test for #341
+func TestCustomEncode(t *testing.T) {
+	enum := OtherValue
+	outer := Outer{
+		Int:   &InnerInt{value: 10},
+		Enum:  &enum,
+		Slice: &InnerArrayString{value: []string{"text1", "text2"}},
+	}
+
+	var buf bytes.Buffer
+	err := NewEncoder(&buf).Encode(outer)
+	if err != nil {
+		t.Errorf("Encode failed: %s", err)
+	}
+
+	have := strings.TrimSpace(buf.String())
+	want := strings.ReplaceAll(strings.TrimSpace(`
+		Int = 10
+		Enum = "OTHER_VALUE"
+		Slice = ["text1", "text2"]
+	`), "\t", "")
+	if want != have {
+		t.Errorf("\nhave: %s\nwant: %s\n", have, want)
+	}
+}
+
+// Test for #341
+func TestCustomDecode(t *testing.T) {
+	var outer Outer
+	_, err := Decode(`
+		Int = 10
+		Enum = "OTHER_VALUE"
+		Slice = ["text1", "text2"]
+	`, &outer)
+	if err != nil {
+		t.Fatal(fmt.Sprintf("Decode failed: %s", err))
+	}
+
+	if outer.Int.value != 10 {
+		t.Errorf("\nhave:\n%v\nwant:\n%v\n", outer.Int.value, 10)
+	}
+	if *outer.Enum != OtherValue {
+		t.Errorf("\nhave:\n%v\nwant:\n%v\n", outer.Enum, OtherValue)
+	}
+	if fmt.Sprint(outer.Slice.value) != fmt.Sprint([]string{"text1", "text2"}) {
+		t.Errorf("\nhave:\n%v\nwant:\n%v\n", outer.Slice.value, []string{"text1", "text2"})
 	}
 }
 
