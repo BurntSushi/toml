@@ -423,6 +423,13 @@ func (enc *Encoder) eMap(key Key, rv reflect.Value, inline bool) {
 
 const is32Bit = (32 << (^uint(0) >> 63)) == 32
 
+func pointerTo(t reflect.Type) reflect.Type {
+	if t.Kind() == reflect.Ptr {
+		return pointerTo(t.Elem())
+	}
+	return t
+}
+
 func (enc *Encoder) eStruct(key Key, rv reflect.Value, inline bool) {
 	// Write keys for fields directly under this key first, because if we write
 	// a field that creates a new table then all keys under it will be in that
@@ -435,18 +442,11 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value, inline bool) {
 		rt                      = rv.Type()
 		fieldsDirect, fieldsSub [][]int
 		addFields               func(rt reflect.Type, rv reflect.Value, start []int)
-		ptrto                   func(t reflect.Type) reflect.Type
 	)
-	ptrto = func(t reflect.Type) reflect.Type {
-		if t.Kind() == reflect.Ptr {
-			return ptrto(t.Elem())
-		}
-		return t
-	}
 	addFields = func(rt reflect.Type, rv reflect.Value, start []int) {
 		for i := 0; i < rt.NumField(); i++ {
 			f := rt.Field(i)
-			isEmbed := f.Anonymous && ptrto(f.Type).Kind() == reflect.Struct
+			isEmbed := f.Anonymous && pointerTo(f.Type).Kind() == reflect.Struct
 			if f.PkgPath != "" && !isEmbed { /// Skip unexported fields.
 				continue
 			}
@@ -586,8 +586,7 @@ func tomlTypeOfGo(rv reflect.Value) tomlType {
 }
 
 func isMarshaler(rv reflect.Value) bool {
-	return rv.Type().Implements(marshalText) ||
-		rv.Type().Implements(marshalToml)
+	return rv.Type().Implements(marshalText) || rv.Type().Implements(marshalToml)
 }
 
 // isTableArray reports if all entries in the array or slice are a table.
@@ -706,12 +705,13 @@ func encPanic(err error) {
 	panic(tomlEncodeError{err})
 }
 
+// Resolve any level of pointers to the actual value (e.g. **string → string).
 func eindirect(v reflect.Value) reflect.Value {
 	if v.Kind() != reflect.Ptr && v.Kind() != reflect.Interface {
 		if isMarshaler(v) {
 			return v
 		}
-		if v.CanAddr() {
+		if v.CanAddr() { /// Special case for marshalers; see #358.
 			if pv := v.Addr(); isMarshaler(pv) {
 				return pv
 			}
