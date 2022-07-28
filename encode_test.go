@@ -212,6 +212,38 @@ time = 1985-06-18T15:16:17Z
 		v, expected, nil)
 }
 
+func TestEncodeWithOmitEmptyError(t *testing.T) {
+	type nest struct {
+		Field []string `toml:"Field,omitempty"`
+	}
+
+	tests := []struct {
+		in      interface{}
+		wantErr string
+	}{
+		{ // Make sure it doesn't panic on uncomparable types; #360
+			struct {
+				Values nest `toml:"values,omitempty"`
+				Empty  nest `toml:"empty,omitempty"`
+			}{Values: nest{[]string{"XXX"}}},
+			"cannot be used with omitempty as it's uncomparable",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			buf := new(bytes.Buffer)
+			err := NewEncoder(buf).Encode(tt.in)
+			if !errorContains(err, tt.wantErr) {
+				t.Fatalf("wrong error: %v", err)
+			}
+			if buf.String() != "" {
+				t.Errorf("output not empty:\n%s", buf)
+			}
+		})
+	}
+}
+
 func TestEncodeWithOmitZero(t *testing.T) {
 	type simple struct {
 		Number   int     `toml:"number,omitzero"`

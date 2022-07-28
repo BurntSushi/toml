@@ -261,7 +261,7 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 			enc.eElement(reflect.ValueOf(v))
 			return
 		}
-		encPanic(errors.New(fmt.Sprintf("Unable to convert \"%s\" to neither int64 nor float64", n)))
+		encPanic(fmt.Errorf("unable to convert %q to int64 or float64", n))
 	}
 
 	switch rv.Kind() {
@@ -504,7 +504,8 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value, inline bool) {
 			if opts.name != "" {
 				keyName = opts.name
 			}
-			if opts.omitempty && isEmpty(fieldVal) {
+
+			if opts.omitempty && enc.isEmpty(fieldVal) {
 				continue
 			}
 			if opts.omitzero && isZero(fieldVal) {
@@ -648,11 +649,14 @@ func isZero(rv reflect.Value) bool {
 	return false
 }
 
-func isEmpty(rv reflect.Value) bool {
+func (enc *Encoder) isEmpty(rv reflect.Value) bool {
 	switch rv.Kind() {
 	case reflect.Array, reflect.Slice, reflect.Map, reflect.String:
 		return rv.Len() == 0
 	case reflect.Struct:
+		if !rv.Type().Comparable() {
+			encPanic(fmt.Errorf("type %q cannot be used with omitempty as it's uncomparable", rv.Type()))
+		}
 		return reflect.Zero(rv.Type()).Interface() == rv.Interface()
 	case reflect.Bool:
 		return !rv.Bool()
