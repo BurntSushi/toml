@@ -654,10 +654,9 @@ func (enc *Encoder) isEmpty(rv reflect.Value) bool {
 	case reflect.Array, reflect.Slice, reflect.Map, reflect.String:
 		return rv.Len() == 0
 	case reflect.Struct:
-		if !rv.Type().Comparable() {
-			encPanic(fmt.Errorf("type %q cannot be used with omitempty as it's uncomparable", rv.Type()))
+		if rv.Type().Comparable() {
+			return reflect.Zero(rv.Type()).Interface() == rv.Interface()
 		}
-		return reflect.Zero(rv.Type()).Interface() == rv.Interface()
 	case reflect.Bool:
 		return !rv.Bool()
 	}
