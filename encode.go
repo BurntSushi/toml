@@ -649,14 +649,34 @@ func isZero(rv reflect.Value) bool {
 	return false
 }
 
+func isEmptyStruct(rv reflect.Value) bool {
+	switch rv.Kind() {
+	case reflect.Array:
+		for i := 0; i < rv.Len(); i++ {
+			if !isEmptyStruct(rv.Index(i)) {
+				return false
+			}
+		}
+		return true
+	case reflect.Slice, reflect.Map:
+		return rv.Len() == 0
+	case reflect.Struct:
+		for i := 0; i < rv.NumField(); i++ {
+			if !isEmptyStruct(rv.Field(i)) {
+				return false
+			}
+		}
+		return true
+	}
+	return rv.IsZero()
+}
+
 func (enc *Encoder) isEmpty(rv reflect.Value) bool {
 	switch rv.Kind() {
 	case reflect.Array, reflect.Slice, reflect.Map, reflect.String:
 		return rv.Len() == 0
 	case reflect.Struct:
-		if rv.Type().Comparable() {
-			return reflect.Zero(rv.Type()).Interface() == rv.Interface()
-		}
+		return isEmptyStruct(rv)
 	case reflect.Bool:
 		return !rv.Bool()
 	}

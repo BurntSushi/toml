@@ -197,11 +197,7 @@ func TestEncodeWithOmitEmpty(t *testing.T) {
 	}
 
 	var v simple
-	encodeExpected(t, "fields with omitempty are omitted when empty", v, `
-[uncomparable1]
-
-[uncomparable2]
-`, nil)
+	encodeExpected(t, "fields with omitempty are omitted when empty", v, "", nil)
 	v = simple{
 		Bool:          true,
 		String:        " ",
@@ -217,8 +213,6 @@ time = 1985-06-18T15:16:17Z
 
 [map]
   foo = "bar"
-
-[uncomparable1]
 
 [uncomparable2]
   Field = ["XXX"]
