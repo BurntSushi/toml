@@ -182,33 +182,43 @@ func TestEncodeOmitEmptyStruct(t *testing.T) {
 }
 
 func TestEncodeWithOmitEmpty(t *testing.T) {
+	type compareable struct {
+		Bool bool `toml:"bool,omitempty"`
+	}
 	type uncomparable struct {
-		Field []string `toml:"Field,omitempty"`
+		Field []string `toml:"field,omitempty"`
+	}
+	type nestedUncomparable struct {
+		Field uncomparable `toml:"uncomparable,omitempty"`
+		Bool  bool         `toml:"bool,omitempty"`
 	}
 	type simple struct {
-		Bool          bool              `toml:"bool,omitempty"`
-		String        string            `toml:"string,omitempty"`
-		Array         [0]byte           `toml:"array,omitempty"`
-		Slice         []int             `toml:"slice,omitempty"`
-		Map           map[string]string `toml:"map,omitempty"`
-		Time          time.Time         `toml:"time,omitempty"`
-		Uncomparable1 uncomparable      `toml:"uncomparable1,omitempty"`
-		Uncomparable2 uncomparable      `toml:"uncomparable2,omitempty"`
+		Bool                bool               `toml:"bool,omitempty"`
+		String              string             `toml:"string,omitempty"`
+		Array               [0]byte            `toml:"array,omitempty"`
+		Slice               []int              `toml:"slice,omitempty"`
+		Map                 map[string]string  `toml:"map,omitempty"`
+		Time                time.Time          `toml:"time,omitempty"`
+		Compareable1        compareable        `toml:"compareable1,omitempty"`
+		Compareable2        compareable        `toml:"compareable2,omitempty"`
+		Uncomparable1       uncomparable       `toml:"uncomparable1,omitempty"`
+		Uncomparable2       uncomparable       `toml:"uncomparable2,omitempty"`
+		NestedUncomparable1 nestedUncomparable `toml:"nesteduncomparable1,omitempty"`
+		NestedUncomparable2 nestedUncomparable `toml:"nesteduncomparable2,omitempty"`
 	}
 
 	var v simple
-	encodeExpected(t, "fields with omitempty are omitted when empty", v, `
-[uncomparable1]
-
-[uncomparable2]
-`, nil)
+	encodeExpected(t, "fields with omitempty are omitted when empty", v, "", nil)
 	v = simple{
-		Bool:          true,
-		String:        " ",
-		Slice:         []int{2, 3, 4},
-		Map:           map[string]string{"foo": "bar"},
-		Time:          time.Date(1985, 6, 18, 15, 16, 17, 0, time.UTC),
-		Uncomparable2: uncomparable{[]string{"XXX"}},
+		Bool:                true,
+		String:              " ",
+		Slice:               []int{2, 3, 4},
+		Map:                 map[string]string{"foo": "bar"},
+		Time:                time.Date(1985, 6, 18, 15, 16, 17, 0, time.UTC),
+		Compareable2:        compareable{true},
+		Uncomparable2:       uncomparable{[]string{"XXX"}},
+		NestedUncomparable1: nestedUncomparable{uncomparable{[]string{"XXX"}}, false},
+		NestedUncomparable2: nestedUncomparable{uncomparable{}, true},
 	}
 	expected := `bool = true
 string = " "
@@ -218,10 +228,18 @@ time = 1985-06-18T15:16:17Z
 [map]
   foo = "bar"
 
-[uncomparable1]
+[compareable2]
+  bool = true
 
 [uncomparable2]
-  Field = ["XXX"]
+  field = ["XXX"]
+
+[nesteduncomparable1]
+  [nesteduncomparable1.uncomparable]
+    field = ["XXX"]
+
+[nesteduncomparable2]
+  bool = true
 `
 	encodeExpected(t, "fields with omitempty are not omitted when non-empty",
 		v, expected, nil)
@@ -643,8 +661,9 @@ func TestEncodeEmpty(t *testing.T) {
 }
 
 // Would previously fail on 32bit architectures; can test with:
-//   GOARCH=386         go test -c &&  ./toml.test
-//   GOARCH=arm GOARM=7 go test -c && qemu-arm ./toml.test
+//
+//	GOARCH=386         go test -c &&  ./toml.test
+//	GOARCH=arm GOARM=7 go test -c && qemu-arm ./toml.test
 func TestEncode32bit(t *testing.T) {
 	type Inner struct {
 		A, B, C string

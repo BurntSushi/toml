@@ -657,6 +657,12 @@ func (enc *Encoder) isEmpty(rv reflect.Value) bool {
 		if rv.Type().Comparable() {
 			return reflect.Zero(rv.Type()).Interface() == rv.Interface()
 		}
+		for i := 0; i < rv.NumField(); i++ {
+			if !enc.isEmpty(rv.Field(i)) {
+				return false
+			}
+		}
+		return true
 	case reflect.Bool:
 		return !rv.Bool()
 	}
