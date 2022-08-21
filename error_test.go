@@ -122,7 +122,7 @@ func TestParseError(t *testing.T) {
 		},
 		{
 			&struct{ Int int }{},
-			fmt.Sprintf("Int = %d", uint(math.MaxInt64+1)),
+			fmt.Sprintf("Int = %d", uint64(math.MaxInt64+1)),
 			`| toml: error: 9223372036854775808 is out of range for int64
 			 |
 			 | At line 1, column 6-25:
