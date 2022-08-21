@@ -24,6 +24,11 @@
         {
           "name": "Test",
           "run": "go test -v ./..."
+        },
+        {
+          "name": "Test on 32bit",
+          "if": "runner.os == 'Linux'",
+          "run": "GOARCH=386 go test -v ./..."
         }
       ]
     }
