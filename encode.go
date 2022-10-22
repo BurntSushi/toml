@@ -99,9 +99,9 @@ type Marshaler interface {
 // struct field name will be used. If the "omitempty" option is present the
 // following value will be skipped:
 //
-//  - arrays, slices, maps, and string with len of 0
-//  - struct with all zero values
-//  - bool false
+//   - arrays, slices, maps, and string with len of 0
+//   - struct with all zero values
+//   - bool false
 //
 // If omitzero is given all int and float types with a value of 0 will be
 // skipped.
@@ -683,15 +683,15 @@ func (enc *Encoder) newline() {
 
 // Write a key/value pair:
 //
-//   key = <any value>
+//	key = <any value>
 //
 // This is also used for "k = v" in inline tables; so something like this will
 // be written in three calls:
 //
-//     ┌───────────────────┐
-//     │      ┌───┐  ┌────┐│
-//     v      v   v  v    vv
-//     key = {k = 1, k2 = 2}
+//	┌───────────────────┐
+//	│      ┌───┐  ┌────┐│
+//	v      v   v  v    vv
+//	key = {k = 1, k2 = 2}
 func (enc *Encoder) writeKeyValue(key Key, val reflect.Value, inline bool) {
 	if len(key) == 0 {
 		encPanic(errNoKey)
