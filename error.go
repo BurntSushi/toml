@@ -5,12 +5,11 @@ import (
 	"strings"
 )
 
-// ParseError is returned when there is an error parsing the TOML syntax.
-//
-// For example invalid syntax, duplicate keys, etc.
+// ParseError is returned when there is an error parsing the TOML syntax such as
+// invalid syntax, duplicate keys, etc.
 //
 // In addition to the error message itself, you can also print detailed location
-// information with context by using ErrorWithPosition():
+// information with context by using [ErrorWithPosition]:
 //
 //     toml: error: Key 'fruit' was already created and cannot be used as an array.
 //
@@ -21,8 +20,8 @@ import (
 //           4 | [[fruit]] # Not allowed
 //                 ^^^^^
 //
-// Furthermore, the ErrorWithUsage() can be used to print the above with some
-// more detailed usage guidance:
+// [ErrorWithUsage] can be used to print the above with some more detailed usage
+// guidance:
 //
 //    toml: error: newlines not allowed within inline tables
 //
@@ -55,7 +54,11 @@ type ParseError struct {
 	Usage    string   // Longer message with usage guidance; may be blank.
 	Position Position // Position of the error
 	LastKey  string   // Last parsed key, may be blank.
-	Line     int      // Line the error occurred. Deprecated: use Position.
+
+	// Line the error occurred.
+	//
+	// Deprecated: use [Position].
+	Line int
 
 	err   error
 	input string
@@ -83,7 +86,7 @@ func (pe ParseError) Error() string {
 
 // ErrorWithUsage() returns the error with detailed location context.
 //
-// See the documentation on ParseError.
+// See the documentation on [ParseError].
 func (pe ParseError) ErrorWithPosition() string {
 	if pe.input == "" { // Should never happen, but just in case.
 		return pe.Error()
@@ -124,7 +127,7 @@ func (pe ParseError) ErrorWithPosition() string {
 // ErrorWithUsage() returns the error with detailed location context and usage
 // guidance.
 //
-// See the documentation on ParseError.
+// See the documentation on [ParseError].
 func (pe ParseError) ErrorWithUsage() string {
 	m := pe.ErrorWithPosition()
 	if u, ok := pe.err.(interface{ Usage() string }); ok && u.Usage() != "" {
