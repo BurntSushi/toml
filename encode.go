@@ -657,6 +657,12 @@ func (enc *Encoder) isEmpty(rv reflect.Value) bool {
 		if rv.Type().Comparable() {
 			return reflect.Zero(rv.Type()).Interface() == rv.Interface()
 		}
+		// Need to also check if all the fields are empty, otherwise something
+		// like this with uncomparable types will always return true:
+		//
+		//   type a struct{ field b }
+		//   type b struct{ s []string }
+		//   s := a{field: b{s: []string{"AAA"}}}
 		for i := 0; i < rv.NumField(); i++ {
 			if !enc.isEmpty(rv.Field(i)) {
 				return false

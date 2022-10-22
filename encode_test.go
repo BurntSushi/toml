@@ -181,7 +181,7 @@ func TestEncodeOmitEmptyStruct(t *testing.T) {
 	}
 }
 
-func TestEncodeWithOmitEmpty(t *testing.T) {
+func TestEncodeOmitEmpty(t *testing.T) {
 	type compareable struct {
 		Bool bool `toml:"bool,omitempty"`
 	}
@@ -245,7 +245,7 @@ time = 1985-06-18T15:16:17Z
 		v, expected, nil)
 }
 
-func TestEncodeWithOmitZero(t *testing.T) {
+func TestEncodeOmitZero(t *testing.T) {
 	type simple struct {
 		Number   int     `toml:"number,omitzero"`
 		Real     float64 `toml:"real,omitzero"`
@@ -267,7 +267,7 @@ unsigned = 5
 	encodeExpected(t, "simple with omitzero, non-zero", value, expected, nil)
 }
 
-func TestEncodeOmitemptyWithEmptyName(t *testing.T) {
+func TestEncodeOmitemptyEmptyName(t *testing.T) {
 	type simple struct {
 		S []int `toml:",omitempty"`
 	}
@@ -1187,7 +1187,9 @@ func encodeExpected(t *testing.T, label string, val interface{}, want string, wa
 		have := strings.TrimSpace(buf.String())
 		want = strings.TrimSpace(want)
 		if want != have {
-			t.Errorf("\nhave:\n%s\nwant:\n%s\n", have, want)
+			t.Errorf("\nhave:\n%s\nwant:\n%s\n",
+				"\t"+strings.ReplaceAll(have, "\n", "\n\t"),
+				"\t"+strings.ReplaceAll(want, "\n", "\n\t"))
 		}
 	})
 }
