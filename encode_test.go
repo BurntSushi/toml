@@ -194,6 +194,7 @@ func TestEncodeOmitEmpty(t *testing.T) {
 	}
 	type simple struct {
 		Bool                bool               `toml:"bool,omitempty"`
+		Bool2               *bool              `toml:"bool,omitempty"`
 		String              string             `toml:"string,omitempty"`
 		Array               [0]byte            `toml:"array,omitempty"`
 		Slice               []int              `toml:"slice,omitempty"`
@@ -209,8 +210,10 @@ func TestEncodeOmitEmpty(t *testing.T) {
 
 	var v simple
 	encodeExpected(t, "fields with omitempty are omitted when empty", v, "", nil)
+	var False bool = false
 	v = simple{
 		Bool:                true,
+		Bool2:               &False,
 		String:              " ",
 		Slice:               []int{2, 3, 4},
 		Map:                 map[string]string{"foo": "bar"},
@@ -221,6 +224,7 @@ func TestEncodeOmitEmpty(t *testing.T) {
 		NestedUncomparable2: nestedUncomparable{uncomparable{}, true},
 	}
 	expected := `bool = true
+bool2 = false
 string = " "
 slice = [2, 3, 4]
 time = 1985-06-18T15:16:17Z
