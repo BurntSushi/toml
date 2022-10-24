@@ -245,6 +245,70 @@ time = 1985-06-18T15:16:17Z
 		v, expected, nil)
 }
 
+func TestEncodeOmitEmptyPointer(t *testing.T) {
+	type s struct {
+		String *string `toml:"string,omitempty"`
+	}
+
+	t.Run("nil pointers", func(t *testing.T) {
+		var v struct {
+			String *string            `toml:"string,omitempty"`
+			Slice  *[]string          `toml:"slice,omitempty"`
+			Map    *map[string]string `toml:"map,omitempty"`
+			Struct *s                 `toml:"struct,omitempty"`
+		}
+		encodeExpected(t, "", v, ``, nil)
+	})
+
+	t.Run("zero values", func(t *testing.T) {
+		// TODO: this needs to be fixed; https://github.com/BurntSushi/toml/issues/371
+		t.Skip()
+		str := ""
+		sl := []string{}
+		m := map[string]string{}
+
+		v := struct {
+			String *string            `toml:"string,omitempty"`
+			Slice  *[]string          `toml:"slice,omitempty"`
+			Map    *map[string]string `toml:"map,omitempty"`
+			Struct *s                 `toml:"struct,omitempty"`
+		}{&str, &sl, &m, &s{&str}}
+		want := `string = ""
+slice = []
+
+[map]
+  XXX = ""
+
+[struct]
+  string = ""
+`
+		encodeExpected(t, "", v, want, nil)
+	})
+
+	t.Run("with values", func(t *testing.T) {
+		str := "XXX"
+		sl := []string{"XXX"}
+		m := map[string]string{"XXX": "XXX"}
+
+		v := struct {
+			String *string            `toml:"string,omitempty"`
+			Slice  *[]string          `toml:"slice,omitempty"`
+			Map    *map[string]string `toml:"map,omitempty"`
+			Struct *s                 `toml:"struct,omitempty"`
+		}{&str, &sl, &m, &s{&str}}
+		want := `string = "XXX"
+slice = ["XXX"]
+
+[map]
+  XXX = "XXX"
+
+[struct]
+  string = "XXX"
+`
+		encodeExpected(t, "", v, want, nil)
+	})
+}
+
 func TestEncodeOmitZero(t *testing.T) {
 	type simple struct {
 		Number   int     `toml:"number,omitzero"`
