@@ -6,7 +6,7 @@ package toml_test
 import (
 	"bytes"
 	"io/fs"
-	"os"
+	"io/ioutil"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -114,7 +114,7 @@ func BenchmarkEncode(b *testing.B) {
 }
 
 func BenchmarkExample(b *testing.B) {
-	d, err := os.ReadFile("_example/example.toml")
+	d, err := ioutil.ReadFile("_example/example.toml")
 	if err != nil {
 		b.Fatal(err)
 	}

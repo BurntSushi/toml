@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"os"
 	"reflect"
@@ -30,7 +31,7 @@ func TestDecodeReader(t *testing.T) {
 }
 
 func TestDecodeFile(t *testing.T) {
-	tmp, err := os.CreateTemp("", "toml-")
+	tmp, err := ioutil.TempFile("", "toml-")
 	if err != nil {
 		t.Fatal(err)
 	}

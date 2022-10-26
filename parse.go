@@ -378,13 +378,13 @@ func (p *parser) valueArray(it item) (interface{}, tomlType) {
 		val, typ := p.value(it, true)
 		array = append(array, val)
 		types = append(types, typ)
-		_ = types
 
 		// XXX: types isn't used here, we need it to record the accurate type
 		// information.
 		//
 		// Not entirely sure how to best store this; could use "key[0]",
 		// "key[1]" notation, or maybe store it on the Array type?
+		_ = types
 	}
 	return array, tomlArray
 }
