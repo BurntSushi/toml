@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"os"
 	"reflect"
@@ -31,7 +30,7 @@ func TestDecodeReader(t *testing.T) {
 }
 
 func TestDecodeFile(t *testing.T) {
-	tmp, err := ioutil.TempFile("", "toml-")
+	tmp, err := os.CreateTemp("", "toml-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1126,7 +1125,7 @@ func TestCustomDecode(t *testing.T) {
 		Slice = ["text1", "text2"]
 	`, &outer)
 	if err != nil {
-		t.Fatal(fmt.Sprintf("Decode failed: %s", err))
+		t.Fatalf("Decode failed: %s", err)
 	}
 
 	if outer.Int.value != 10 {

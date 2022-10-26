@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"os"
 	"reflect"
@@ -148,7 +147,7 @@ func (dec *Decoder) Decode(v interface{}) (MetaData, error) {
 
 	// TODO: parser should read from io.Reader? Or at the very least, make it
 	// read from []byte rather than string
-	data, err := ioutil.ReadAll(dec.r)
+	data, err := io.ReadAll(dec.r)
 	if err != nil {
 		return MetaData{}, err
 	}
