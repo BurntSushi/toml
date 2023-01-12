@@ -344,6 +344,10 @@ func TestEncodeOmitemptyEmptyName(t *testing.T) {
 func TestEncodeAnonymousStruct(t *testing.T) {
 	type Inner struct{ N int }
 	type inner struct{ B int }
+	type Embedded struct {
+		Inner1 Inner
+		Inner2 Inner
+	}
 	type Outer0 struct {
 		Inner
 		inner
@@ -351,6 +355,9 @@ func TestEncodeAnonymousStruct(t *testing.T) {
 	type Outer1 struct {
 		Inner `toml:"inner"`
 		inner `toml:"innerb"`
+	}
+	type Outer3 struct {
+		Embedded
 	}
 
 	v0 := Outer0{Inner{3}, inner{4}}
@@ -360,6 +367,10 @@ func TestEncodeAnonymousStruct(t *testing.T) {
 	v1 := Outer1{Inner{3}, inner{4}}
 	expected = "[inner]\n  N = 3\n\n[innerb]\n  B = 4\n"
 	encodeExpected(t, "embedded anonymous tagged struct", v1, expected, nil)
+
+	v3 := Outer3{Embedded: Embedded{Inner{3}, Inner{4}}}
+	expected = "[Inner1]\n  N = 3\n\n[Inner2]\n  N = 4\n"
+	encodeExpected(t, "embedded anonymous multiple fields", v3, expected, nil)
 }
 
 func TestEncodeAnonymousStructPointerField(t *testing.T) {
