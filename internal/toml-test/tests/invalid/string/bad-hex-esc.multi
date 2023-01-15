@@ -1,0 +1,4 @@
+bad-hex-esc-1 = "\x0g"
+bad-hex-esc-2 = "\xG0"
+bad-hex-esc-3 = "\x"
+bad-hex-esc-4 = "\x 50"
