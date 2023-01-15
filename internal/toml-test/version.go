@@ -9,7 +9,11 @@ type versionSpec struct {
 }
 
 var versions = map[string]versionSpec{
-	"next": versionSpec{},
+	"next": versionSpec{
+		exclude: []string{
+			"invalid/datetime/no-secs", // Times without seconds is no longer invalid.
+		},
+	},
 
 	"1.0.0": versionSpec{
 		exclude: []string{

@@ -333,11 +333,17 @@ func (p *parser) valueFloat(it item) (interface{}, tomlType) {
 var dtTypes = []struct {
 	fmt  string
 	zone *time.Location
+	next bool
 }{
-	{time.RFC3339Nano, time.Local},
-	{"2006-01-02T15:04:05.999999999", internal.LocalDatetime},
-	{"2006-01-02", internal.LocalDate},
-	{"15:04:05.999999999", internal.LocalTime},
+	{time.RFC3339Nano, time.Local, false},
+	{"2006-01-02T15:04:05.999999999", internal.LocalDatetime, false},
+	{"2006-01-02", internal.LocalDate, false},
+	{"15:04:05.999999999", internal.LocalTime, false},
+
+	// tomlNext
+	{"2006-01-02T15:04Z07:00", time.Local, true},
+	{"2006-01-02T15:04", internal.LocalDatetime, true},
+	{"15:04", internal.LocalTime, true},
 }
 
 func (p *parser) valueDatetime(it item) (interface{}, tomlType) {
@@ -348,6 +354,9 @@ func (p *parser) valueDatetime(it item) (interface{}, tomlType) {
 		err error
 	)
 	for _, dt := range dtTypes {
+		if dt.next && !tomlNext {
+			continue
+		}
 		t, err = time.ParseInLocation(dt.fmt, it.val, dt.zone)
 		if err == nil {
 			ok = true
