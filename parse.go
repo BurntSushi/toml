@@ -766,6 +766,12 @@ func (p *parser) replaceEscapes(it item, str string) string {
 		case '\\':
 			replaced = append(replaced, rune(0x005C))
 			r += 1
+		case 'x':
+			if tomlNext {
+				escaped := p.asciiEscapeToUnicode(it, s[r+1:r+3])
+				replaced = append(replaced, escaped)
+				r += 3
+			}
 		case 'u':
 			// At this point, we know we have a Unicode escape of the form
 			// `uXXXX` at [r, r+5). (Because the lexer guarantees this

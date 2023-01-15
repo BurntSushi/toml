@@ -11,13 +11,15 @@ type versionSpec struct {
 var versions = map[string]versionSpec{
 	"next": versionSpec{
 		exclude: []string{
-			"invalid/datetime/no-secs", // Times without seconds is no longer invalid.
+			"invalid/datetime/no-secs",          // Times without seconds is no longer invalid.
+			"invalid/string/basic-byte-escapes", // \x is now valid.
 		},
 	},
 
 	"1.0.0": versionSpec{
 		exclude: []string{
-			"valid/string/escape-esc",   // \e
+			"valid/string/escape-esc",                               // \e
+			"valid/string/hex-escape", "invalid/string/bad-hex-esc", // \x..
 			"valid/datetime/no-seconds", // Times without seconds
 		},
 	},

@@ -851,12 +851,30 @@ func lexStringEscape(lx *lexer) stateFn {
 		fallthrough
 	case '\\':
 		return lx.pop()
+	case 'x':
+		if !tomlNext {
+			return lx.error(errLexEscape{r})
+		}
+		return lexHexEscape
 	case 'u':
 		return lexShortUnicodeEscape
 	case 'U':
 		return lexLongUnicodeEscape
 	}
 	return lx.error(errLexEscape{r})
+}
+
+func lexHexEscape(lx *lexer) stateFn {
+	var r rune
+	for i := 0; i < 2; i++ {
+		r = lx.next()
+		if !isHexadecimal(r) {
+			return lx.errorf(
+				`expected two hexadecimal digits after '\x', but got %q instead`,
+				lx.current())
+		}
+	}
+	return lx.pop()
 }
 
 func lexShortUnicodeEscape(lx *lexer) stateFn {
