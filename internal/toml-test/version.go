@@ -13,7 +13,8 @@ var versions = map[string]versionSpec{
 
 	"1.0.0": versionSpec{
 		exclude: []string{
-			"valid/string/escape-esc", // \e
+			"valid/string/escape-esc",   // \e
+			"valid/datetime/no-seconds", // Times without seconds
 		},
 	},
 

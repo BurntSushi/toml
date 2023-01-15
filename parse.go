@@ -10,6 +10,8 @@ import (
 	"github.com/BurntSushi/toml/internal"
 )
 
+var tomlNext = false
+
 type parser struct {
 	lx         *lexer
 	context    Key      // Full key for the current hash in scope.
@@ -744,6 +746,11 @@ func (p *parser) replaceEscapes(it item, str string) string {
 		case 'r':
 			replaced = append(replaced, rune(0x000D))
 			r += 1
+		case 'e':
+			if tomlNext {
+				replaced = append(replaced, rune(0x001B))
+				r += 1
+			}
 		case '"':
 			replaced = append(replaced, rune(0x0022))
 			r += 1

@@ -10,5 +10,9 @@
   "oneline": {
     "type": "string",
     "value": "This string has a ' quote character."
+  },
+  "multiline_with_tab": {
+    "type": "string",
+    "value": "First line\n\t Followed by a tab"
   }
 }
