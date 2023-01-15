@@ -17,6 +17,12 @@ import (
 	"github.com/BurntSushi/toml/internal"
 )
 
+func WithTomlNext(f func()) {
+	tomlNext = true
+	defer func() { tomlNext = false }()
+	f()
+}
+
 func TestDecodeReader(t *testing.T) {
 	var i struct{ A int }
 	meta, err := DecodeReader(strings.NewReader("a = 42"), &i)

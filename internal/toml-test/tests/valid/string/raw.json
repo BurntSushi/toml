@@ -26,5 +26,9 @@
   "tab": {
     "type": "string",
     "value": "This string has a \\t tab character."
+  },
+  "unescaped_tab": {
+    "type": "string",
+    "value": "This string has an \t unescaped tab character."
   }
 }

@@ -770,8 +770,8 @@ func lexRawString(lx *lexer) stateFn {
 	}
 }
 
-// lexMultilineRawString consumes a raw string. Nothing can be escaped in such
-// a string. It assumes that the beginning ''' has already been consumed and
+// lexMultilineRawString consumes a raw string. Nothing can be escaped in such a
+// string. It assumes that the beginning triple-' has already been consumed and
 // ignored.
 func lexMultilineRawString(lx *lexer) stateFn {
 	r := lx.next()
@@ -828,6 +828,11 @@ func lexMultilineStringEscape(lx *lexer) stateFn {
 func lexStringEscape(lx *lexer) stateFn {
 	r := lx.next()
 	switch r {
+	case 'e':
+		if !tomlNext {
+			return lx.error(errLexEscape{r})
+		}
+		fallthrough
 	case 'b':
 		fallthrough
 	case 't':
