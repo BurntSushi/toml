@@ -253,7 +253,9 @@ func TestTomlNext(t *testing.T) {
 
 // Make sure TOML 1.1 fails by default for now.
 func TestTomlNextFails(t *testing.T) {
-	runTomlTest(t, true, "valid/string/escape-esc")
+	runTomlTest(t, true,
+		"valid/string/escape-esc",
+		"valid/datetime/no-seconds")
 }
 
 func runTomlTest(t *testing.T, includeNext bool, wantFail ...string) {
@@ -317,9 +319,6 @@ func runTomlTest(t *testing.T, includeNext bool, wantFail ...string) {
 				"invalid/inline-table/add",
 				"invalid/table/duplicate-key-dotted-table",
 				"invalid/table/duplicate-key-dotted-table2",
-
-				// Upcoming TOML 1.1; not yet implemented
-				"valid/datetime/no-seconds",
 			},
 		}
 		if includeNext {
