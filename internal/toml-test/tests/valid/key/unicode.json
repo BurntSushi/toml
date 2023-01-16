@@ -1,0 +1,18 @@
+{
+  "a‍b": {
+    "type": "string",
+    "value": "zwj"
+  },
+  "ÅÅ": {
+    "type": "string",
+    "value": "U+00C5 U+0041 U+030A"
+  },
+  "€": {
+    "type": "string",
+    "value": "Euro"
+  },
+  "😂": {
+    "type": "string",
+    "value": "rofl"
+  }
+}
