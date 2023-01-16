@@ -1,0 +1,50 @@
+{
+  "tbl-1": {
+    "1": {
+      "type": "integer",
+      "value": "2"
+    },
+    "arr": [
+      {
+        "type": "integer",
+        "value": "1"
+      },
+      {
+        "type": "integer",
+        "value": "2"
+      },
+      {
+        "type": "integer",
+        "value": "3"
+      }
+    ],
+    "hello": {
+      "type": "string",
+      "value": "world"
+    },
+    "tbl": {
+      "k": {
+        "type": "integer",
+        "value": "1"
+      }
+    }
+  },
+  "tbl-2": {
+    "k": {
+      "type": "string",
+      "value": "\tHello\n\t"
+    }
+  },
+  "trailing-comma-1": {
+    "c": {
+      "type": "integer",
+      "value": "1"
+    }
+  },
+  "trailing-comma-2": {
+    "c": {
+      "type": "integer",
+      "value": "1"
+    }
+  }
+}

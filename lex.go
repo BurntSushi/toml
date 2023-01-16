@@ -618,6 +618,9 @@ func lexInlineTableValue(lx *lexer) stateFn {
 	case isWhitespace(r):
 		return lexSkip(lx, lexInlineTableValue)
 	case isNL(r):
+		if tomlNext {
+			return lexSkip(lx, lexInlineTableValue)
+		}
 		return lx.errorPrevLine(errLexInlineTableNL{})
 	case r == '#':
 		lx.push(lexInlineTableValue)
@@ -640,6 +643,9 @@ func lexInlineTableValueEnd(lx *lexer) stateFn {
 	case isWhitespace(r):
 		return lexSkip(lx, lexInlineTableValueEnd)
 	case isNL(r):
+		if tomlNext {
+			return lexSkip(lx, lexInlineTableValueEnd)
+		}
 		return lx.errorPrevLine(errLexInlineTableNL{})
 	case r == '#':
 		lx.push(lexInlineTableValueEnd)
@@ -648,6 +654,9 @@ func lexInlineTableValueEnd(lx *lexer) stateFn {
 		lx.ignore()
 		lx.skip(isWhitespace)
 		if lx.peek() == '}' {
+			if tomlNext {
+				return lexInlineTableValueEnd
+			}
 			return lx.errorf("trailing comma not allowed in inline tables")
 		}
 		return lexInlineTableValue

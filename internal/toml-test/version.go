@@ -13,6 +13,11 @@ var versions = map[string]versionSpec{
 		exclude: []string{
 			"invalid/datetime/no-secs",          // Times without seconds is no longer invalid.
 			"invalid/string/basic-byte-escapes", // \x is now valid.
+			"invalid/inline-table/trailing-comma",
+			"invalid/inline-table/linebreak-1",
+			"invalid/inline-table/linebreak-2",
+			"invalid/inline-table/linebreak-3",
+			"invalid/inline-table/linebreak-4",
 		},
 	},
 
@@ -21,6 +26,7 @@ var versions = map[string]versionSpec{
 			"valid/string/escape-esc",                               // \e
 			"valid/string/hex-escape", "invalid/string/bad-hex-esc", // \x..
 			"valid/datetime/no-seconds", // Times without seconds
+			"valid/inline-table/newline",
 		},
 	},
 

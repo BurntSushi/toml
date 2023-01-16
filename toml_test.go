@@ -256,7 +256,8 @@ func TestTomlNextFails(t *testing.T) {
 	runTomlTest(t, true,
 		"valid/string/escape-esc",
 		"valid/datetime/no-seconds",
-		"valid/string/hex-escape")
+		"valid/string/hex-escape",
+		"valid/inline-table/newline")
 }
 
 func runTomlTest(t *testing.T, includeNext bool, wantFail ...string) {
