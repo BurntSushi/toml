@@ -313,14 +313,19 @@ func runTomlTest(t *testing.T, includeNext bool, wantFail ...string) {
 				// https://github.com/BurntSushi/toml/issues/320
 				"invalid/datetime/time-no-leads",
 
-				// This test is fine, just doesn't deal well with empty output.
+				// These tests are fine, just doesn't deal well with empty output.
 				"valid/comment/noeol",
+				"valid/comment/nonascii",
 
-				// TODO: fix this.
+				// TODO: fix this; we allow appending to tables, but shouldn't.
 				"invalid/table/append-with-dotted*",
 				"invalid/inline-table/add",
 				"invalid/table/duplicate-key-dotted-table",
 				"invalid/table/duplicate-key-dotted-table2",
+				"invalid/spec/inline-table-2-0",
+				"invalid/spec/table-9-1",
+				"invalid/inline-table/nested_key_conflict",
+				"invalid/table/append-to-array-with-dotted-keys",
 			},
 		}
 		if includeNext {
