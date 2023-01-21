@@ -1,0 +1,6 @@
+# TOML 1.1 supports Unicode for bare keys.
+
+€ = 'Euro'
+😂 = "rofl"
+a‍b = "zwj"
+ÅÅ = "U+00C5 U+0041 U+030A"
