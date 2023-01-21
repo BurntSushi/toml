@@ -2,6 +2,7 @@ package toml
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -10,7 +11,10 @@ import (
 	"github.com/BurntSushi/toml/internal"
 )
 
-var tomlNext = false
+var tomlNext = func() bool {
+	_, ok := os.LookupEnv("BURNTSUSHI_TOML_110")
+	return ok
+}()
 
 type parser struct {
 	lx         *lexer
