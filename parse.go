@@ -50,6 +50,8 @@ func parse(data string) (p *parser, err error) {
 	// which mangles stuff.
 	if strings.HasPrefix(data, "\xff\xfe") || strings.HasPrefix(data, "\xfe\xff") {
 		data = data[2:]
+	} else if strings.HasPrefix(data, "\xef\xbb\xbf") {
+		data = data[3:]
 	}
 
 	// Examine first few bytes for NULL bytes; this probably means it's a UTF-16
