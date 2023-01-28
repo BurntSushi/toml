@@ -66,6 +66,7 @@ func TestDecodeBOM(t *testing.T) {
 	for _, tt := range [][]byte{
 		[]byte("\xff\xfea = \"b\""),
 		[]byte("\xfe\xffa = \"b\""),
+		[]byte("\xef\xbb\xbfa = \"b\""),
 	} {
 		t.Run("", func(t *testing.T) {
 			var s struct{ A string }
