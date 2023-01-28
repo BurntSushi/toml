@@ -47,9 +47,12 @@ func parse(data string) (p *parser, err error) {
 	}()
 
 	// Read over BOM; do this here as the lexer calls utf8.DecodeRuneInString()
-	// which mangles stuff.
-	if strings.HasPrefix(data, "\xff\xfe") || strings.HasPrefix(data, "\xfe\xff") {
+	// which mangles stuff. UTF-16 BOM isn't strictly valid, but some tools add
+	// it anyway.
+	if strings.HasPrefix(data, "\xff\xfe") || strings.HasPrefix(data, "\xfe\xff") { // UTF-16
 		data = data[2:]
+	} else if strings.HasPrefix(data, "\xef\xbb\xbf") { // UTF-8
+		data = data[3:]
 	}
 
 	// Examine first few bytes for NULL bytes; this probably means it's a UTF-16
