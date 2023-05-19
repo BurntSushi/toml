@@ -1147,6 +1147,30 @@ func TestCustomDecode(t *testing.T) {
 	}
 }
 
+// TODO: this should be improved for v2:
+// https://github.com/BurntSushi/toml/issues/384
+func TestDecodeDoubleTags(t *testing.T) {
+	var s struct {
+		A int `toml:"a"`
+		B int `toml:"a"`
+		C int `toml:"c"`
+	}
+	_, err := Decode(`
+		a = 1
+		b = 2
+		c = 3
+	`, &s)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := `{0 0 3}`
+	have := fmt.Sprintf("%v", s)
+	if want != have {
+		t.Errorf("\nhave: %s\nwant: %s\n", have, want)
+	}
+}
+
 // errorContains checks if the error message in have contains the text in
 // want.
 //
