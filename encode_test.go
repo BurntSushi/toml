@@ -261,8 +261,6 @@ func TestEncodeOmitEmptyPointer(t *testing.T) {
 	})
 
 	t.Run("zero values", func(t *testing.T) {
-		// TODO: this needs to be fixed; https://github.com/BurntSushi/toml/issues/371
-		t.Skip()
 		str := ""
 		sl := []string{}
 		m := map[string]string{}
@@ -277,7 +275,6 @@ func TestEncodeOmitEmptyPointer(t *testing.T) {
 slice = []
 
 [map]
-  XXX = ""
 
 [struct]
   string = ""
