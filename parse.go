@@ -245,7 +245,7 @@ func (p *parser) value(it item, parentIsArray bool) (interface{}, tomlType) {
 	case itemString:
 		return p.replaceEscapes(it, it.val), p.typeOfPrimitive(it)
 	case itemMultilineString:
-		return p.replaceEscapes(it, stripFirstNewline(p.stripEscapedNewlines(it.val))), p.typeOfPrimitive(it)
+		return p.replaceEscapes(it, p.stripEscapedNewlines(stripFirstNewline(it.val))), p.typeOfPrimitive(it)
 	case itemRawString:
 		return it.val, p.typeOfPrimitive(it)
 	case itemRawMultilineString:
@@ -681,49 +681,54 @@ func stripFirstNewline(s string) string {
 	return s
 }
 
-// Remove newlines inside triple-quoted strings if a line ends with "\".
+// stripEscapedNewlines removes whitespace after line-ending backslashes in
+// multiline strings.
+//
+// A line-ending backslash is an unescaped \ followed only by whitespace until
+// the next newline. After a line-ending backslash, all whitespace is removed
+// until the next non-whitespace character.
 func (p *parser) stripEscapedNewlines(s string) string {
-	split := strings.Split(s, "\n")
-	if len(split) < 1 {
-		return s
-	}
+	var b strings.Builder
+	var i int
+	for {
+		ix := strings.Index(s[i:], `\`)
+		if ix < 0 {
+			b.WriteString(s)
+			return b.String()
+		}
+		i += ix
 
-	escNL := false // Keep track of the last non-blank line was escaped.
-	for i, line := range split {
-		line = strings.TrimRight(line, " \t\r")
-
-		if len(line) == 0 || line[len(line)-1] != '\\' {
-			split[i] = strings.TrimRight(split[i], "\r")
-			if !escNL && i != len(split)-1 {
-				split[i] += "\n"
+		if len(s) > i+1 && s[i+1] == '\\' {
+			// Escaped backslash.
+			i += 2
+			continue
+		}
+		// Scan until the next non-whitespace.
+		j := i + 1
+	whitespaceLoop:
+		for ; j < len(s); j++ {
+			switch s[j] {
+			case ' ', '\t', '\r', '\n':
+			default:
+				break whitespaceLoop
 			}
+		}
+		if j == i+1 {
+			// Not a whitespace escape.
+			i++
 			continue
 		}
-
-		escBS := true
-		for j := len(line) - 1; j >= 0 && line[j] == '\\'; j-- {
-			escBS = !escBS
-		}
-		if escNL {
-			line = strings.TrimLeft(line, " \t\r")
-		}
-		escNL = !escBS
-
-		if escBS {
-			split[i] += "\n"
+		if !strings.Contains(s[i:j], "\n") {
+			// This is not a line-ending backslash.
+			// (It's a bad escape sequence, but we can let
+			// replaceEscapes catch it.)
+			i++
 			continue
 		}
-
-		if i == len(split)-1 {
-			p.panicf("invalid escape: '\\ '")
-		}
-
-		split[i] = line[:len(line)-1] // Remove \
-		if len(split)-1 > i {
-			split[i+1] = strings.TrimLeft(split[i+1], " \t\r")
-		}
+		b.WriteString(s[:i])
+		s = s[j:]
+		i = 0
 	}
-	return strings.Join(split, "")
 }
 
 func (p *parser) replaceEscapes(it item, str string) string {
