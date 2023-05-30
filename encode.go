@@ -493,24 +493,27 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value, inline bool) {
 	writeFields := func(fields [][]int) {
 		for _, fieldIndex := range fields {
 			fieldType := rt.FieldByIndex(fieldIndex)
-			fieldVal := eindirect(rv.FieldByIndex(fieldIndex))
-
-			if isNil(fieldVal) { /// Don't write anything for nil fields.
-				continue
-			}
+			fieldVal := rv.FieldByIndex(fieldIndex)
 
 			opts := getOptions(fieldType.Tag)
 			if opts.skip {
 				continue
 			}
+			if opts.omitempty && isEmpty(fieldVal) {
+				continue
+			}
+
+			fieldVal = eindirect(fieldVal)
+
+			if isNil(fieldVal) { // Don't write anything for nil fields.
+				continue
+			}
+
 			keyName := fieldType.Name
 			if opts.name != "" {
 				keyName = opts.name
 			}
 
-			if opts.omitempty && enc.isEmpty(fieldVal) {
-				continue
-			}
 			if opts.omitzero && isZero(fieldVal) {
 				continue
 			}
@@ -652,7 +655,7 @@ func isZero(rv reflect.Value) bool {
 	return false
 }
 
-func (enc *Encoder) isEmpty(rv reflect.Value) bool {
+func isEmpty(rv reflect.Value) bool {
 	switch rv.Kind() {
 	case reflect.Array, reflect.Slice, reflect.Map, reflect.String:
 		return rv.Len() == 0
@@ -667,13 +670,15 @@ func (enc *Encoder) isEmpty(rv reflect.Value) bool {
 		//   type b struct{ s []string }
 		//   s := a{field: b{s: []string{"AAA"}}}
 		for i := 0; i < rv.NumField(); i++ {
-			if !enc.isEmpty(rv.Field(i)) {
+			if !isEmpty(rv.Field(i)) {
 				return false
 			}
 		}
 		return true
 	case reflect.Bool:
 		return !rv.Bool()
+	case reflect.Ptr:
+		return rv.IsNil()
 	}
 	return false
 }
