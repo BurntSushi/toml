@@ -136,10 +136,8 @@ func NewEncoder(w io.Writer) *Encoder {
 // document.
 func (enc *Encoder) Encode(v interface{}) error {
 	rv := eindirect(reflect.ValueOf(v))
-
-	// XXX
-
-	if err := enc.safeEncode(Key([]string{}), rv); err != nil {
+	err := enc.safeEncode(Key([]string{}), rv)
+	if err != nil {
 		return err
 	}
 	return enc.w.Flush()
