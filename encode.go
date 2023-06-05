@@ -503,7 +503,7 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value, inline bool) {
 
 			fieldVal = eindirect(fieldVal)
 
-			if isNil(fieldVal) { // Don't write anything for nil fields.
+			if isNil(fieldVal) { /// Don't write anything for nil fields.
 				continue
 			}
 

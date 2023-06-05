@@ -1171,6 +1171,36 @@ func TestDecodeDoubleTags(t *testing.T) {
 	}
 }
 
+func TestMetaKeys(t *testing.T) {
+	tests := []struct {
+		in   string
+		want []Key
+	}{
+		{"", []Key{}},
+		{"b=1\na=1", []Key{Key{"b"}, Key{"a"}}},
+		{"a.b=1\na.a=1", []Key{Key{"a", "b"}, Key{"a", "a"}}}, // TODO: should include "a"
+		{"[tbl]\na=1", []Key{Key{"tbl"}, Key{"tbl", "a"}}},
+		{"[tbl]\na.a=1", []Key{Key{"tbl"}, Key{"tbl", "a", "a"}}}, // TODO: should include "a.a"
+		{"tbl={a=1}", []Key{Key{"tbl"}, Key{"tbl", "a"}}},
+		{"tbl={a={b=1}}", []Key{Key{"tbl"}, Key{"tbl", "a"}, Key{"tbl", "a", "b"}}},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			var x interface{}
+			meta, err := Decode(tt.in, &x)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			have := meta.Keys()
+			if !reflect.DeepEqual(tt.want, have) {
+				t.Errorf("\nhave: %s\nwant: %s\n", have, tt.want)
+			}
+		})
+	}
+}
+
 // errorContains checks if the error message in have contains the text in
 // want.
 //
