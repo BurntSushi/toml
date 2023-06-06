@@ -11,10 +11,7 @@ import (
 	"github.com/BurntSushi/toml/internal"
 )
 
-var tomlNext = func() bool {
-	_, ok := os.LookupEnv("BURNTSUSHI_TOML_110")
-	return ok
-}()
+var tomlNext bool
 
 type parser struct {
 	lx         *lexer
@@ -35,6 +32,9 @@ type keyInfo struct {
 }
 
 func parse(data string) (p *parser, err error) {
+	_, ok := os.LookupEnv("BURNTSUSHI_TOML_110")
+	tomlNext = ok
+
 	defer func() {
 		if r := recover(); r != nil {
 			if pErr, ok := r.(ParseError); ok {

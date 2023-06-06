@@ -18,8 +18,8 @@ import (
 )
 
 func WithTomlNext(f func()) {
-	tomlNext = true
-	defer func() { tomlNext = false }()
+	os.Setenv("BURNTSUSHI_TOML_110", "")
+	defer func() { os.Unsetenv("BURNTSUSHI_TOML_110") }()
 	f()
 }
 
