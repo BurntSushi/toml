@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"io/fs"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -53,6 +54,20 @@ func BenchmarkDecode(b *testing.B) {
 			}
 		})
 	}
+
+	b.Run("large-doc", func(b *testing.B) {
+		d, err := os.ReadFile("testdata/ja-JP.toml")
+		if err != nil {
+			b.Fatal(err)
+		}
+		doc := string(d)
+
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			var val map[string]interface{}
+			toml.Decode(doc, &val)
+		}
+	})
 }
 
 func BenchmarkEncode(b *testing.B) {
