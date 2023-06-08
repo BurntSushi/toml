@@ -1,12 +1,8 @@
-//go:build go1.16
-// +build go1.16
-
 package toml_test
 
 import (
 	"bytes"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -132,7 +128,7 @@ func BenchmarkEncode(b *testing.B) {
 }
 
 func BenchmarkExample(b *testing.B) {
-	d, err := ioutil.ReadFile("_example/example.toml")
+	d, err := os.ReadFile("_example/example.toml")
 	if err != nil {
 		b.Fatal(err)
 	}

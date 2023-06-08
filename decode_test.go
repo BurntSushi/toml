@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"os"
 	"reflect"
@@ -13,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/BurntSushi/toml/internal"
@@ -38,7 +38,7 @@ func TestDecodeReader(t *testing.T) {
 }
 
 func TestDecodeFile(t *testing.T) {
-	tmp, err := ioutil.TempFile("", "toml-")
+	tmp, err := os.CreateTemp("", "toml-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,6 +56,25 @@ func TestDecodeFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	have := fmt.Sprintf("%v %v %v", i, meta.Keys(), meta.Type("a"))
+	want := "{42} [a] Integer"
+	if have != want {
+		t.Errorf("\nhave: %s\nwant: %s", have, want)
+	}
+}
+
+func TestDecodeFS(t *testing.T) {
+	fsys := fstest.MapFS{
+		"test.toml": &fstest.MapFile{
+			Data: []byte("a = 42"),
+		},
+	}
+
+	var i struct{ A int }
+	meta, err := DecodeFS(fsys, "test.toml", &i)
+	if err != nil {
+		t.Fatal(err)
+	}
 	have := fmt.Sprintf("%v %v %v", i, meta.Keys(), meta.Type("a"))
 	want := "{42} [a] Integer"
 	if have != want {
