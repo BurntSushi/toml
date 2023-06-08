@@ -20,7 +20,7 @@
           "uses": "actions/checkout@v3"
         }, {
           "name": "Test",
-          "run":  "go test ./..."
+          "run":  "go test -race ./..."
         }, {
           "name": "Test on 32bit",
           "if":   "runner.os == 'Linux'",

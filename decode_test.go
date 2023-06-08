@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1199,6 +1200,26 @@ func TestMetaKeys(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDecodeParallel(t *testing.T) {
+	doc, err := os.ReadFile("testdata/ja-JP.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := Unmarshal(doc, new(map[string]interface{}))
+			if err != nil {
+				t.Fatal(err)
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 // errorContains checks if the error message in have contains the text in
