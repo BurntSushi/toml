@@ -44,7 +44,7 @@ At line 9, column 3-8:
       9 |   [fruit.variety]
              ^^^^^`},
 		{"datetime/trailing-t.toml", `
-toml: error: Invalid TOML Datetime: "2006-01-30T".
+toml: error: invalid datetime: "2006-01-30T"
 
 At line 2, column 4-15:
 
@@ -202,6 +202,32 @@ func TestParseError(t *testing.T) {
 			|
 			|     You can combine multiple units; for example "5m10s" for 5 minutes and 10
 			|     seconds.
+			`,
+		},
+
+		{
+			&struct{ D time.Time }{},
+			`D = 2006-01-99`,
+			`
+            | toml: error: invalid datetime: "2006-01-99"
+            |
+            | At line 1, column 4-14:
+            |
+            |       1 | D = 2006-01-99
+            |               ^^^^^^^^^^
+            | Error help:
+            |
+            |     A TOML datetime must be in one of the following formats:
+            |
+            |         2006-01-02T15:04:05Z07:00   Date and time, with timezone.
+            |         2006-01-02T15:04:05         Date and time, but without timezone.
+            |         2006-01-02                  Date without a time or timezone.
+            |         15:04:05                    Just a time, without any timezone.
+            |
+            |     Seconds may optionally have a fraction, up to nanosecond precision:
+            |
+            |         15:04:05.123
+            |         15:04:05.856018510
 			`,
 		},
 	}

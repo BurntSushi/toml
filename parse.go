@@ -371,7 +371,7 @@ func (p *parser) valueDatetime(it item) (any, tomlType) {
 		}
 	}
 	if !ok {
-		p.panicItemf(it, "Invalid TOML Datetime: %q.", it.val)
+		p.panicErr(it, errParseDate{it.val})
 	}
 	return t, p.typeOfPrimitive(it)
 }

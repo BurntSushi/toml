@@ -163,8 +163,7 @@ type (
 	errLexControl       struct{ r rune }
 	errLexEscape        struct{ r rune }
 	errLexUTF8          struct{ b byte }
-	errLexInvalidNum    struct{ v string }
-	errLexInvalidDate   struct{ v string }
+	errParseDate        struct{ v string }
 	errLexInlineTableNL struct{}
 	errLexStringNL      struct{}
 	errParseRange       struct {
@@ -183,10 +182,8 @@ func (e errLexEscape) Error() string        { return fmt.Sprintf(`invalid escape
 func (e errLexEscape) Usage() string        { return usageEscape }
 func (e errLexUTF8) Error() string          { return fmt.Sprintf("invalid UTF-8 byte: 0x%02x", e.b) }
 func (e errLexUTF8) Usage() string          { return "" }
-func (e errLexInvalidNum) Error() string    { return fmt.Sprintf("invalid number: %q", e.v) }
-func (e errLexInvalidNum) Usage() string    { return "" }
-func (e errLexInvalidDate) Error() string   { return fmt.Sprintf("invalid date: %q", e.v) }
-func (e errLexInvalidDate) Usage() string   { return "" }
+func (e errParseDate) Error() string        { return fmt.Sprintf("invalid datetime: %q", e.v) }
+func (e errParseDate) Usage() string        { return usageDate }
 func (e errLexInlineTableNL) Error() string { return "newlines not allowed within inline tables" }
 func (e errLexInlineTableNL) Usage() string { return usageInlineNewline }
 func (e errLexStringNL) Error() string      { return "strings cannot contain newlines" }
@@ -277,3 +274,23 @@ A duration must be as "number<unit>", without any spaces. Valid units are:
 You can combine multiple units; for example "5m10s" for 5 minutes and 10
 seconds.
 `
+
+const usageDate = `
+A TOML datetime must be in one of the following formats:
+
+    2006-01-02T15:04:05Z07:00   Date and time, with timezone.
+    2006-01-02T15:04:05         Date and time, but without timezone.
+    2006-01-02                  Date without a time or timezone.
+    15:04:05                    Just a time, without any timezone.
+
+Seconds may optionally have a fraction, up to nanosecond precision:
+
+    15:04:05.123
+    15:04:05.856018510
+`
+
+// TOML 1.1:
+// The seconds part in times is optional, and may be omitted:
+//     2006-01-02T15:04Z07:00
+//     2006-01-02T15:04
+//     15:04
