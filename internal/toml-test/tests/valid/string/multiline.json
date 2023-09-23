@@ -50,9 +50,5 @@
   "whitespace-after-bs": {
     "type": "string",
     "value": "The quick brown fox jumps over the lazy dog."
-  },
-  "only-ignore-first": {
-    "type": "string",
-    "value": "Here are two\nlines of text.\nAnd another\n  two.\n"
   }
 }

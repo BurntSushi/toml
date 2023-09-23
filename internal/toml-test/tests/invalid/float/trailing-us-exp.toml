@@ -1,4 +1,0 @@
-# trailing underscore in integer part is not allowed
-trailing-us-exp = 1_e2
-# trailing underscore in float part is not allowed
-trailing-us-exp2 = 1.2_e2

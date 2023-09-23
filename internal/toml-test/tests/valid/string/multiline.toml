@@ -35,16 +35,6 @@ whitespace-after-bs = """\
        the lazy dog.\	
        """
 
-only-ignore-first = """
-Here are \
-  two
-lines of text.
-And \
-
-  another
-  two.
-"""
-
 no-space = """a\
     b"""
 

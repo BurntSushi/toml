@@ -25,7 +25,7 @@ exp-double-e-1 = 1ee2
 exp-double-e-2 = 1e2e3
 
 exp-leading-us = 1e_23
-exp-trailing-us = 1e_23_
+exp-trailing-us = 1e23_
 exp-double-us = 1e__23
 
 inf-incomplete-1 = in
@@ -38,3 +38,6 @@ nan-incomplete-3 = -na
 
 nan_underscore = na_n
 inf_underscore = in_f
+
+trailing-us-exp-1 = 1_e2
+trailing-us-exp-2 = 1.2_e2

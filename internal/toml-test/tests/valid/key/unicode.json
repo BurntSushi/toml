@@ -3,6 +3,24 @@
     "type": "string",
     "value": "zwj"
   },
+  "tiếng-Việt": [
+    {
+      "tiəŋ˧˦": {
+        "viət̚˧˨ʔ": {
+          "type": "string",
+          "value": "north"
+        }
+      }
+    },
+    {
+      "tiəŋ˦˧˥": {
+        "viək̚˨˩ʔ": {
+          "type": "string",
+          "value": "central"
+        }
+      }
+    }
+  ],
   "ÅÅ": {
     "type": "string",
     "value": "U+00C5 U+0041 U+030A"
@@ -10,6 +28,14 @@
   "€": {
     "type": "string",
     "value": "Euro"
+  },
+  "中文": {
+    "中文": {
+      "中文": {
+        "type": "string",
+        "value": "Chinese language"
+      }
+    }
   },
   "😂": {
     "type": "string",

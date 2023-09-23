@@ -8,8 +8,7 @@ JSON, described below.
 
 Both encoders and decoders share valid tests, except an encoder accepts JSON and
 outputs TOML rather than the reverse. The TOML representations are read with a
-blessed decoder and is compared. Encoders have their own set of invalid tests in
-the invalid-encoder directory. The JSON given to a TOML encoder is in the same
+blessed decoder and is compared. The JSON given to a TOML encoder is in the same
 format as the JSON that a TOML decoder should output.
 
 Compatible with TOML version [v1.0.0][v1].
@@ -24,16 +23,13 @@ should run in most environments. It's recommended you use a binary, or a tagged
 release if you build from source especially in CI environments. This prevents
 your tests from breaking on changes to tests in this tool.
 
-To compile from source you will need Go 1.16 or newer (older versions will *not*
-work):
+To compile from source you will need Go 1.18 or newer:
 
-    $ git clone https://github.com/BurntSushi/toml-test.git
-    $ cd toml-test
-    $ go build ./cmd/toml-test
+    $ go install github.com/toml-lang/toml-test/cmd/toml-test@latest
 
 This will build a `./toml-test` binary.
 
-[r]: https://github.com/BurntSushi/toml-test/releases
+[r]: https://github.com/toml-lang/toml-test/releases
 
 Usage
 -----
@@ -69,11 +65,11 @@ See `toml-test -help` for detailed usage.
 For your decoder to be compatible with `toml-test` it **must** satisfy the
 expected interface:
 
-- Your decoder **must** accept TOML data on `stdin` until EOF.
+- Your decoder **must** accept TOML data on `stdin`.
 - If the TOML data is invalid, your decoder **must** return with a non-zero
-  exit, code indicating an error.
+  exit code, indicating an error.
 - If the TOML data is valid, your decoder **must** output a JSON encoding of
-  that data on `stdout` and return with a zero exit code indicating success.
+  that data on `stdout` and return with a zero exit code, indicating success.
 
 An example in pseudocode:
 
@@ -94,12 +90,12 @@ Details on the tagged JSON is explained below in "JSON encoding".
 For your encoder to be compatible with `toml-test`, it **must** satisfy the
 expected interface:
 
-- Your encoder **must** accept JSON data on `stdin` until EOF.
+- Your encoder **must** accept JSON data on `stdin`.
 - If the JSON data cannot be converted to a valid TOML representation, your
-  encoder **must** return with a non-zero exit code indicating an error.
+  encoder **must** return with a non-zero exit code, indicating an error.
 - If the JSON data can be converted to a valid TOML representation, your encoder
   **must** output a TOML encoding of that data on `stdout` and return with a
-  zero exit code indicating success.
+  zero exit code, indicating success.
 
 An example in pseudocode:
 
@@ -121,9 +117,9 @@ The following JSON encoding applies equally to both encoders and decoders:
 - TOML tables correspond to JSON objects.
 - TOML table arrays correspond to JSON arrays.
 - TOML values correspond to a special JSON object of the form:
-  `{"type": "{TTYPE}", "value": {TVALUE}}`
+  `{"type": "{TOML_TYPE}", "value": "{TOML_VALUE}"}`
 
-In the above, `TTYPE` may be one of:
+In the above, `TOML_TYPE` may be one of:
 
 - string
 - integer
@@ -134,7 +130,7 @@ In the above, `TTYPE` may be one of:
 - date-local
 - time-local
 
-`TVALUE` is always a JSON string.
+`TOML_VALUE` is always a JSON string.
 
 Empty hashes correspond to empty JSON objects (`{}`) and empty arrays correspond
 to empty JSON arrays (`[]`).
@@ -147,19 +143,19 @@ Examples:
 
     TOML                JSON
 
-    a = 42              {"type": "integer": "value": "42}
+    a = 42              {"type": "integer": "value": "42"}
 
----
+<!-- -->
 
     [tbl]               {"tbl": {
-    a = 42                  "a": {"type": "integer": "value": "42}
+    a = 42                  "a": {"type": "integer": "value": "42"}
                         }}
 
----
+<!-- -->
 
     a = ["a", 2]        {"a": [
-                            {"type": "string", "value": "1"},
-                            {"type: "integer": "value": "2"}
+                            {"type": "string",  "value": "1"},
+                            {"type": "integer": "value": "2"}
                         ]}
 
 Or a more complex example:
@@ -200,13 +196,12 @@ Implementation-defined behaviour
 This only tests behaviour that's should be true for every encoder implementing
 TOML; a few things are left up to implementations, and are not tested here.
 
-- Millisecond precision (4 digits) is required for datetimes and times, and
+- Millisecond precision (3 digits) is required for datetimes and times, and
   further precision is implementation-specific, and any greater precision than
   is supported must be truncated (not rounded).
 
   This tests only millisecond precision, and not any further precision or the
   truncation of it.
-
 
 Assumptions of Truth
 --------------------
@@ -216,9 +211,9 @@ The following are taken as ground truths by `toml-test`:
 - All tests classified as `valid` **are** valid.
 - All expected outputs in `valid/test-name.json` are exactly correct.
 - The Go standard library package `encoding/json` decodes JSON correctly.
-- When testing encoders, the TOML decoder at
-  [BurntSushi/toml](https://github.com/BurntSushi/toml) is assumed to be 
-  correct. (Note that this assumption is not made when testing decoders!)
+- When testing encoders the
+  [BurntSushi/toml](https://github.com/BurntSushi/toml) TOML decoder is assumed
+  to be correct. (Note that this assumption is not made when testing decoders!)
 
 Of particular note is that **no TOML decoder** is taken as ground truth when
 testing decoders. This means that most changes to the spec will only require an
@@ -228,10 +223,40 @@ added.) Obviously, this advantage does not apply to testing TOML encoders since
 there must exist a TOML decoder that conforms to the specification in order to
 read the output of a TOML encoder.
 
+Usage without `toml-test` binary
+--------------------------------
+While the `toml-test` tool is a convenient way to run the tests, you can also
+re-implement its behaviour in your own language's test-suite, which may be an
+easier way to run the tests.
+
+Because multiple TOML versions are supported, not all tests are valid for every
+version of TOML; for example the 1.0.0 tests contain a test that trailing commas
+in tables are invalid, but in 1.1.0 this should be considered valid.
+
+In short: you can't "just" copy all .toml and .json files from the tests/
+directory. The [tests/files-toml-1.0.0] and [tests/files-toml-1.1.0] files
+contain a list of files you should run for that TOML version.
+
+You can use those lists to determine which tests to run, or include only those
+tests in your library by copying them with something like:
+
+    <files-toml-1.0.0 while read l; do
+        mkdir -p ~/my-test/"$(dirname "$l")"
+        cp -r "$l" ~/my-test/"$l"
+    done
+
+These files are generated with `toml-test -list-files`:
+
+    % toml-test -list-files -toml=1.0.0
+    % toml-test -list-files -toml=1.1.0
+
+[tests/files-toml-1.0.0]: tests/files-toml-1.0.0
+[tests/files-toml-1.1.0]: tests/files-toml-1.1.0
+
 Adding tests
 ------------
 `toml-test` was designed so that tests can be easily added and removed. As
-mentioned above, tests are split into two groups: invalid and valid tests. 
+mentioned above, tests are split into two groups: invalid and valid tests.
 
 Invalid tests **only check if a decoder rejects invalid TOML data**. Or, in the
 case of testing encoders, invalid tests **only check if an encoder rejects an

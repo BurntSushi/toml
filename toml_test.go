@@ -327,7 +327,7 @@ func runTomlTest(t *testing.T, includeNext bool, wantFail ...string) {
 			},
 		}
 		if includeNext {
-			r.Version = "next"
+			r.Version = "1.1.0"
 		}
 
 		tests, err := r.Run()

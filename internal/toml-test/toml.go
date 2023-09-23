@@ -1,8 +1,10 @@
 package tomltest
 
 import (
+	"fmt"
 	"math"
 	"reflect"
+	"strings"
 )
 
 // CompareTOML compares the given arguments.
@@ -13,36 +15,36 @@ import (
 //
 // Reflect.DeepEqual could work here, but it won't tell us how the two
 // structures are different.
-func (r Test) CompareTOML(want, have interface{}) Test {
+func (r Test) CompareTOML(want, have any) Test {
 	if isTomlValue(want) {
 		if !isTomlValue(have) {
 			return r.fail("Type for key '%s' differs:\n"+
-				"  Expected:     %[2]v (%[2]T)\n"+
-				"  Your encoder: %[3]v (%[3]T)",
-				r.Key, want, have)
+				"  Expected:     %v (%s)\n"+
+				"  Your encoder: %v (%s)",
+				r.Key, want, fmtType(want), have, fmtType(have))
 		}
 
 		if !deepEqual(want, have) {
 			return r.fail("Values for key '%s' differ:\n"+
-				"  Expected:     %[2]v (%[2]T)\n"+
-				"  Your encoder: %[3]v (%[3]T)",
-				r.Key, want, have)
+				"  Expected:     %v (%s)\n"+
+				"  Your encoder: %v (%s)",
+				r.Key, want, fmtType(want), have, fmtType(have))
 		}
 		return r
 	}
 
 	switch w := want.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		return r.cmpTOMLMap(w, have)
-	case []interface{}:
+	case []any:
 		return r.cmpTOMLArrays(w, have)
 	default:
-		return r.fail("Unrecognized TOML structure: %T", want)
+		return r.fail("Unrecognized TOML structure: %s", fmtType(want))
 	}
 }
 
-func (r Test) cmpTOMLMap(want map[string]interface{}, have interface{}) Test {
-	haveMap, ok := have.(map[string]interface{})
+func (r Test) cmpTOMLMap(want map[string]any, have any) Test {
+	haveMap, ok := have.(map[string]any)
 	if !ok {
 		return r.mismatch("table", want, haveMap)
 	}
@@ -70,19 +72,19 @@ func (r Test) cmpTOMLMap(want map[string]interface{}, have interface{}) Test {
 	return r
 }
 
-func (r Test) cmpTOMLArrays(want []interface{}, have interface{}) Test {
-	// Slice can be decoded to []interface{} for an array of primitives, or
-	// []map[string]interface{} for an array of tables.
+func (r Test) cmpTOMLArrays(want []any, have any) Test {
+	// Slice can be decoded to []any for an array of primitives, or
+	// []map[string]any for an array of tables.
 	//
-	// TODO: it would be nicer if it could always decode to []interface{}?
-	haveSlice, ok := have.([]interface{})
+	// TODO: it would be nicer if it could always decode to []any?
+	haveSlice, ok := have.([]any)
 	if !ok {
-		tblArray, ok := have.([]map[string]interface{})
+		tblArray, ok := have.([]map[string]any)
 		if !ok {
 			return r.mismatch("array", want, have)
 		}
 
-		haveSlice = make([]interface{}, len(tblArray))
+		haveSlice = make([]any, len(tblArray))
 		for i := range tblArray {
 			haveSlice[i] = tblArray[i]
 		}
@@ -103,7 +105,7 @@ func (r Test) cmpTOMLArrays(want []interface{}, have interface{}) Test {
 }
 
 // reflect.DeepEqual() that deals with NaN != NaN
-func deepEqual(want, have interface{}) bool {
+func deepEqual(want, have any) bool {
 	var wantF, haveF float64
 	switch f := want.(type) {
 	case float32:
@@ -124,10 +126,15 @@ func deepEqual(want, have interface{}) bool {
 	return reflect.DeepEqual(want, have)
 }
 
-func isTomlValue(v interface{}) bool {
+func isTomlValue(v any) bool {
 	switch v.(type) {
-	case map[string]interface{}, []interface{}:
+	case map[string]any, []any:
 		return false
 	}
 	return true
+}
+
+// fmt %T with "interface {}" replaced with "any", which is far more readable.
+func fmtType(t any) string {
+	return strings.ReplaceAll(fmt.Sprintf("%T", t), "interface {}", "any")
 }

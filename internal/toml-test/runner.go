@@ -1,4 +1,4 @@
-//go:generate ./gen-multi.py
+//go:generate ./gen.py
 
 package tomltest
 
@@ -335,7 +335,7 @@ func (t Test) runValid(p Parser, fsys fs.FS) Test {
 		if err != nil {
 			return t.bug(err.Error())
 		}
-		var have interface{}
+		var have any
 		if _, err := toml.Decode(t.Output, &have); err != nil {
 			//return t.fail("decode TOML from encoder %q:\n  %s", cmd, err)
 			return t.fail("decode TOML from encoder:\n  %s", err)
@@ -349,7 +349,7 @@ func (t Test) runValid(p Parser, fsys fs.FS) Test {
 		return t.fail(err.Error())
 	}
 
-	var have interface{}
+	var have any
 	if err := json.Unmarshal([]byte(t.Output), &have); err != nil {
 		return t.fail("decode JSON output from parser:\n  %s", err)
 	}
@@ -380,7 +380,7 @@ func (t Test) ReadWant(fsys fs.FS) (path, data string, err error) {
 	return path, string(d), nil
 }
 
-func (t *Test) ReadWantJSON(fsys fs.FS) (v interface{}, err error) {
+func (t *Test) ReadWantJSON(fsys fs.FS) (v any, err error) {
 	var path string
 	path, t.Want, err = t.ReadWant(fsys)
 	if err != nil {
@@ -392,7 +392,7 @@ func (t *Test) ReadWantJSON(fsys fs.FS) (v interface{}, err error) {
 	}
 	return v, nil
 }
-func (t *Test) ReadWantTOML(fsys fs.FS) (v interface{}, err error) {
+func (t *Test) ReadWantTOML(fsys fs.FS) (v any, err error) {
 	var path string
 	path, t.Want, err = t.ReadWant(fsys)
 	if err != nil {
@@ -413,11 +413,11 @@ func (t Test) Type() testType {
 	return TypeValid
 }
 
-func (t Test) fail(format string, v ...interface{}) Test {
+func (t Test) fail(format string, v ...any) Test {
 	t.Failure = fmt.Sprintf(format, v...)
 	return t
 }
-func (t Test) bug(format string, v ...interface{}) Test {
+func (t Test) bug(format string, v ...any) Test {
 	return t.fail("BUG IN TEST CASE: "+format, v...)
 }
 

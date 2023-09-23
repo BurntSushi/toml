@@ -14,21 +14,21 @@ import (
 //
 // reflect.DeepEqual could work here, but it won't tell us how the two
 // structures are different.
-func (r Test) CompareJSON(want, have interface{}) Test {
+func (r Test) CompareJSON(want, have any) Test {
 	switch w := want.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		return r.cmpJSONMaps(w, have)
-	case []interface{}:
+	case []any:
 		return r.cmpJSONArrays(w, have)
 	default:
 		return r.fail(
-			"Key '%s' in expected output should be a map or a list of maps, but it's a %T",
-			r.Key, want)
+			"Key '%s' in expected output should be a map or a list of maps, but it's a %s",
+			r.Key, fmtType(want))
 	}
 }
 
-func (r Test) cmpJSONMaps(want map[string]interface{}, have interface{}) Test {
-	haveMap, ok := have.(map[string]interface{})
+func (r Test) cmpJSONMaps(want map[string]any, have any) Test {
+	haveMap, ok := have.(map[string]any)
 	if !ok {
 		return r.mismatch("table", want, haveMap)
 	}
@@ -73,16 +73,16 @@ func (r Test) cmpJSONMaps(want map[string]interface{}, have interface{}) Test {
 	return r
 }
 
-func (r Test) cmpJSONArrays(want, have interface{}) Test {
-	wantSlice, ok := want.([]interface{})
+func (r Test) cmpJSONArrays(want, have any) Test {
+	wantSlice, ok := want.([]any)
 	if !ok {
-		return r.bug("'value' should be a JSON array when 'type=array', but it is a %T", want)
+		return r.bug("'value' should be a JSON array when 'type=array', but it is a %s", fmtType(want))
 	}
 
-	haveSlice, ok := have.([]interface{})
+	haveSlice, ok := have.([]any)
 	if !ok {
 		return r.fail(
-			"Malformed output from your encoder: 'value' is not a JSON array: %T", have)
+			"Malformed output from your encoder: 'value' is not a JSON array: %s", fmtType(have))
 	}
 
 	if len(wantSlice) != len(haveSlice) {
@@ -99,15 +99,15 @@ func (r Test) cmpJSONArrays(want, have interface{}) Test {
 	return r
 }
 
-func (r Test) cmpJSONValues(want, have map[string]interface{}) Test {
+func (r Test) cmpJSONValues(want, have map[string]any) Test {
 	wantType, ok := want["type"].(string)
 	if !ok {
-		return r.bug("'type' should be a string, but it is a %T", want["type"])
+		return r.bug("'type' should be a string, but it is a %s", fmtType(want["type"]))
 	}
 
 	haveType, ok := have["type"].(string)
 	if !ok {
-		return r.fail("Malformed output from your encoder: 'type' is not a string: %T", have["type"])
+		return r.fail("Malformed output from your encoder: 'type' is not a string: %s", fmtType(have["type"]))
 	}
 
 	if wantType != haveType {
@@ -122,12 +122,12 @@ func (r Test) cmpJSONValues(want, have map[string]interface{}) Test {
 	// Atomic values are always strings
 	wantVal, ok := want["value"].(string)
 	if !ok {
-		return r.bug("'value' %v should be a string, but it is a %[1]T", want["value"])
+		return r.bug("'value' %v should be a string, but it is a %s", want["value"], fmtType(want["value"]))
 	}
 
 	haveVal, ok := have["value"].(string)
 	if !ok {
-		return r.fail("Malformed output from your encoder: %T is not a string", have["value"])
+		return r.fail("Malformed output from your encoder: %s is not a string", fmtType(have["value"]))
 	}
 
 	// Excepting floats and datetimes, other values can be compared as strings.
@@ -227,7 +227,7 @@ func (r Test) kjoin(key string) Test {
 	return r
 }
 
-func isValue(m map[string]interface{}) bool {
+func isValue(m map[string]any) bool {
 	if len(m) != 2 {
 		return false
 	}
@@ -240,14 +240,14 @@ func isValue(m map[string]interface{}) bool {
 	return true
 }
 
-func (r Test) mismatch(wantType string, want, have interface{}) Test {
-	return r.fail("Key '%s' is not an %s but %[4]T:\n"+
+func (r Test) mismatch(wantType string, want, have any) Test {
+	return r.fail("Key '%[1]s' is not an %[2]s but %[5]s:\n"+
 		"  Expected:     %#[3]v\n"+
 		"  Your encoder: %#[4]v",
-		r.Key, wantType, want, have)
+		r.Key, wantType, want, have, fmtType(have))
 }
 
-func (r Test) valMismatch(wantType, haveType string, want, have interface{}) Test {
+func (r Test) valMismatch(wantType, haveType string, want, have any) Test {
 	return r.fail("Key '%s' is not an %s but %s:\n"+
 		"  Expected:     %#[3]v\n"+
 		"  Your encoder: %#[4]v",
