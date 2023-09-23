@@ -13,7 +13,7 @@ type MetaData struct {
 	context Key // Used only during decoding.
 
 	keyInfo map[string]keyInfo
-	mapping map[string]interface{}
+	mapping map[string]any
 	keys    []Key
 	decoded map[string]struct{}
 	data    []byte // Input file; for errors.
@@ -31,12 +31,12 @@ func (md *MetaData) IsDefined(key ...string) bool {
 	}
 
 	var (
-		hash      map[string]interface{}
+		hash      map[string]any
 		ok        bool
-		hashOrVal interface{} = md.mapping
+		hashOrVal any = md.mapping
 	)
 	for _, k := range key {
-		if hash, ok = hashOrVal.(map[string]interface{}); !ok {
+		if hash, ok = hashOrVal.(map[string]any); !ok {
 			return false
 		}
 		if hashOrVal, ok = hash[k]; !ok {

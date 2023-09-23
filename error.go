@@ -168,8 +168,8 @@ type (
 	errLexInlineTableNL struct{}
 	errLexStringNL      struct{}
 	errParseRange       struct {
-		i    interface{} // int or float
-		size string      // "int64", "uint16", etc.
+		i    any    // int or float
+		size string // "int64", "uint16", etc.
 	}
 	errParseDuration struct{ d string }
 )

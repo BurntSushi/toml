@@ -61,7 +61,7 @@ At line 2, column 4-15:
 				t.Fatal(err)
 			}
 
-			var x interface{}
+			var x any
 			_, err = toml.Decode(string(input), &x)
 			if err == nil {
 				t.Fatal("err is nil")
@@ -84,7 +84,7 @@ At line 2, column 4-15:
 
 func TestParseError(t *testing.T) {
 	tests := []struct {
-		in        interface{}
+		in        any
 		toml, err string
 	}{
 		{

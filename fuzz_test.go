@@ -1,6 +1,3 @@
-//go:build go1.18
-// +build go1.18
-
 package toml
 
 import (
@@ -67,7 +64,7 @@ distros = [
 	key = "This table intentionally left undecoded"
 `)
 	f.Fuzz(func(t *testing.T, file string) {
-		var m map[string]interface{}
+		var m map[string]any
 		_, err := Decode(file, &m)
 		if err != nil {
 			t.Skip()

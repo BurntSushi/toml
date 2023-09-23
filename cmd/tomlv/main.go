@@ -35,7 +35,7 @@ func main() {
 		flag.Usage()
 	}
 	for _, f := range flag.Args() {
-		var tmp interface{}
+		var tmp any
 		md, err := toml.DecodeFile(f, &tmp)
 		if err != nil {
 			log.Fatalf("Error in '%s': %s", f, err)

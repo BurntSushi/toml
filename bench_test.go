@@ -44,7 +44,7 @@ func BenchmarkDecode(b *testing.B) {
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
 				for _, f := range tt.toml {
-					var val map[string]interface{}
+					var val map[string]any
 					toml.Decode(f, &val)
 				}
 			}
@@ -60,14 +60,14 @@ func BenchmarkDecode(b *testing.B) {
 
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
-			var val map[string]interface{}
+			var val map[string]any
 			toml.Decode(doc, &val)
 		}
 	})
 }
 
 func BenchmarkEncode(b *testing.B) {
-	files := make(map[string][]map[string]interface{})
+	files := make(map[string][]map[string]any)
 	fs.WalkDir(tomltest.EmbeddedTests(), ".", func(path string, d fs.DirEntry, err error) error {
 		if strings.HasPrefix(path, "valid/") && strings.HasSuffix(path, ".toml") {
 			d, _ := fs.ReadFile(tomltest.EmbeddedTests(), path)
@@ -84,7 +84,7 @@ func BenchmarkEncode(b *testing.B) {
 				return nil
 			}
 
-			var dec map[string]interface{}
+			var dec map[string]any
 			_, err := toml.Decode(string(d), &dec)
 			if err != nil {
 				b.Fatalf("decode %q: %s", path, err)
@@ -104,7 +104,7 @@ func BenchmarkEncode(b *testing.B) {
 
 	type test struct {
 		group string
-		data  []map[string]interface{}
+		data  []map[string]any
 	}
 	tests := make([]test, 0, len(files))
 	for k, v := range files {

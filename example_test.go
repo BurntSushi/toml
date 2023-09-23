@@ -15,7 +15,7 @@ func ExampleEncoder_Encode() {
 		date, _ = time.Parse(time.RFC822, "14 Mar 10 18:00 UTC")
 		buf     = new(bytes.Buffer)
 	)
-	err := toml.NewEncoder(buf).Encode(map[string]interface{}{
+	err := toml.NewEncoder(buf).Encode(map[string]any{
 		"date":   date,
 		"counts": []int{1, 1, 2, 3, 5, 8},
 		"hash": map[string]string{
@@ -268,21 +268,21 @@ func (c *cable) Name() string {
 	return fmt.Sprintf("CABLE: %s", c.ID)
 }
 
-func (o *order) UnmarshalTOML(data interface{}) error {
+func (o *order) UnmarshalTOML(data any) error {
 	// NOTE the example below contains detailed type casting to show how the
 	// 'data' is retrieved. In operational use, a type cast wrapper may be
 	// preferred e.g.
 	//
-	// func AsMap(v interface{}) (map[string]interface{}, error) {
-	// 		return v.(map[string]interface{})
+	// func AsMap(v any) (map[string]any, error) {
+	// 		return v.(map[string]any)
 	// }
 	//
 	// resulting in:
 	// d, _ := AsMap(data)
 	//
 
-	d, _ := data.(map[string]interface{})
-	parts, _ := d["parts"].([]map[string]interface{})
+	d, _ := data.(map[string]any)
+	parts, _ := d["parts"].([]map[string]any)
 
 	for _, p := range parts {
 

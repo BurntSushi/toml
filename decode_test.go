@@ -109,8 +109,8 @@ func TestDecodeEmbedded(t *testing.T) {
 	for _, test := range []struct {
 		label       string
 		input       string
-		decodeInto  interface{}
-		wantDecoded interface{}
+		decodeInto  any
+		wantDecoded any
 	}{
 		{
 			label:       "embedded struct",
@@ -156,7 +156,7 @@ func TestDecodeEmbedded(t *testing.T) {
 
 func TestDecodeErrors(t *testing.T) {
 	tests := []struct {
-		s       interface{}
+		s       any
 		toml    string
 		wantErr string
 	}{
@@ -460,7 +460,7 @@ func TestDecodeSizedInts(t *testing.T) {
 
 type NopUnmarshalTOML int
 
-func (n *NopUnmarshalTOML) UnmarshalTOML(p interface{}) error {
+func (n *NopUnmarshalTOML) UnmarshalTOML(p any) error {
 	*n = 42
 	return nil
 }
@@ -468,22 +468,22 @@ func (n *NopUnmarshalTOML) UnmarshalTOML(p interface{}) error {
 func TestDecodeTypes(t *testing.T) {
 	type (
 		mystr   string
-		myiface interface{}
+		myiface any
 	)
 
 	for _, tt := range []struct {
-		v       interface{}
+		v       any
 		want    string
 		wantErr string
 	}{
 		{new(map[string]bool), "&map[F:true]", ""},
 		{new(map[mystr]bool), "&map[F:true]", ""},
 		{new(NopUnmarshalTOML), "42", ""},
-		{new(map[interface{}]bool), "&map[F:true]", ""},
+		{new(map[any]bool), "&map[F:true]", ""},
 		{new(map[myiface]bool), "&map[F:true]", ""},
 
 		{3, "", `toml: cannot decode to non-pointer "int"`},
-		{map[string]interface{}{}, "", `toml: cannot decode to non-pointer "map[string]interface {}"`},
+		{map[string]any{}, "", `toml: cannot decode to non-pointer "map[string]interface {}"`},
 
 		{(*int)(nil), "", `toml: cannot decode to nil value of "*int"`},
 		{(*Unmarshaler)(nil), "", `toml: cannot decode to nil value of "*toml.Unmarshaler"`},
@@ -557,7 +557,7 @@ name = "Rice"
 	}
 
 	eggSalad := m.Dishes["eggsalad"]
-	if _, ok := interface{}(eggSalad).(dish); !ok {
+	if _, ok := any(eggSalad).(dish); !ok {
 		t.Errorf("expected a dish")
 	}
 
@@ -679,12 +679,12 @@ type menu struct {
 	Dishes map[string]dish
 }
 
-func (m *menu) UnmarshalTOML(p interface{}) error {
+func (m *menu) UnmarshalTOML(p any) error {
 	m.Dishes = make(map[string]dish)
-	data, _ := p.(map[string]interface{})
-	dishes := data["dishes"].(map[string]interface{})
+	data, _ := p.(map[string]any)
+	dishes := data["dishes"].(map[string]any)
 	for n, v := range dishes {
-		if d, ok := v.(map[string]interface{}); ok {
+		if d, ok := v.(map[string]any); ok {
 			nd := dish{}
 			nd.UnmarshalTOML(d)
 			m.Dishes[n] = nd
@@ -701,13 +701,13 @@ type dish struct {
 	Ingredients []ingredient
 }
 
-func (d *dish) UnmarshalTOML(p interface{}) error {
-	data, _ := p.(map[string]interface{})
+func (d *dish) UnmarshalTOML(p any) error {
+	data, _ := p.(map[string]any)
 	d.Name, _ = data["name"].(string)
 	d.Price, _ = data["price"].(float32)
-	ingredients, _ := data["ingredients"].([]map[string]interface{})
+	ingredients, _ := data["ingredients"].([]map[string]any)
 	for _, e := range ingredients {
-		n, _ := interface{}(e).(map[string]interface{})
+		n, _ := any(e).(map[string]any)
 		name, _ := n["name"].(string)
 		i := ingredient{name}
 		d.Ingredients = append(d.Ingredients, i)
@@ -723,9 +723,9 @@ func TestDecodeSlices(t *testing.T) {
 	type (
 		T struct {
 			Arr []string
-			Tbl map[string]interface{}
+			Tbl map[string]any
 		}
-		M map[string]interface{}
+		M map[string]any
 	)
 	tests := []struct {
 		input    string
@@ -746,7 +746,7 @@ func TestDecodeSlices(t *testing.T) {
 		{`arr = []
 		tbl = {arr = []}`,
 			T{},
-			T{[]string{}, M{"arr": []interface{}{}}}},
+			T{[]string{}, M{"arr": []any{}}}},
 		{`arr = []
 		tbl = {}`,
 			T{[]string{}, M{}},
@@ -759,15 +759,15 @@ func TestDecodeSlices(t *testing.T) {
 		{`arr = ["x"]
 		 tbl = {arr=["y"]}`,
 			T{},
-			T{[]string{"x"}, M{"arr": []interface{}{"y"}}}},
+			T{[]string{"x"}, M{"arr": []any{"y"}}}},
 		{`arr = ["x"]
 		 tbl = {arr=["y"]}`,
 			T{[]string{}, M{}},
-			T{[]string{"x"}, M{"arr": []interface{}{"y"}}}},
+			T{[]string{"x"}, M{"arr": []any{"y"}}}},
 		{`arr = ["x"]
 		tbl = {arr=["y"]}`,
-			T{[]string{"a", "b"}, M{"arr": []interface{}{"c", "d"}}},
-			T{[]string{"x"}, M{"arr": []interface{}{"y"}}}},
+			T{[]string{"a", "b"}, M{"arr": []any{"c", "d"}}},
+			T{[]string{"x"}, M{"arr": []any{"y"}}}},
 	}
 
 	for _, tt := range tests {
@@ -794,9 +794,9 @@ func TestDecodePrimitive(t *testing.T) {
 	arrayp := func(a [2]int) *[2]int { return &a }
 	mapp := func(m map[string]int) *map[string]int { return &m }
 	for i, tt := range []struct {
-		v     interface{}
+		v     any
 		input string
-		want  interface{}
+		want  any
 	}{
 		// slices
 		{slicep(nil), "", slicep(nil)},
@@ -887,7 +887,7 @@ func TestDecodeDatetime(t *testing.T) {
 func TestDecodeTextUnmarshaler(t *testing.T) {
 	tests := []struct {
 		name string
-		t    interface{}
+		t    any
 		toml string
 		want string
 	}{
@@ -934,7 +934,7 @@ func TestDecodeTextUnmarshaler(t *testing.T) {
 
 func TestDecodeDuration(t *testing.T) {
 	tests := []struct {
-		in                  interface{}
+		in                  any
 		toml, want, wantErr string
 	}{
 		{&struct{ T time.Duration }{}, `t = "0s"`,
@@ -988,7 +988,7 @@ func TestDecodeDuration(t *testing.T) {
 
 func TestDecodeJSONNumber(t *testing.T) {
 	tests := []struct {
-		in                  interface{}
+		in                  any
 		toml, want, wantErr string
 	}{
 		{&struct{ D json.Number }{}, `D = 2`, "&{2}", ""},
@@ -1021,7 +1021,7 @@ func TestDecodeJSONNumber(t *testing.T) {
 }
 
 func TestMetaDotConflict(t *testing.T) {
-	var m map[string]interface{}
+	var m map[string]any
 	meta, err := Decode(`
 		"a.b" = "str"
 		a.b   = 1
@@ -1074,7 +1074,7 @@ func (e *Enum) MarshalTOML() ([]byte, error) {
 	return []byte(`"` + e.Value() + `"`), nil
 }
 
-func (e *Enum) UnmarshalTOML(value interface{}) error {
+func (e *Enum) UnmarshalTOML(value any) error {
 	sValue, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("value %v is not a string type", value)
@@ -1091,7 +1091,7 @@ func (e *Enum) UnmarshalTOML(value interface{}) error {
 func (i *InnerInt) MarshalTOML() ([]byte, error) {
 	return []byte(strconv.Itoa(i.value)), nil
 }
-func (i *InnerInt) UnmarshalTOML(value interface{}) error {
+func (i *InnerInt) UnmarshalTOML(value any) error {
 	iValue, ok := value.(int64)
 	if !ok {
 		return fmt.Errorf("value %v is not a int type", value)
@@ -1104,9 +1104,9 @@ func (as *InnerArrayString) MarshalTOML() ([]byte, error) {
 	return []byte("[\"" + strings.Join(as.value, "\", \"") + "\"]"), nil
 }
 
-func (as *InnerArrayString) UnmarshalTOML(value interface{}) error {
+func (as *InnerArrayString) UnmarshalTOML(value any) error {
 	if value != nil {
-		asValue, ok := value.([]interface{})
+		asValue, ok := value.([]any)
 		if !ok {
 			return fmt.Errorf("value %v is not a [] type", value)
 		}
@@ -1207,7 +1207,7 @@ func TestMetaKeys(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
-			var x interface{}
+			var x any
 			meta, err := Decode(tt.in, &x)
 			if err != nil {
 				t.Fatal(err)
@@ -1232,7 +1232,7 @@ func TestDecodeParallel(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := Unmarshal(doc, new(map[string]interface{}))
+			err := Unmarshal(doc, new(map[string]any))
 			if err != nil {
 				t.Fatal(err)
 			}

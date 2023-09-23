@@ -270,7 +270,7 @@ func (lx *lexer) errorPos(start, length int, err error) stateFn {
 }
 
 // errorf is like error, and creates a new error.
-func (lx *lexer) errorf(format string, values ...interface{}) stateFn {
+func (lx *lexer) errorf(format string, values ...any) stateFn {
 	if lx.atEOF {
 		pos := lx.getPos()
 		pos.Line--

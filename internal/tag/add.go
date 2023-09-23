@@ -9,7 +9,7 @@ import (
 )
 
 // Add JSON tags to a data structure as expected by toml-test.
-func Add(key string, tomlData interface{}) interface{} {
+func Add(key string, tomlData any) any {
 	// Switch on the data type.
 	switch orig := tomlData.(type) {
 	default:
@@ -17,8 +17,8 @@ func Add(key string, tomlData interface{}) interface{} {
 
 	// A table: we don't need to add any tags, just recurse for every table
 	// entry.
-	case map[string]interface{}:
-		typed := make(map[string]interface{}, len(orig))
+	case map[string]any:
+		typed := make(map[string]any, len(orig))
 		for k, v := range orig {
 			typed[k] = Add(k, v)
 		}
@@ -26,14 +26,14 @@ func Add(key string, tomlData interface{}) interface{} {
 
 	// An array: we don't need to add any tags, just recurse for every table
 	// entry.
-	case []map[string]interface{}:
-		typed := make([]map[string]interface{}, len(orig))
+	case []map[string]any:
+		typed := make([]map[string]any, len(orig))
 		for i, v := range orig {
-			typed[i] = Add("", v).(map[string]interface{})
+			typed[i] = Add("", v).(map[string]any)
 		}
 		return typed
-	case []interface{}:
-		typed := make([]interface{}, len(orig))
+	case []any:
+		typed := make([]any, len(orig))
 		for i, v := range orig {
 			typed[i] = Add("", v)
 		}
@@ -68,8 +68,8 @@ func Add(key string, tomlData interface{}) interface{} {
 	}
 }
 
-func tag(typeName string, data interface{}) map[string]interface{} {
-	return map[string]interface{}{
+func tag(typeName string, data any) map[string]any {
+	return map[string]any{
 		"type":  typeName,
 		"value": data,
 	}

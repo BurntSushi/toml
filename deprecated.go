@@ -18,7 +18,7 @@ type TextUnmarshaler encoding.TextUnmarshaler
 // PrimitiveDecode is an alias for MetaData.PrimitiveDecode().
 //
 // Deprecated: use MetaData.PrimitiveDecode.
-func PrimitiveDecode(primValue Primitive, v interface{}) error {
+func PrimitiveDecode(primValue Primitive, v any) error {
 	md := MetaData{decoded: make(map[string]struct{})}
 	return md.unify(primValue.undecoded, rvalue(v))
 }
@@ -26,4 +26,4 @@ func PrimitiveDecode(primValue Primitive, v interface{}) error {
 // DecodeReader is an alias for NewDecoder(r).Decode(v).
 //
 // Deprecated: use NewDecoder(reader).Decode(&value).
-func DecodeReader(r io.Reader, v interface{}) (MetaData, error) { return NewDecoder(r).Decode(v) }
+func DecodeReader(r io.Reader, v any) (MetaData, error) { return NewDecoder(r).Decode(v) }

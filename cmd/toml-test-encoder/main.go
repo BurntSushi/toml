@@ -30,7 +30,7 @@ func main() {
 		flag.Usage()
 	}
 
-	var tmp interface{}
+	var tmp any
 	if err := json.NewDecoder(os.Stdin).Decode(&tmp); err != nil {
 		log.Fatalf("Error decoding JSON: %s", err)
 	}

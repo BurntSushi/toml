@@ -130,7 +130,7 @@ func TestEncodeOmitEmptyStruct(t *testing.T) {
 	)
 
 	tests := []struct {
-		in   interface{}
+		in   any
 		want string
 	}{
 		{struct {
@@ -511,7 +511,7 @@ Data = ["Foo", "Bar"]
 
 func TestEncodeError(t *testing.T) {
 	tests := []struct {
-		in      interface{}
+		in      any
 		wantErr string
 	}{
 		{make(chan int), "unsupported type for key '': chan"},
@@ -754,14 +754,14 @@ func TestEncode32bit(t *testing.T) {
 func TestEncodeSkipInvalidType(t *testing.T) {
 	buf := new(bytes.Buffer)
 	err := NewEncoder(buf).Encode(struct {
-		Str  string                 `toml:"str"`
-		Arr  []func()               `toml:"-"`
-		Map  map[string]interface{} `toml:"-"`
-		Func func()                 `toml:"-"`
+		Str  string         `toml:"str"`
+		Arr  []func()       `toml:"-"`
+		Map  map[string]any `toml:"-"`
+		Func func()         `toml:"-"`
 	}{
 		Str:  "a",
 		Arr:  []func(){func() {}},
-		Map:  map[string]interface{}{"f": func() {}},
+		Map:  map[string]any{"f": func() {}},
 		Func: func() {},
 	})
 	if err != nil {
@@ -879,7 +879,7 @@ func TestEncode(t *testing.T) {
 	dateStr := "2014-05-11T19:30:40Z"
 
 	tests := map[string]struct {
-		input      interface{}
+		input      any
 		wantOutput string
 		wantError  error
 	}{
@@ -940,7 +940,7 @@ func TestEncode(t *testing.T) {
 		"datetime field as primitive": {
 			// Using a map here to fail if isStructOrMap() returns true for
 			// time.Time.
-			input: map[string]interface{}{
+			input: map[string]any{
 				"Date": date,
 				"Int":  1,
 			},
@@ -972,8 +972,8 @@ func TestEncode(t *testing.T) {
 				ArrayOfSlices         [2][]int
 				SliceOfArraysOfSlices [][2][]int
 				ArrayOfSlicesOfArrays [2][][2]int
-				SliceOfMixedArrays    [][2]interface{}
-				ArrayOfMixedSlices    [2][]interface{}
+				SliceOfMixedArrays    [][2]any
+				ArrayOfMixedSlices    [2][]any
 			}{
 				[][2]int{{1, 2}, {3, 4}},
 				[2][]int{{1, 2}, {3, 4}},
@@ -993,10 +993,10 @@ func TestEncode(t *testing.T) {
 						{5, 6}, {7, 8},
 					},
 				},
-				[][2]interface{}{
+				[][2]any{
 					{1, 2}, {"a", "b"},
 				},
-				[2][]interface{}{
+				[2][]any{
 					{1, 2}, {"a", "b"},
 				},
 			},
@@ -1009,44 +1009,44 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 `,
 		},
 		"empty slice": {
-			input:      struct{ Empty []interface{} }{[]interface{}{}},
+			input:      struct{ Empty []any }{[]any{}},
 			wantOutput: "Empty = []\n",
 		},
 		"(error) slice with element type mismatch (string and integer)": {
-			input:      struct{ Mixed []interface{} }{[]interface{}{1, "a"}},
+			input:      struct{ Mixed []any }{[]any{1, "a"}},
 			wantOutput: "Mixed = [1, \"a\"]\n",
 		},
 		"(error) slice with element type mismatch (integer and float)": {
-			input:      struct{ Mixed []interface{} }{[]interface{}{1, 2.5}},
+			input:      struct{ Mixed []any }{[]any{1, 2.5}},
 			wantOutput: "Mixed = [1, 2.5]\n",
 		},
 		"slice with elems of differing Go types, same TOML types": {
 			input: struct {
-				MixedInts   []interface{}
-				MixedFloats []interface{}
+				MixedInts   []any
+				MixedFloats []any
 			}{
-				[]interface{}{
+				[]any{
 					int(1), int8(2), int16(3), int32(4), int64(5),
 					uint(1), uint8(2), uint16(3), uint32(4), uint64(5),
 				},
-				[]interface{}{float32(1.5), float64(2.5)},
+				[]any{float32(1.5), float64(2.5)},
 			},
 			wantOutput: "MixedInts = [1, 2, 3, 4, 5, 1, 2, 3, 4, 5]\n" +
 				"MixedFloats = [1.5, 2.5]\n",
 		},
 		"(error) slice w/ element type mismatch (one is nested array)": {
-			input: struct{ Mixed []interface{} }{
-				[]interface{}{1, []interface{}{2}},
+			input: struct{ Mixed []any }{
+				[]any{1, []any{2}},
 			},
 			wantOutput: "Mixed = [1, [2]]\n",
 		},
 		"(error) slice with 1 nil element": {
-			input:     struct{ NilElement1 []interface{} }{[]interface{}{nil}},
+			input:     struct{ NilElement1 []any }{[]any{nil}},
 			wantError: errArrayNilElement,
 		},
 		"(error) slice with 1 nil element (and other non-nil elements)": {
-			input: struct{ NilElement []interface{} }{
-				[]interface{}{1, nil},
+			input: struct{ NilElement []any }{
+				[]any{1, nil},
 			},
 			wantError: errArrayNilElement,
 		},
@@ -1054,12 +1054,12 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 			input:      map[string]int{"a": 1, "b": 2},
 			wantOutput: "a = 1\nb = 2\n",
 		},
-		"map with interface{} value type": {
-			input:      map[string]interface{}{"a": 1, "b": "c"},
+		"map with any value type": {
+			input:      map[string]any{"a": 1, "b": "c"},
 			wantOutput: "a = 1\nb = \"c\"\n",
 		},
-		"map with interface{} value type, some of which are structs": {
-			input: map[string]interface{}{
+		"map with any value type, some of which are structs": {
+			input: map[string]any{
 				"a": struct{ Int int }{2},
 				"b": 1,
 			},
@@ -1163,8 +1163,8 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 			wantOutput: "[[struct]]\n  Int = 1\n\n[[struct]]\n  Int = 3\n",
 		},
 		"array of tables order": {
-			input: map[string]interface{}{
-				"map": map[string]interface{}{
+			input: map[string]any{
+				"map": map[string]any{
 					"zero": 5,
 					"arr": []map[string]int{
 						{
@@ -1185,7 +1185,7 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 		},
 
 		"empty map name": {
-			input: map[string]interface{}{
+			input: map[string]any{
 				"": map[string]int{"v": 1},
 			},
 			wantOutput: "[\"\"]\n  v = 1\n",
@@ -1207,13 +1207,13 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 		},
 
 		"tbl-in-arr-map": {
-			input: map[string]interface{}{
-				"arr": []interface{}{[]interface{}{
-					map[string]interface{}{
-						"a": []interface{}{"hello", "world"},
-						"b": []interface{}{1.12, 4.1},
+			input: map[string]any{
+				"arr": []any{[]any{
+					map[string]any{
+						"a": []any{"hello", "world"},
+						"b": []any{1.12, 4.1},
 						"c": 1,
-						"d": map[string]interface{}{"e": "E"},
+						"d": map[string]any{"e": "E"},
 						"f": struct{ A, B int }{1, 2},
 						"g": []struct{ A, B int }{{3, 4}, {5, 6}},
 					},
@@ -1295,7 +1295,7 @@ func TestMarshalDoc(t *testing.T) {
 	})
 }
 
-func encodeExpected(t *testing.T, label string, val interface{}, want string, wantErr error) {
+func encodeExpected(t *testing.T, label string, val any, want string, wantErr error) {
 	t.Helper()
 	t.Run(label, func(t *testing.T) {
 		t.Helper()

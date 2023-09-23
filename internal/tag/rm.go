@@ -9,12 +9,12 @@ import (
 )
 
 // Remove JSON tags to a data structure as returned by toml-test.
-func Remove(typedJson interface{}) (interface{}, error) {
+func Remove(typedJson any) (any, error) {
 	// Switch on the data type.
 	switch v := typedJson.(type) {
 
 	// Object: this can either be a TOML table or a primitive with tags.
-	case map[string]interface{}:
+	case map[string]any:
 		// This value represents a primitive: remove the tags and return just
 		// the primitive value.
 		if len(v) == 2 && in("type", v) && in("value", v) {
@@ -26,7 +26,7 @@ func Remove(typedJson interface{}) (interface{}, error) {
 		}
 
 		// Table: remove tags on all children.
-		m := make(map[string]interface{}, len(v))
+		m := make(map[string]any, len(v))
 		for k, v2 := range v {
 			var err error
 			m[k], err = Remove(v2)
@@ -37,8 +37,8 @@ func Remove(typedJson interface{}) (interface{}, error) {
 		return m, nil
 
 	// Array: remove tags from all items.
-	case []interface{}:
-		a := make([]interface{}, len(v))
+	case []any:
+		a := make([]any, len(v))
 		for i := range v {
 			var err error
 			a[i], err = Remove(v[i])
@@ -54,13 +54,13 @@ func Remove(typedJson interface{}) (interface{}, error) {
 }
 
 // Check if key is in the table m.
-func in(key string, m map[string]interface{}) bool {
+func in(key string, m map[string]any) bool {
 	_, ok := m[key]
 	return ok
 }
 
 // Return a primitive: read the "type" and convert the "value" to that.
-func untag(typed map[string]interface{}) (interface{}, error) {
+func untag(typed map[string]any) (any, error) {
 	t := typed["type"].(string)
 	v := typed["value"].(string)
 	switch t {

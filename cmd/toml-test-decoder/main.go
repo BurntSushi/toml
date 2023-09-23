@@ -30,7 +30,7 @@ func main() {
 		flag.Usage()
 	}
 
-	var decoded interface{}
+	var decoded any
 	if _, err := toml.NewDecoder(os.Stdin).Decode(&decoded); err != nil {
 		log.Fatalf("Error decoding TOML: %s", err)
 	}

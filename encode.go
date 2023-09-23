@@ -134,7 +134,7 @@ func NewEncoder(w io.Writer) *Encoder {
 //
 // An error is returned if the value given cannot be encoded to a valid TOML
 // document.
-func (enc *Encoder) Encode(v interface{}) error {
+func (enc *Encoder) Encode(v any) error {
 	rv := eindirect(reflect.ValueOf(v))
 	err := enc.safeEncode(Key([]string{}), rv)
 	if err != nil {
@@ -304,7 +304,7 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 	case reflect.Interface:
 		enc.eElement(rv.Elem())
 	default:
-		encPanic(fmt.Errorf("unexpected type: %T", rv.Interface()))
+		encPanic(fmt.Errorf("unexpected type: %s", fmtType(rv.Interface())))
 	}
 }
 
@@ -712,7 +712,7 @@ func (enc *Encoder) writeKeyValue(key Key, val reflect.Value, inline bool) {
 	}
 }
 
-func (enc *Encoder) wf(format string, v ...interface{}) {
+func (enc *Encoder) wf(format string, v ...any) {
 	_, err := fmt.Fprintf(enc.w, format, v...)
 	if err != nil {
 		encPanic(err)

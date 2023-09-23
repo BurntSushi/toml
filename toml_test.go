@@ -403,7 +403,7 @@ func testMeta(t *testing.T, test tomltest.Test, includeNext bool) {
 		return
 	}
 
-	var s interface{}
+	var s any
 	meta, err := toml.Decode(test.Input, &s)
 	if err != nil {
 		t.Fatal(err)
@@ -466,7 +466,7 @@ func (p parser) Encode(input string) (output string, outputIsError bool, retErr 
 		}
 	}()
 
-	var tmp interface{}
+	var tmp any
 	err := json.Unmarshal([]byte(input), &tmp)
 	if err != nil {
 		return "", false, err
@@ -498,7 +498,7 @@ func (p parser) Decode(input string) (output string, outputIsError bool, retErr 
 		}
 	}()
 
-	var d interface{}
+	var d any
 	if _, err := toml.Decode(input, &d); err != nil {
 		return err.Error(), true, retErr
 	}
