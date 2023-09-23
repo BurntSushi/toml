@@ -1051,9 +1051,7 @@ type (
 		Slice *InnerArrayString
 	}
 	Enum             int
-	InnerString      struct{ value string }
 	InnerInt         struct{ value int }
-	InnerBool        struct{ value bool }
 	InnerArrayString struct{ value []string }
 )
 
@@ -1234,7 +1232,7 @@ func TestDecodeParallel(t *testing.T) {
 			defer wg.Done()
 			err := Unmarshal(doc, new(map[string]any))
 			if err != nil {
-				t.Fatal(err)
+				panic(err)
 			}
 		}()
 	}

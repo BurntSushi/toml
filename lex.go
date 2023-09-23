@@ -333,9 +333,7 @@ func lexTopEnd(lx *lexer) stateFn {
 		lx.emit(itemEOF)
 		return nil
 	}
-	return lx.errorf(
-		"expected a top-level item to end with a newline, comment, or EOF, but got %q instead",
-		r)
+	return lx.errorf("expected a top-level item to end with a newline, comment, or EOF, but got %q instead", r)
 }
 
 // lexTable lexes the beginning of a table. Namely, it makes sure that
@@ -879,10 +877,8 @@ func lexHexEscape(lx *lexer) stateFn {
 	var r rune
 	for i := 0; i < 2; i++ {
 		r = lx.next()
-		if !isHexadecimal(r) {
-			return lx.errorf(
-				`expected two hexadecimal digits after '\x', but got %q instead`,
-				lx.current())
+		if !isHex(r) {
+			return lx.errorf(`expected two hexadecimal digits after '\x', but got %q instead`, lx.current())
 		}
 	}
 	return lx.pop()
@@ -892,10 +888,8 @@ func lexShortUnicodeEscape(lx *lexer) stateFn {
 	var r rune
 	for i := 0; i < 4; i++ {
 		r = lx.next()
-		if !isHexadecimal(r) {
-			return lx.errorf(
-				`expected four hexadecimal digits after '\u', but got %q instead`,
-				lx.current())
+		if !isHex(r) {
+			return lx.errorf(`expected four hexadecimal digits after '\u', but got %q instead`, lx.current())
 		}
 	}
 	return lx.pop()
@@ -905,10 +899,8 @@ func lexLongUnicodeEscape(lx *lexer) stateFn {
 	var r rune
 	for i := 0; i < 8; i++ {
 		r = lx.next()
-		if !isHexadecimal(r) {
-			return lx.errorf(
-				`expected eight hexadecimal digits after '\U', but got %q instead`,
-				lx.current())
+		if !isHex(r) {
+			return lx.errorf(`expected eight hexadecimal digits after '\U', but got %q instead`, lx.current())
 		}
 	}
 	return lx.pop()
@@ -975,7 +967,7 @@ func lexDatetime(lx *lexer) stateFn {
 // lexHexInteger consumes a hexadecimal integer after seeing the '0x' prefix.
 func lexHexInteger(lx *lexer) stateFn {
 	r := lx.next()
-	if isHexadecimal(r) {
+	if isHex(r) {
 		return lexHexInteger
 	}
 	switch r {
@@ -1109,7 +1101,7 @@ func lexBaseNumberOrDate(lx *lexer) stateFn {
 		return lexOctalInteger
 	case 'x':
 		r = lx.peek()
-		if !isHexadecimal(r) {
+		if !isHex(r) {
 			lx.errorf("not a hexidecimal number: '%s%c'", lx.current(), r)
 		}
 		return lexHexInteger
@@ -1240,7 +1232,7 @@ func (itype itemType) String() string {
 }
 
 func (item item) String() string {
-	return fmt.Sprintf("(%s, %s)", item.typ.String(), item.val)
+	return fmt.Sprintf("(%s, %s)", item.typ, item.val)
 }
 
 func isWhitespace(r rune) bool { return r == '\t' || r == ' ' }
@@ -1256,10 +1248,7 @@ func isControl(r rune) bool { // Control characters except \t, \r, \n
 func isDigit(r rune) bool  { return r >= '0' && r <= '9' }
 func isBinary(r rune) bool { return r == '0' || r == '1' }
 func isOctal(r rune) bool  { return r >= '0' && r <= '7' }
-func isHexadecimal(r rune) bool {
-	return (r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')
-}
-
+func isHex(r rune) bool    { return (r >= '0' && r <= '9') || (r|0x20 >= 'a' && r|0x20 <= 'f') }
 func isBareKeyChar(r rune, tomlNext bool) bool {
 	if tomlNext {
 		return (r >= 'A' && r <= 'Z') ||
