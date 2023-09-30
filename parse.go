@@ -380,12 +380,10 @@ func (p *parser) valueArray(it item) (any, tomlType) {
 	p.setType(p.currentKey, tomlArray, it.pos)
 
 	var (
-		types []tomlType
-
-		// Initialize to a non-nil empty slice. This makes it consistent with
-		// how S = [] decodes into a non-nil slice inside something like struct
-		// { S []string }. See #338
-		array = []any{}
+		// Initialize to a non-nil slice to make it consistent with how S = []
+		// decodes into a non-nil slice inside something like struct { S
+		// []string }. See #338
+		array = make([]any, 0, 2)
 	)
 	for it = p.next(); it.typ != itemArrayEnd; it = p.next() {
 		if it.typ == itemCommentStart {
@@ -395,14 +393,13 @@ func (p *parser) valueArray(it item) (any, tomlType) {
 
 		val, typ := p.value(it, true)
 		array = append(array, val)
-		types = append(types, typ)
 
-		// XXX: types isn't used here, we need it to record the accurate type
+		// XXX: type isn't used here, we need it to record the accurate type
 		// information.
 		//
 		// Not entirely sure how to best store this; could use "key[0]",
 		// "key[1]" notation, or maybe store it on the Array type?
-		_ = types
+		_ = typ
 	}
 	return array, tomlArray
 }
@@ -516,7 +513,7 @@ func (p *parser) addContext(key Key, array bool) {
 
 	// Always start at the top level and drill down for our context.
 	hashContext := p.mapping
-	keyContext := make(Key, 0)
+	keyContext := make(Key, 0, len(key)-1)
 
 	// We only need implicit hashes for key[0:-1]
 	for _, k := range key[0 : len(key)-1] {
@@ -580,7 +577,7 @@ func (p *parser) setValue(key string, value any) {
 		tmpHash    any
 		ok         bool
 		hash       = p.mapping
-		keyContext Key
+		keyContext = make(Key, 0, len(p.context)+1)
 	)
 	for _, k := range p.context {
 		keyContext = append(keyContext, k)
