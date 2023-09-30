@@ -2,6 +2,7 @@ package toml
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -323,7 +324,9 @@ func (p *parser) valueFloat(it item) (any, tomlType) {
 		p.panicItemf(it, "Invalid float %q: '.' must be followed by one or more digits", it.val)
 	}
 	val := strings.Replace(it.val, "_", "", -1)
-	if val == "+nan" || val == "-nan" { // Go doesn't support this, but TOML spec does.
+	signbit := false
+	if val == "+nan" || val == "-nan" {
+		signbit = val == "-nan"
 		val = "nan"
 	}
 	num, err := strconv.ParseFloat(val, 64)
@@ -333,6 +336,9 @@ func (p *parser) valueFloat(it item) (any, tomlType) {
 		} else {
 			p.panicItemf(it, "Invalid float value: %q", it.val)
 		}
+	}
+	if signbit {
+		num = math.Copysign(num, -1)
 	}
 	return num, p.typeOfPrimitive(it)
 }

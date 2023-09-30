@@ -470,7 +470,7 @@ func TestEncodeNaN(t *testing.T) {
 		Nan float32 `toml:"nan"`
 		Inf float32 `toml:"inf"`
 	}{float32(math.NaN()), float32(math.Inf(-1))}
-	encodeExpected(t, "", s1, "nan = nan\ninf = +inf\n", nil)
+	encodeExpected(t, "", s1, "nan = nan\ninf = inf\n", nil)
 	encodeExpected(t, "", s2, "nan = nan\ninf = -inf\n", nil)
 }
 

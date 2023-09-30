@@ -280,18 +280,30 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 	case reflect.Float32:
 		f := rv.Float()
 		if math.IsNaN(f) {
+			if math.Signbit(f) {
+				enc.wf("-")
+			}
 			enc.wf("nan")
 		} else if math.IsInf(f, 0) {
-			enc.wf("%cinf", map[bool]byte{true: '-', false: '+'}[math.Signbit(f)])
+			if math.Signbit(f) {
+				enc.wf("-")
+			}
+			enc.wf("inf")
 		} else {
 			enc.wf(floatAddDecimal(strconv.FormatFloat(f, 'f', -1, 32)))
 		}
 	case reflect.Float64:
 		f := rv.Float()
 		if math.IsNaN(f) {
+			if math.Signbit(f) {
+				enc.wf("-")
+			}
 			enc.wf("nan")
 		} else if math.IsInf(f, 0) {
-			enc.wf("%cinf", map[bool]byte{true: '-', false: '+'}[math.Signbit(f)])
+			if math.Signbit(f) {
+				enc.wf("-")
+			}
+			enc.wf("inf")
 		} else {
 			enc.wf(floatAddDecimal(strconv.FormatFloat(f, 'f', -1, 64)))
 		}
