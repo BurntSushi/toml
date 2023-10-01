@@ -115,19 +115,14 @@ type Marshaler interface {
 // NOTE: only exported keys are encoded due to the use of reflection. Unexported
 // keys are silently discarded.
 type Encoder struct {
-	// String to use for a single indentation level; default is two spaces.
-	Indent string
-
+	Indent     string // string for a single indentation level; default is two spaces.
+	hasWritten bool   // written any output to w yet?
 	w          *bufio.Writer
-	hasWritten bool // written any output to w yet?
 }
 
 // NewEncoder create a new Encoder.
 func NewEncoder(w io.Writer) *Encoder {
-	return &Encoder{
-		w:      bufio.NewWriter(w),
-		Indent: "  ",
-	}
+	return &Encoder{w: bufio.NewWriter(w), Indent: "  "}
 }
 
 // Encode writes a TOML representation of the Go value to the [Encoder]'s writer.

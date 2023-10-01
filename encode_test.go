@@ -1237,7 +1237,13 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 }
 
 func TestEncodeDoubleTags(t *testing.T) {
-	// TODO: this needs fixing; it shouldn't emit two 'a =' keys.
+	// This writes two "a" keys to the TOML doc, which isn't valid. I don't
+	// think it's worth spending effort preventing this: best we can do is issue
+	// an error, and should be clear what the problem is anyway. Not even worth
+	// documenting really.
+	//
+	// The json package silently skips these fields, which is worse behaviour
+	// IMO.
 	s := struct {
 		A int `toml:"a"`
 		B int `toml:"a"`
