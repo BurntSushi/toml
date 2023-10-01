@@ -9,7 +9,7 @@
   },
   "signed-neg": {
     "type": "float",
-    "value": "0"
+    "value": "-0"
   },
   "exponent": {
     "type": "float",
@@ -25,6 +25,6 @@
   },
   "exponent-signed-neg": {
     "type": "float",
-    "value": "0"
+    "value": "-0"
   }
 }

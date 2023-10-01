@@ -80,7 +80,9 @@ type Tests struct {
 
 	// Set when test are run.
 
-	Skipped, Passed, Failed int
+	Skipped                      int
+	PassedValid, FailedValid     int
+	PassedInvalid, FailedInvalid int
 }
 
 // Result is the result of a single test.
@@ -151,8 +153,10 @@ func (r Runner) Run() (Tests, error) {
 		return Tests{}, fmt.Errorf("tomltest.Runner.Run: %w", err)
 	}
 
-	tests := Tests{Tests: make([]Test, 0, len(r.RunTests)), Skipped: skipped}
+	tests := Tests{
+		Tests: make([]Test, 0, len(r.RunTests)), Skipped: skipped}
 	for _, p := range r.RunTests {
+		invalid := strings.Contains(p, "invalid/")
 		if r.hasSkip(p) {
 			tests.Skipped++
 			tests.Tests = append(tests.Tests, Test{Path: p, Skipped: true, Encoder: r.Encoder})
@@ -163,9 +167,17 @@ func (r Runner) Run() (Tests, error) {
 		tests.Tests = append(tests.Tests, t)
 
 		if t.Failed() {
-			tests.Failed++
+			if invalid {
+				tests.FailedInvalid++
+			} else {
+				tests.FailedValid++
+			}
 		} else {
-			tests.Passed++
+			if invalid {
+				tests.PassedInvalid++
+			} else {
+				tests.PassedValid++
+			}
 		}
 	}
 
@@ -207,7 +219,6 @@ func (r *Runner) findTests() (int, error) {
 	}
 
 	var skip int
-
 	if len(r.RunTests) == 0 {
 		r.RunTests = ls
 	} else {

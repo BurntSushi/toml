@@ -43,7 +43,7 @@ At line 9, column 3-8:
       8 |   # This table conflicts with the previous table
       9 |   [fruit.variety]
              ^^^^^`},
-		{"datetime/trailing-t.toml", `
+		{"local-date/trailing-t.toml", `
 toml: error: invalid datetime: "2006-01-30T"
 
 At line 2, column 4-15:

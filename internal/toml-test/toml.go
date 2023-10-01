@@ -36,6 +36,12 @@ func (r Test) CompareTOML(want, have any) Test {
 	switch w := want.(type) {
 	case map[string]any:
 		return r.cmpTOMLMap(w, have)
+	case []map[string]any:
+		ww := make([]any, 0, len(w))
+		for _, v := range w {
+			ww = append(ww, v)
+		}
+		return r.cmpTOMLArrays(ww, have)
 	case []any:
 		return r.cmpTOMLArrays(w, have)
 	default:
@@ -128,13 +134,12 @@ func deepEqual(want, have any) bool {
 
 func isTomlValue(v any) bool {
 	switch v.(type) {
-	case map[string]any, []any:
+	case map[string]any, []map[string]any, []any:
 		return false
 	}
 	return true
 }
 
 // fmt %T with "interface {}" replaced with "any", which is far more readable.
-func fmtType(t any) string {
-	return strings.ReplaceAll(fmt.Sprintf("%T", t), "interface {}", "any")
-}
+func fmtType(t any) string  { return strings.ReplaceAll(fmt.Sprintf("%T", t), "interface {}", "any") }
+func fmtHashV(t any) string { return strings.ReplaceAll(fmt.Sprintf("%#v", t), "interface {}", "any") }

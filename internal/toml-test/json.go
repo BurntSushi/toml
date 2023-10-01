@@ -21,9 +21,7 @@ func (r Test) CompareJSON(want, have any) Test {
 	case []any:
 		return r.cmpJSONArrays(w, have)
 	default:
-		return r.fail(
-			"Key '%s' in expected output should be a map or a list of maps, but it's a %s",
-			r.Key, fmtType(want))
+		return r.fail("Key '%s' in expected output should be a map or a list of maps, but it's a %s", r.Key, fmtType(want))
 	}
 }
 
@@ -35,14 +33,10 @@ func (r Test) cmpJSONMaps(want map[string]any, have any) Test {
 
 	// Check to make sure both or neither are values.
 	if isValue(want) && !isValue(haveMap) {
-		return r.fail(
-			"Key '%s' is supposed to be a value, but the parser reports it as a table",
-			r.Key)
+		return r.fail("Key '%s' is supposed to be a value, but the parser reports it as a table", r.Key)
 	}
 	if !isValue(want) && isValue(haveMap) {
-		return r.fail(
-			"Key '%s' is supposed to be a table, but the parser reports it as a value",
-			r.Key)
+		return r.fail("Key '%s' is supposed to be a table, but the parser reports it as a value", r.Key)
 	}
 	if isValue(want) && isValue(haveMap) {
 		return r.cmpJSONValues(want, haveMap)
@@ -52,15 +46,13 @@ func (r Test) cmpJSONMaps(want map[string]any, have any) Test {
 	for k := range want {
 		if _, ok := haveMap[k]; !ok {
 			bunk := r.kjoin(k)
-			return bunk.fail("Could not find key '%s' in parser output.",
-				bunk.Key)
+			return bunk.fail("Could not find key '%s' in parser output.", bunk.Key)
 		}
 	}
 	for k := range haveMap {
 		if _, ok := want[k]; !ok {
 			bunk := r.kjoin(k)
-			return bunk.fail("Could not find key '%s' in expected output.",
-				bunk.Key)
+			return bunk.fail("Could not find key '%s' in expected output.", bunk.Key)
 		}
 	}
 
@@ -154,6 +146,7 @@ func (r Test) cmpAsStrings(want, have string) Test {
 func (r Test) cmpFloats(want, have string) Test {
 	// Special case for NaN, since NaN != NaN.
 	if strings.HasSuffix(want, "nan") || strings.HasSuffix(have, "nan") {
+		want, have := strings.TrimLeft(want, "-+"), strings.TrimLeft(have, "-+")
 		if want != have {
 			return r.fail("Values for key '%s' don't match:\n"+
 				"  Expected:     %v\n"+
@@ -241,15 +234,15 @@ func isValue(m map[string]any) bool {
 }
 
 func (r Test) mismatch(wantType string, want, have any) Test {
-	return r.fail("Key '%[1]s' is not an %[2]s but %[5]s:\n"+
-		"  Expected:     %#[3]v\n"+
-		"  Your encoder: %#[4]v",
-		r.Key, wantType, want, have, fmtType(have))
+	return r.fail("Key %[1]q (type %[2]q):\n"+
+		"  Expected:     %s\n"+
+		"  Your encoder: %s",
+		r.Key, wantType, fmtHashV(have), fmtType(have))
 }
 
 func (r Test) valMismatch(wantType, haveType string, want, have any) Test {
-	return r.fail("Key '%s' is not an %s but %s:\n"+
-		"  Expected:     %#[3]v\n"+
-		"  Your encoder: %#[4]v",
-		r.Key, wantType, want, have)
+	return r.fail("Key %q is not %q but %q:\n"+
+		"  Expected:     %s\n"+
+		"  Your encoder: %s",
+		r.Key, wantType, haveType, fmtHashV(want), fmtHashV(have))
 }

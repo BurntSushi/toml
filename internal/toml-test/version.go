@@ -8,7 +8,9 @@ type versionSpec struct {
 var versions = map[string]versionSpec{
 	"1.1.0": versionSpec{
 		exclude: []string{
-			"invalid/datetime/no-secs",          // Times without seconds is no longer invalid.
+			"invalid/datetime/no-secs", // Times without seconds is no longer invalid.
+			"invalid/local-time/no-secs",
+			"invalid/local-datetime/no-secs",
 			"invalid/string/basic-byte-escapes", // \x is now valid.
 			"invalid/inline-table/trailing-comma",
 			"invalid/inline-table/linebreak-1",
