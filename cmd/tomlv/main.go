@@ -9,17 +9,20 @@ import (
 	"path"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
 
 var (
 	flagTypes = false
+	flagTime  = false
 )
 
 func init() {
 	log.SetFlags(0)
 	flag.BoolVar(&flagTypes, "types", flagTypes, "Show the types for every key.")
+	flag.BoolVar(&flagTime, "time", flagTypes, "Show how long the parsing took.")
 	flag.Usage = usage
 	flag.Parse()
 }
@@ -36,9 +39,13 @@ func main() {
 	}
 	for _, f := range flag.Args() {
 		var tmp any
+		start := time.Now()
 		md, err := toml.DecodeFile(f, &tmp)
 		if err != nil {
 			log.Fatalf("Error in '%s': %s", f, err)
+		}
+		if flagTime {
+			fmt.Printf("%f\n", time.Now().Sub(start).Seconds())
 		}
 		if flagTypes {
 			printTypes(md)
