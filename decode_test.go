@@ -168,7 +168,7 @@ func TestDecodeErrors(t *testing.T) {
 		{
 			&struct{ V float32 }{},
 			`V = 999999999999999`,
-			`toml: line 1 (last key "V"): 999999999999999 is out of range for float32`,
+			`toml: line 1 (last key "V"): 999999999999999 is out of the safe float32 range`,
 		},
 		{
 			&struct{ V string }{},
@@ -198,7 +198,7 @@ func TestDecodeErrors(t *testing.T) {
 		{
 			&struct{ V struct{ N float32 } }{},
 			`V.N = 999999999999999`,
-			`toml: line 1 (last key "V.N"): 999999999999999 is out of range for float32`,
+			`toml: line 1 (last key "V.N"): 999999999999999 is out of the safe float32 range`,
 		},
 		{
 			&struct{ V struct{ N string } }{},
@@ -225,13 +225,15 @@ func TestDecodeErrors(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		_, err := Decode(tt.toml, tt.s)
-		if err == nil {
-			t.Fatal("err is nil")
-		}
-		if err.Error() != tt.wantErr {
-			t.Errorf("\nhave: %q\nwant: %q", err, tt.wantErr)
-		}
+		t.Run("", func(t *testing.T) {
+			_, err := Decode(tt.toml, tt.s)
+			if err == nil {
+				t.Fatal("err is nil")
+			}
+			if err.Error() != tt.wantErr {
+				t.Errorf("\nhave: %q\nwant: %q", err, tt.wantErr)
+			}
+		})
 	}
 }
 
@@ -416,8 +418,8 @@ func TestDecodeFloatOverflow(t *testing.T) {
 			if tt.overflow && err == nil {
 				t.Fatal("expected error, but err is nil")
 			}
-			if (tt.overflow && !errorContains(err, "out of range")) || (!tt.overflow && err != nil) {
-				t.Fatalf("unexpected error:\n%v", err)
+			if (tt.overflow && !errorContains(err, "out of the safe float") && !errorContains(err, "out of range")) || (!tt.overflow && err != nil) {
+				t.Fatalf("unexpected error:\n%T: %[1]v", err)
 			}
 		})
 	}

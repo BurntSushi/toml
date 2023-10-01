@@ -104,14 +104,14 @@ func TestParseError(t *testing.T) {
 			 |     The maximum and minimum values are:
              |
 			 |         size   │ lowest         │ highest
-			 |         ───────┼────────────────┼──────────
+			 |         ───────┼────────────────┼──────────────
 			 |         int8   │ -128           │ 127
 			 |         int16  │ -32,768        │ 32,767
 			 |         int32  │ -2,147,483,648 │ 2,147,483,647
 			 |         int64  │ -9.2 × 10¹⁷    │ 9.2 × 10¹⁷
 			 |         uint8  │ 0              │ 255
-			 |         uint16 │ 0              │ 65535
-			 |         uint32 │ 0              │ 4294967295
+			 |         uint16 │ 0              │ 65,535
+			 |         uint32 │ 0              │ 4,294,967,295
 			 |         uint64 │ 0              │ 1.8 × 10¹⁸
              |
 			 |     int refers to int32 on 32-bit systems and int64 on 64-bit systems.
@@ -134,14 +134,14 @@ func TestParseError(t *testing.T) {
 			 |     The maximum and minimum values are:
              |
 			 |         size   │ lowest         │ highest
-			 |         ───────┼────────────────┼──────────
+			 |         ───────┼────────────────┼──────────────
 			 |         int8   │ -128           │ 127
 			 |         int16  │ -32,768        │ 32,767
 			 |         int32  │ -2,147,483,648 │ 2,147,483,647
 			 |         int64  │ -9.2 × 10¹⁷    │ 9.2 × 10¹⁷
 			 |         uint8  │ 0              │ 255
-			 |         uint16 │ 0              │ 65535
-			 |         uint32 │ 0              │ 4294967295
+			 |         uint16 │ 0              │ 65,535
+			 |         uint32 │ 0              │ 4,294,967,295
 			 |         uint64 │ 0              │ 1.8 × 10¹⁸
              |
 			 |     int refers to int32 on 32-bit systems and int64 on 64-bit systems.
@@ -165,14 +165,14 @@ func TestParseError(t *testing.T) {
             |     The maximum and minimum values are:
             |
             |         size   │ lowest         │ highest
-            |         ───────┼────────────────┼──────────
+            |         ───────┼────────────────┼──────────────
             |         int8   │ -128           │ 127
             |         int16  │ -32,768        │ 32,767
             |         int32  │ -2,147,483,648 │ 2,147,483,647
             |         int64  │ -9.2 × 10¹⁷    │ 9.2 × 10¹⁷
             |         uint8  │ 0              │ 255
-            |         uint16 │ 0              │ 65535
-            |         uint32 │ 0              │ 4294967295
+            |         uint16 │ 0              │ 65,535
+            |         uint32 │ 0              │ 4,294,967,295
             |         uint64 │ 0              │ 1.8 × 10¹⁸
             |
             |     int refers to int32 on 32-bit systems and int64 on 64-bit systems.

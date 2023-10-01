@@ -170,6 +170,10 @@ type (
 		i    any    // int or float
 		size string // "int64", "uint16", etc.
 	}
+	errUnsafeFloat struct {
+		i    interface{} // float32 or float64
+		size string      // "float32" or "float64"
+	}
 	errParseDuration struct{ d string }
 )
 
@@ -190,8 +194,12 @@ func (e errLexStringNL) Error() string      { return "strings cannot contain new
 func (e errLexStringNL) Usage() string      { return usageStringNewline }
 func (e errParseRange) Error() string       { return fmt.Sprintf("%v is out of range for %s", e.i, e.size) }
 func (e errParseRange) Usage() string       { return usageIntOverflow }
-func (e errParseDuration) Error() string    { return fmt.Sprintf("invalid duration: %q", e.d) }
-func (e errParseDuration) Usage() string    { return usageDuration }
+func (e errUnsafeFloat) Error() string {
+	return fmt.Sprintf("%v is out of the safe %s range", e.i, e.size)
+}
+func (e errUnsafeFloat) Usage() string   { return usageUnsafeFloat }
+func (e errParseDuration) Error() string { return fmt.Sprintf("invalid duration: %q", e.d) }
+func (e errParseDuration) Usage() string { return usageDuration }
 
 const usageEscape = `
 A '\' inside a "-delimited string is interpreted as an escape character.
@@ -248,17 +256,33 @@ bug in the program that uses too small of an integer.
 The maximum and minimum values are:
 
     size   │ lowest         │ highest
-    ───────┼────────────────┼──────────
+    ───────┼────────────────┼──────────────
     int8   │ -128           │ 127
     int16  │ -32,768        │ 32,767
     int32  │ -2,147,483,648 │ 2,147,483,647
     int64  │ -9.2 × 10¹⁷    │ 9.2 × 10¹⁷
     uint8  │ 0              │ 255
-    uint16 │ 0              │ 65535
-    uint32 │ 0              │ 4294967295
+    uint16 │ 0              │ 65,535
+    uint32 │ 0              │ 4,294,967,295
     uint64 │ 0              │ 1.8 × 10¹⁸
 
 int refers to int32 on 32-bit systems and int64 on 64-bit systems.
+`
+
+const usageUnsafeFloat = `
+This number is outside of the "safe" range for floating point numbers; whole
+(non-fractional) numbers outside the below range can not always be represented
+accurately in a float, leading to some loss of accuracy.
+
+Explicitly mark a number as a fractional unit by adding ".0", which will incur
+some loss of accuracy; for example:
+
+	f = 2_000_000_000.0
+
+Accuracy ranges:
+
+	float32 =            16,777,215
+	float64 = 9,007,199,254,740,991
 `
 
 const usageDuration = `

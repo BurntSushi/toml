@@ -439,7 +439,7 @@ func (md *MetaData) unifyFloat64(data any, rv reflect.Value) error {
 	if num, ok := data.(int64); ok {
 		if (rvk == reflect.Float32 && (num < -maxSafeFloat32Int || num > maxSafeFloat32Int)) ||
 			(rvk == reflect.Float64 && (num < -maxSafeFloat64Int || num > maxSafeFloat64Int)) {
-			return md.parseErr(errParseRange{i: num, size: rvk.String()})
+			return md.parseErr(errUnsafeFloat{i: num, size: rvk.String()})
 		}
 		rv.SetFloat(float64(num))
 		return nil
