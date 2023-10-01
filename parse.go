@@ -372,6 +372,9 @@ func (p *parser) valueDatetime(it item) (any, tomlType) {
 		}
 		t, err = time.ParseInLocation(dt.fmt, it.val, dt.zone)
 		if err == nil {
+			if missingLeadingZero(it.val, dt.fmt) {
+				p.panicErr(it, errParseDate{it.val})
+			}
 			ok = true
 			break
 		}
@@ -380,6 +383,23 @@ func (p *parser) valueDatetime(it item) (any, tomlType) {
 		p.panicErr(it, errParseDate{it.val})
 	}
 	return t, p.typeOfPrimitive(it)
+}
+
+// Go's time.Parse() will accept numbers without a leading zero; there isn't any
+// way to require it. https://github.com/golang/go/issues/29911
+//
+// Depend on the fact that the separators (- and :) should always be at the same
+// location.
+func missingLeadingZero(d, l string) bool {
+	for i, c := range []byte(l) {
+		if c == '.' || c == 'Z' {
+			return false
+		}
+		if (c < '0' || c > '9') && d[i] != c {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *parser) valueArray(it item) (any, tomlType) {

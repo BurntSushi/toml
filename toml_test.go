@@ -304,15 +304,6 @@ func runTomlTest(t *testing.T, includeNext bool, wantFail ...string) {
 			Parser:   parser{},
 			RunTests: runTests,
 			SkipTests: []string{
-				// "15" in time.Parse() accepts both "1" and "01". The TOML
-				// specification says that times *must* start with a leading
-				// zero, but this requires writing out own datetime parser.
-				// I think it's actually okay to just accept both really.
-				// https://github.com/BurntSushi/toml/issues/320
-				"invalid/datetime/time-no-leads",
-				"invalid/local-time/time-no-leads",
-				"invalid/local-datetime/time-no-leads",
-
 				// These tests are fine, just doesn't deal well with empty output.
 				"valid/comment/noeol",
 				"valid/comment/nonascii",
