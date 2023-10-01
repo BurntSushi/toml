@@ -351,3 +351,56 @@ At line 3, column 6-13:
 		t.Errorf("\nwant:\n%s\nhave:\n%s", want, have)
 	}
 }
+
+func TestErrorIndent(t *testing.T) {
+	getErr := func(t *testing.T, tml string) toml.ParseError {
+		var m map[string]any
+		_, err := toml.Decode(tml, &m)
+		if err == nil {
+			t.Fatal(err)
+		}
+		var pErr toml.ParseError
+		if !errors.As(err, &pErr) {
+			t.Fatalf("not a ParseError: %#v", err)
+		}
+		return pErr
+	}
+
+	err := getErr(t, "\tspaces = xxx")
+	want := `toml: error: expected value but found "xxx" instead
+
+At line 1, column 10-13:
+
+      1 |         spaces = xxx
+                           ^^^
+`
+
+	if have := err.ErrorWithUsage(); have != want {
+		t.Errorf("\nwant:\n%s\nhave:\n%s", want, have)
+	}
+
+	err = getErr(t, "\tspaces\t=\txxx")
+	want = `toml: error: expected value but found "xxx" instead
+
+At line 1, column 10-13:
+
+      1 |         spaces  =       xxx
+                                  ^^^
+`
+	if have := err.ErrorWithUsage(); have != want {
+		t.Errorf("\nwant:\n%s\nhave:\n%s", want, have)
+	}
+
+	err = getErr(t, "\txxx \t = \t 1\n\tspaces\t=\txxx")
+	want = `toml: error: expected value but found "xxx" instead
+
+At line 2, column 10-13:
+
+      1 |         xxx      =       1
+      2 |         spaces  =       xxx
+                                  ^^^
+`
+	if have := err.ErrorWithUsage(); have != want {
+		t.Errorf("\nwant:\n%s\nhave:\n%s", want, have)
+	}
+}

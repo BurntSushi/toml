@@ -114,13 +114,22 @@ func (pe ParseError) ErrorWithPosition() string {
 			msg, pe.Position.Line, col, col+pe.Position.Len)
 	}
 	if pe.Position.Line > 2 {
-		fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line-2, lines[pe.Position.Line-3])
+		fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line-2, expandTab(lines[pe.Position.Line-3]))
 	}
 	if pe.Position.Line > 1 {
-		fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line-1, lines[pe.Position.Line-2])
+		fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line-1, expandTab(lines[pe.Position.Line-2]))
 	}
-	fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line, lines[pe.Position.Line-1])
-	fmt.Fprintf(b, "% 10s%s%s\n", "", strings.Repeat(" ", col), strings.Repeat("^", pe.Position.Len))
+
+	/// Expand tabs, so that the ^^^s are at the correct position, but leave
+	/// "column 10-13" intact. Adjusting this to the visual column would be
+	/// better, but we don't know the tabsize of the user in their editor, which
+	/// can be 8, 4, 2, or something else. We can't know. So leaving it as the
+	/// character index is probably the "most correct".
+	expanded := expandTab(lines[pe.Position.Line-1])
+	diff := len(expanded) - len(lines[pe.Position.Line-1])
+
+	fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line, expanded)
+	fmt.Fprintf(b, "% 10s%s%s\n", "", strings.Repeat(" ", col+diff), strings.Repeat("^", pe.Position.Len))
 	return b.String()
 }
 
@@ -157,6 +166,33 @@ func (pe ParseError) column(lines []string) int {
 	}
 
 	return col
+}
+
+func expandTab(s string) string {
+	var (
+		b    strings.Builder
+		l    int
+		fill = func(n int) string {
+			b := make([]byte, n)
+			for i := range b {
+				b[i] = ' '
+			}
+			return string(b)
+		}
+	)
+	b.Grow(len(s))
+	for _, r := range s {
+		switch r {
+		case '\t':
+			tw := 8 - l%8
+			b.WriteString(fill(tw))
+			l += tw
+		default:
+			b.WriteRune(r)
+			l += 1
+		}
+	}
+	return b.String()
 }
 
 type (
