@@ -218,7 +218,11 @@ func (md *MetaData) unify(data any, rv reflect.Value) error {
 
 	rvi := rv.Interface()
 	if v, ok := rvi.(Unmarshaler); ok {
-		return v.UnmarshalTOML(data)
+		err := v.UnmarshalTOML(data)
+		if err != nil {
+			return md.parseErr(err)
+		}
+		return nil
 	}
 	if v, ok := rvi.(encoding.TextUnmarshaler); ok {
 		return md.unifyText(data, v)
@@ -533,7 +537,7 @@ func (md *MetaData) unifyText(data any, v encoding.TextUnmarshaler) error {
 		return md.badtype("primitive (string-like)", data)
 	}
 	if err := v.UnmarshalText([]byte(s)); err != nil {
-		return err
+		return md.parseErr(err)
 	}
 	return nil
 }

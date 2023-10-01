@@ -266,3 +266,88 @@ func TestParseError(t *testing.T) {
 		})
 	}
 }
+
+type Enum1 uint8
+
+func (n *Enum1) UnmarshalText(text []byte) error {
+	switch t := strings.TrimSpace(string(text)); t {
+	case "ok":
+		*n = 1
+	default:
+		return fmt.Errorf("invalid value: %q", t)
+	}
+	return nil
+}
+
+// Make sure custom types are wrapped in ParseError with correct location.
+func TestUnmarshalTypeError(t *testing.T) {
+	var c struct {
+		K1 string `toml:"k1"`
+		K2 Enum1  `toml:"k2"`
+		K3 Enum1  `toml:"k3"`
+	}
+	_, err := toml.Decode("k1 = 'asd'\nk2 = 'ok'\nk3 = 'invalid'\nk4 = 'ok'", &c)
+	if err == nil {
+		t.Fatal("error is nil")
+	}
+	var pErr toml.ParseError
+	if !errors.As(err, &pErr) {
+		t.Fatalf("not a ParseError: %#v", err)
+	}
+
+	want := `toml: error: invalid value: "invalid"
+
+At line 3, column 6-13:
+
+      1 | k1 = 'asd'
+      2 | k2 = 'ok'
+      3 | k3 = 'invalid'
+                ^^^^^^^
+`
+
+	if have := pErr.ErrorWithUsage(); have != want {
+		t.Errorf("\nwant:\n%s\nhave:\n%s", want, have)
+	}
+}
+
+type Enum2 uint8
+
+func (n *Enum2) UnmarshalTOML(text any) error {
+	switch t := strings.TrimSpace(text.(string)); t {
+	case "ok":
+		*n = 1
+	default:
+		return fmt.Errorf("invalid value: %q", t)
+	}
+	return nil
+}
+
+func TestMarhsalError(t *testing.T) {
+	var c struct {
+		K1 string `toml:"k1"`
+		K2 Enum2  `toml:"k2"`
+		K3 Enum2  `toml:"k3"`
+	}
+	_, err := toml.Decode("k1 = 'asd'\nk2 = 'ok'\nk3 = 'invalid'\nk4 = 'ok'", &c)
+	if err == nil {
+		t.Fatal("error is nil")
+	}
+	var pErr toml.ParseError
+	if !errors.As(err, &pErr) {
+		t.Fatalf("not a ParseError: %#v", err)
+	}
+
+	want := `toml: error: invalid value: "invalid"
+
+At line 3, column 6-13:
+
+      1 | k1 = 'asd'
+      2 | k2 = 'ok'
+      3 | k3 = 'invalid'
+                ^^^^^^^
+`
+
+	if have := pErr.ErrorWithUsage(); have != want {
+		t.Errorf("\nwant:\n%s\nhave:\n%s", want, have)
+	}
+}
