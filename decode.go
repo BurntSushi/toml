@@ -242,14 +242,6 @@ func (md *MetaData) unify(data any, rv reflect.Value) error {
 		return md.unifyInt(data, rv)
 	}
 	switch k {
-	case reflect.Ptr:
-		elem := reflect.New(rv.Type().Elem())
-		err := md.unify(data, reflect.Indirect(elem))
-		if err != nil {
-			return err
-		}
-		rv.Set(elem)
-		return nil
 	case reflect.Struct:
 		return md.unifyStruct(data, rv)
 	case reflect.Map:
