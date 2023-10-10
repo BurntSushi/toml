@@ -60,11 +60,16 @@ func Add(key string, tomlData any) any {
 	case int64:
 		return tag("integer", fmt.Sprintf("%d", orig))
 	case float64:
-		// Special case for nan since NaN == NaN is false.
-		if math.IsNaN(orig) {
+		switch {
+		case math.IsNaN(orig):
 			return tag("float", "nan")
+		case math.IsInf(orig, 1):
+			return tag("float", "inf")
+		case math.IsInf(orig, -1):
+			return tag("float", "-inf")
+		default:
+			return tag("float", fmt.Sprintf("%v", orig))
 		}
-		return tag("float", fmt.Sprintf("%v", orig))
 	}
 }
 
