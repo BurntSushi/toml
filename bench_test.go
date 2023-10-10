@@ -52,7 +52,7 @@ func BenchmarkDecode(b *testing.B) {
 	}
 
 	b.Run("large-doc", func(b *testing.B) {
-		d, err := os.ReadFile("testdata/ja-JP.toml")
+		d, err := os.ReadFile("testdata/Cargo.toml")
 		if err != nil {
 			b.Fatal(err)
 		}

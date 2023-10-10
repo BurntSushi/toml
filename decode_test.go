@@ -1290,7 +1290,7 @@ func TestMetaKeys(t *testing.T) {
 }
 
 func TestDecodeParallel(t *testing.T) {
-	doc, err := os.ReadFile("testdata/ja-JP.toml")
+	doc, err := os.ReadFile("testdata/Cargo.toml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1322,4 +1322,22 @@ func errorContains(have error, want string) bool {
 		return false
 	}
 	return strings.Contains(have.Error(), want)
+}
+
+func BenchmarkEscapes(b *testing.B) {
+	p := new(parser)
+	it := item{}
+	str := strings.Repeat("hello, world!\n", 10)
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		p.replaceEscapes(it, str)
+	}
+}
+
+func BenchmarkKey(b *testing.B) {
+	k := Key{"cargo-credential-macos-keychain", "version"}
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		k.String()
+	}
 }

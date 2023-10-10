@@ -94,21 +94,41 @@ func (md *MetaData) Undecoded() []Key {
 type Key []string
 
 func (k Key) String() string {
-	ss := make([]string, len(k))
-	for i := range k {
-		ss[i] = k.maybeQuoted(i)
+	// This is called quite often, so it's a bit funky to make it faster.
+	var b strings.Builder
+	b.Grow(len(k) * 25)
+outer:
+	for i, kk := range k {
+		if i > 0 {
+			b.WriteByte('.')
+		}
+		if kk == "" {
+			b.WriteString(`""`)
+		} else {
+			for _, r := range kk {
+				// "Inline" isBareKeyChar
+				if !((r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '-') {
+					b.WriteByte('"')
+					b.WriteString(dblQuotedReplacer.Replace(kk))
+					b.WriteByte('"')
+					continue outer
+				}
+			}
+			b.WriteString(kk)
+		}
 	}
-	return strings.Join(ss, ".")
+	return b.String()
 }
 
 func (k Key) maybeQuoted(i int) string {
 	if k[i] == "" {
 		return `""`
 	}
-	for _, c := range k[i] {
-		if !isBareKeyChar(c, false) {
-			return `"` + dblQuotedReplacer.Replace(k[i]) + `"`
+	for _, r := range k[i] {
+		if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+			continue
 		}
+		return `"` + dblQuotedReplacer.Replace(k[i]) + `"`
 	}
 	return k[i]
 }

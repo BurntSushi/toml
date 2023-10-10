@@ -49,7 +49,7 @@ func (p *parser) typeOfPrimitive(lexItem item) tomlType {
 		return tomlFloat
 	case itemDatetime:
 		return tomlDatetime
-	case itemString:
+	case itemString, itemStringEsc:
 		return tomlString
 	case itemMultilineString:
 		return tomlString

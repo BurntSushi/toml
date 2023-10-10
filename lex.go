@@ -17,6 +17,7 @@ const (
 	itemEOF
 	itemText
 	itemString
+	itemStringEsc
 	itemRawString
 	itemMultilineString
 	itemRawMultilineString
@@ -53,6 +54,7 @@ type lexer struct {
 	state    stateFn
 	items    chan item
 	tomlNext bool
+	esc      bool
 
 	// Allow for backing up up to 4 runes. This is necessary because TOML
 	// contains 3-rune tokens (""" and ''').
@@ -696,7 +698,12 @@ func lexString(lx *lexer) stateFn {
 		return lexStringEscape
 	case r == '"':
 		lx.backup()
-		lx.emit(itemString)
+		if lx.esc {
+			lx.esc = false
+			lx.emit(itemStringEsc)
+		} else {
+			lx.emit(itemString)
+		}
 		lx.next()
 		lx.ignore()
 		return lx.pop()
@@ -746,6 +753,7 @@ func lexMultilineString(lx *lexer) stateFn {
 				lx.backup() /// backup: don't include the """ in the item.
 				lx.backup()
 				lx.backup()
+				lx.esc = false
 				lx.emit(itemMultilineString)
 				lx.next() /// Read over ''' again and discard it.
 				lx.next()
@@ -835,6 +843,7 @@ func lexMultilineStringEscape(lx *lexer) stateFn {
 }
 
 func lexStringEscape(lx *lexer) stateFn {
+	lx.esc = true
 	r := lx.next()
 	switch r {
 	case 'e':
@@ -1199,7 +1208,7 @@ func (itype itemType) String() string {
 		return "EOF"
 	case itemText:
 		return "Text"
-	case itemString, itemRawString, itemMultilineString, itemRawMultilineString:
+	case itemString, itemStringEsc, itemRawString, itemMultilineString, itemRawMultilineString:
 		return "String"
 	case itemBool:
 		return "Bool"

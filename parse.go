@@ -224,7 +224,7 @@ func (p *parser) keyString(it item) string {
 	switch it.typ {
 	case itemText:
 		return it.val
-	case itemString, itemMultilineString,
+	case itemString, itemStringEsc, itemMultilineString,
 		itemRawString, itemRawMultilineString:
 		s, _ := p.value(it, false)
 		return s.(string)
@@ -244,6 +244,8 @@ var datetimeRepl = strings.NewReplacer(
 func (p *parser) value(it item, parentIsArray bool) (any, tomlType) {
 	switch it.typ {
 	case itemString:
+		return it.val, p.typeOfPrimitive(it)
+	case itemStringEsc:
 		return p.replaceEscapes(it, it.val), p.typeOfPrimitive(it)
 	case itemMultilineString:
 		return p.replaceEscapes(it, p.stripEscapedNewlines(stripFirstNewline(it.val))), p.typeOfPrimitive(it)
@@ -707,8 +709,11 @@ func stripFirstNewline(s string) string {
 // the next newline. After a line-ending backslash, all whitespace is removed
 // until the next non-whitespace character.
 func (p *parser) stripEscapedNewlines(s string) string {
-	var b strings.Builder
-	var i int
+	var (
+		b strings.Builder
+		i int
+	)
+	b.Grow(len(s))
 	for {
 		ix := strings.Index(s[i:], `\`)
 		if ix < 0 {
@@ -738,9 +743,8 @@ func (p *parser) stripEscapedNewlines(s string) string {
 			continue
 		}
 		if !strings.Contains(s[i:j], "\n") {
-			// This is not a line-ending backslash.
-			// (It's a bad escape sequence, but we can let
-			// replaceEscapes catch it.)
+			// This is not a line-ending backslash. (It's a bad escape sequence,
+			// but we can let replaceEscapes catch it.)
 			i++
 			continue
 		}
@@ -751,79 +755,78 @@ func (p *parser) stripEscapedNewlines(s string) string {
 }
 
 func (p *parser) replaceEscapes(it item, str string) string {
-	replaced := make([]rune, 0, len(str))
-	s := []byte(str)
-	r := 0
-	for r < len(s) {
-		if s[r] != '\\' {
-			c, size := utf8.DecodeRune(s[r:])
-			r += size
-			replaced = append(replaced, c)
+	var (
+		b    strings.Builder
+		skip = 0
+	)
+	b.Grow(len(str))
+	for i, c := range str {
+		if skip > 0 {
+			skip--
 			continue
 		}
-		r += 1
-		if r >= len(s) {
+		if c != '\\' {
+			b.WriteRune(c)
+			continue
+		}
+
+		if i >= len(str) {
 			p.bug("Escape sequence at end of string.")
 			return ""
 		}
-		switch s[r] {
+		switch str[i+1] {
 		default:
-			p.bug("Expected valid escape code after \\, but got %q.", s[r])
+			p.bug("Expected valid escape code after \\, but got %q.", str[i+1])
 		case ' ', '\t':
-			p.panicItemf(it, "invalid escape: '\\%c'", s[r])
+			p.panicItemf(it, "invalid escape: '\\%c'", str[i+1])
 		case 'b':
-			replaced = append(replaced, rune(0x0008))
-			r += 1
+			b.WriteByte(0x08)
+			skip = 1
 		case 't':
-			replaced = append(replaced, rune(0x0009))
-			r += 1
+			b.WriteByte(0x09)
+			skip = 1
 		case 'n':
-			replaced = append(replaced, rune(0x000A))
-			r += 1
+			b.WriteByte(0x0a)
+			skip = 1
 		case 'f':
-			replaced = append(replaced, rune(0x000C))
-			r += 1
+			b.WriteByte(0x0c)
+			skip = 1
 		case 'r':
-			replaced = append(replaced, rune(0x000D))
-			r += 1
+			b.WriteByte(0x0d)
+			skip = 1
 		case 'e':
 			if p.tomlNext {
-				replaced = append(replaced, rune(0x001B))
-				r += 1
+				b.WriteByte(0x1b)
+				skip = 1
 			}
 		case '"':
-			replaced = append(replaced, rune(0x0022))
-			r += 1
+			b.WriteByte(0x22)
+			skip = 1
 		case '\\':
-			replaced = append(replaced, rune(0x005C))
-			r += 1
+			b.WriteByte(0x5c)
+			skip = 1
+		// The lexer guarantees the correct number of characters are present;
+		// don't need to check here.
 		case 'x':
 			if p.tomlNext {
-				escaped := p.asciiEscapeToUnicode(it, s[r+1:r+3])
-				replaced = append(replaced, escaped)
-				r += 3
+				escaped := p.asciiEscapeToUnicode(it, str[i+2:i+4])
+				b.WriteRune(escaped)
+				skip = 3
 			}
 		case 'u':
-			// At this point, we know we have a Unicode escape of the form
-			// `uXXXX` at [r, r+5). (Because the lexer guarantees this
-			// for us.)
-			escaped := p.asciiEscapeToUnicode(it, s[r+1:r+5])
-			replaced = append(replaced, escaped)
-			r += 5
+			escaped := p.asciiEscapeToUnicode(it, str[i+2:i+6])
+			b.WriteRune(escaped)
+			skip = 5
 		case 'U':
-			// At this point, we know we have a Unicode escape of the form
-			// `uXXXX` at [r, r+9). (Because the lexer guarantees this
-			// for us.)
-			escaped := p.asciiEscapeToUnicode(it, s[r+1:r+9])
-			replaced = append(replaced, escaped)
-			r += 9
+			escaped := p.asciiEscapeToUnicode(it, str[i+2:i+10])
+			b.WriteRune(escaped)
+			skip = 9
 		}
 	}
-	return string(replaced)
+	return b.String()
 }
 
-func (p *parser) asciiEscapeToUnicode(it item, bs []byte) rune {
-	s := string(bs)
+func (p *parser) asciiEscapeToUnicode(it item, s string) rune {
 	hex, err := strconv.ParseUint(strings.ToLower(s), 16, 32)
 	if err != nil {
 		p.bug("Could not parse '%s' as a hexadecimal number, but the lexer claims it's OK: %s", s, err)
