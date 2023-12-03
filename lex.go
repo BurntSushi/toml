@@ -166,7 +166,7 @@ func (lx *lexer) next() (r rune) {
 	}
 
 	r, w := utf8.DecodeRuneInString(lx.input[lx.pos:])
-	if r == utf8.RuneError {
+	if r == utf8.RuneError && w == 1 {
 		lx.error(errLexUTF8{lx.input[lx.pos]})
 		return utf8.RuneError
 	}
