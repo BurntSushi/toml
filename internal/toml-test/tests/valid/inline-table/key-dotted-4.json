@@ -1,0 +1,40 @@
+{
+  "arr": [
+    {
+      "T": {
+        "a": {
+          "b": {
+            "type": "integer",
+            "value": "1"
+          }
+        }
+      },
+      "t": {
+        "a": {
+          "b": {
+            "type": "integer",
+            "value": "1"
+          }
+        }
+      }
+    },
+    {
+      "T": {
+        "a": {
+          "b": {
+            "type": "integer",
+            "value": "2"
+          }
+        }
+      },
+      "t": {
+        "a": {
+          "b": {
+            "type": "integer",
+            "value": "2"
+          }
+        }
+      }
+    }
+  ]
+}

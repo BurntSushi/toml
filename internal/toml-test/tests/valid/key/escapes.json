@@ -1,4 +1,8 @@
 {
+  "\u0008": {
+    "type": "string",
+    "value": "bell"
+  },
   "\n": {
     "type": "string",
     "value": "newline"

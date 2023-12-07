@@ -1,4 +1,5 @@
 "\n" = "newline"
+"\b" = "bell"
 "\u00c0" = "latin capital letter A with grave"
 "\"" = "just a quote"
 

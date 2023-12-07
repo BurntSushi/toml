@@ -55,46 +55,6 @@ func TestEncodeRoundTrip(t *testing.T) {
 	}
 }
 
-func TestEncodeNestedTableArrays(t *testing.T) {
-	type song struct {
-		Name string `toml:"name"`
-	}
-	type album struct {
-		Name  string `toml:"name"`
-		Songs []song `toml:"songs"`
-	}
-	type springsteen struct {
-		Albums []album `toml:"albums"`
-	}
-	value := springsteen{
-		[]album{
-			{"Born to Run",
-				[]song{{"Jungleland"}, {"Meeting Across the River"}}},
-			{"Born in the USA",
-				[]song{{"Glory Days"}, {"Dancing in the Dark"}}},
-		},
-	}
-	expected := `[[albums]]
-  name = "Born to Run"
-
-  [[albums.songs]]
-    name = "Jungleland"
-
-  [[albums.songs]]
-    name = "Meeting Across the River"
-
-[[albums]]
-  name = "Born in the USA"
-
-  [[albums.songs]]
-    name = "Glory Days"
-
-  [[albums.songs]]
-    name = "Dancing in the Dark"
-`
-	encodeExpected(t, "nested table arrays", value, expected, nil)
-}
-
 func TestEncodeArrayHashWithNormalHashOrder(t *testing.T) {
 	type Alpha struct {
 		V int

@@ -18,7 +18,7 @@ func TestErrorPosition(t *testing.T) {
 	tests := []struct {
 		test, err string
 	}{
-		{"array/missing-separator.toml", `
+		{"array/missing-separator-2.toml", `
 toml: error: expected a comma (',') or array terminator (']'), but got '2'
 
 At line 1, column 13:
@@ -26,13 +26,13 @@ At line 1, column 13:
       1 | wrong = [ 1 2 3 ]
                       ^`},
 
-		{"array/no-close-2.toml", `
+		{"array/no-close-1.toml", `
 toml: error: expected a comma (',') or array terminator (']'), but got end of file
 
-At line 1, column 10:
+At line 1, column 23:
 
-      1 | x = [42 #
-                   ^`},
+      1 | no-close-1 = [ 1, 2, 3
+                                ^`},
 
 		{"array/tables-2.toml", `
 toml: error: Key 'fruit.variety' has already been defined.

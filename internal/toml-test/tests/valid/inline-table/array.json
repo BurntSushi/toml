@@ -1,4 +1,18 @@
 {
+  "arr": [
+    {
+      "a": {
+        "type": "integer",
+        "value": "1"
+      }
+    },
+    {
+      "a": {
+        "type": "integer",
+        "value": "2"
+      }
+    }
+  ],
   "people": [
     {
       "first_name": {

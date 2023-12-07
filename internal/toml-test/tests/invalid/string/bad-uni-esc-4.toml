@@ -1,1 +1,1 @@
-str = "val\U0000"
+bad-uni-esc-4 = "val\U0000"

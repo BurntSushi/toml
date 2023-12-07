@@ -17,3 +17,10 @@ mismatch2 = '''aaa"""bbb'''
 # Three opening """, then one escaped ", then two "" (allowed), and then three
 # closing """
 escaped = """lol\""""""
+
+five-quotes = """
+Closing with five quotes
+"""""
+four-quotes = """
+Closing with four quotes
+""""

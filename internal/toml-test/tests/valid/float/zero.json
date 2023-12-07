@@ -1,17 +1,13 @@
 {
-  "zero": {
+  "exponent": {
     "type": "float",
     "value": "0"
   },
-  "signed-pos": {
-    "type": "float",
-    "value": "0"
-  },
-  "signed-neg": {
+  "exponent-signed-neg": {
     "type": "float",
     "value": "-0"
   },
-  "exponent": {
+  "exponent-signed-pos": {
     "type": "float",
     "value": "0"
   },
@@ -19,12 +15,16 @@
     "type": "float",
     "value": "0"
   },
-  "exponent-signed-pos": {
+  "signed-neg": {
+    "type": "float",
+    "value": "-0"
+  },
+  "signed-pos": {
     "type": "float",
     "value": "0"
   },
-  "exponent-signed-neg": {
+  "zero": {
     "type": "float",
-    "value": "-0"
+    "value": "0"
   }
 }

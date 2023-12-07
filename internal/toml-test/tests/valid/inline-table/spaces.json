@@ -1,0 +1,50 @@
+{
+  "clap-1": {
+    "features": [
+      {
+        "type": "string",
+        "value": "derive"
+      },
+      {
+        "type": "string",
+        "value": "cargo"
+      }
+    ],
+    "version": {
+      "type": "string",
+      "value": "4"
+    }
+  },
+  "clap-2": {
+    "features": [
+      {
+        "type": "string",
+        "value": "derive"
+      },
+      {
+        "type": "string",
+        "value": "cargo"
+      }
+    ],
+    "nest": {
+      "a": {
+        "type": "string",
+        "value": "x"
+      },
+      "b": [
+        {
+          "type": "float",
+          "value": "1.5"
+        },
+        {
+          "type": "float",
+          "value": "9"
+        }
+      ]
+    },
+    "version": {
+      "type": "string",
+      "value": "4"
+    }
+  }
+}

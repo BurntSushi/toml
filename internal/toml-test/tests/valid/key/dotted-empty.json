@@ -5,18 +5,18 @@
       "value": "empty.x"
     }
   },
-  "x": {
-    "": {
-      "type": "string",
-      "value": "x.empty"
-    }
-  },
   "a": {
     "": {
       "": {
         "type": "string",
         "value": "empty.empty"
       }
+    }
+  },
+  "x": {
+    "": {
+      "type": "string",
+      "value": "x.empty"
     }
   }
 }

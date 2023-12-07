@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"sort"
 	"strings"
+	"time"
 )
 
 // CompareTOML compares the given arguments.
@@ -18,14 +20,14 @@ import (
 func (r Test) CompareTOML(want, have any) Test {
 	if isTomlValue(want) {
 		if !isTomlValue(have) {
-			return r.fail("Type for key '%s' differs:\n"+
+			return r.fail("Type for key %q differs:\n"+
 				"  Expected:     %v (%s)\n"+
 				"  Your encoder: %v (%s)",
 				r.Key, want, fmtType(want), have, fmtType(have))
 		}
 
 		if !deepEqual(want, have) {
-			return r.fail("Values for key '%s' differ:\n"+
+			return r.fail("Values for key %q differ:\n"+
 				"  Expected:     %v (%s)\n"+
 				"  Your encoder: %v (%s)",
 				r.Key, want, fmtType(want), have, fmtType(have))
@@ -55,22 +57,24 @@ func (r Test) cmpTOMLMap(want map[string]any, have any) Test {
 		return r.mismatch("table", want, haveMap)
 	}
 
+	wantKeys, haveKeys := mapKeys(want), mapKeys(haveMap)
+
 	// Check that the keys of each map are equivalent.
-	for k := range want {
+	for _, k := range wantKeys {
 		if _, ok := haveMap[k]; !ok {
 			bunk := r.kjoin(k)
-			return bunk.fail("Could not find key '%s' in encoder output", bunk.Key)
+			return bunk.fail("Could not find key %q in encoder output", bunk.Key)
 		}
 	}
-	for k := range haveMap {
+	for _, k := range haveKeys {
 		if _, ok := want[k]; !ok {
 			bunk := r.kjoin(k)
-			return bunk.fail("Could not find key '%s' in expected output", bunk.Key)
+			return bunk.fail("Could not find key %q in expected output", bunk.Key)
 		}
 	}
 
 	// Okay, now make sure that each value is equivalent.
-	for k := range want {
+	for _, k := range wantKeys {
 		if sub := r.kjoin(k).CompareTOML(want[k], haveMap[k]); sub.Failed() {
 			return sub
 		}
@@ -97,7 +101,7 @@ func (r Test) cmpTOMLArrays(want []any, have any) Test {
 	}
 
 	if len(want) != len(haveSlice) {
-		return r.fail("Array lengths differ for key '%s'"+
+		return r.fail("Array lengths differ for key %q"+
 			"  Expected:     %[2]v (len=%[4]d)\n"+
 			"  Your encoder: %[3]v (len=%[5]d)",
 			r.Key, want, haveSlice, len(want), len(haveSlice))
@@ -129,6 +133,14 @@ func deepEqual(want, have any) bool {
 		return true
 	}
 
+	// Time.Equal deals with some edge-cases such as offset +0000 and Z being
+	// identical.
+	if haveT, ok := have.(time.Time); ok {
+		if wantT, ok := want.(time.Time); ok {
+			return wantT.Equal(haveT)
+		}
+	}
+
 	return reflect.DeepEqual(want, have)
 }
 
@@ -143,3 +155,12 @@ func isTomlValue(v any) bool {
 // fmt %T with "interface {}" replaced with "any", which is far more readable.
 func fmtType(t any) string  { return strings.ReplaceAll(fmt.Sprintf("%T", t), "interface {}", "any") }
 func fmtHashV(t any) string { return strings.ReplaceAll(fmt.Sprintf("%#v", t), "interface {}", "any") }
+
+func mapKeys[M ~map[string]V, V any](m M) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}

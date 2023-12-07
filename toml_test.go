@@ -2,6 +2,7 @@ package toml_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -22,7 +23,7 @@ import (
 var errorTests = map[string][]string{
 	"encoding/bad-utf8*":            {"invalid UTF-8 byte"},
 	"encoding/utf16*":               {"files cannot contain NULL bytes; probably using UTF-16"},
-	"string/multiline-escape-space": {`invalid escape: '\ '`},
+	"string/multiline-bad-escape-2": {`invalid escape: '\ '`},
 }
 
 // Test metadata; all keys listed as "keyname: type".
@@ -51,35 +52,43 @@ var metaTests = map[string]string{
 		Section."Μ":   String
 		Section.M:     String
 	`,
-	"key/dotted": `
-		name.first:                   String
-		name.last:                    String
-		many.dots.here.dot.dot.dot:   Integer
-		count.a:                      Integer
-		count.b:                      Integer
-		count.c:                      Integer
-		count.d:                      Integer
-		count.e:                      Integer
-		count.f:                      Integer
-		count.g:                      Integer
-		count.h:                      Integer
-		count.i:                      Integer
-		count.j:                      Integer
-		count.k:                      Integer
-		count.l:                      Integer
-		tbl:                          Hash
-		tbl.a.b.c:                    Float
+	"key/dotted-1": `
+		name.first:            String
+		name.last:             String
+		many.dots.dot.dot.dot: Integer
+	`,
+	"key/dotted-2": `
+		count.a: Integer
+		count.b: Integer
+		count.c: Integer
+		count.d: Integer
+		count.e: Integer
+		count.f: Integer
+		count.g: Integer
+		count.h: Integer
+		count.i: Integer
+		count.j: Integer
+		count.k: Integer
+		count.l: Integer
+	`,
+	"key/dotted-3": `
+		top.key:     Integer
+		tbl:         Hash
+		tbl.a.b.c:   Float
 		a.few.dots:                   Hash
 		a.few.dots.polka.dot:         String
 		a.few.dots.polka.dance-with:  String
-		arr:                          ArrayHash
-		arr.a.b.c:                    Integer
-		arr.a.b.d:                    Integer
-		arr:                          ArrayHash
-		arr.a.b.c:                    Integer
-		arr.a.b.d:                    Integer
+	`,
+	"key/dotted-4": `
+		top.key:     Integer
+		arr:         ArrayHash
+		arr.a.b.c:   Integer
+		arr.a.b.d:   Integer
+		arr:         ArrayHash
+		arr.a.b.c:   Integer
+		arr.a.b.d:   Integer
 	 `,
-	"key/empty": `
+	"key/empty-1": `
 		"": String
 	`,
 	"key/quoted-dots": `
@@ -309,14 +318,20 @@ func runTomlTest(t *testing.T, includeNext bool, wantFail ...string) {
 				"valid/comment/nonascii",
 
 				// TODO: fix this; we allow appending to tables, but shouldn't.
-				"invalid/table/append-with-dotted*",
-				"invalid/inline-table/add",
-				"invalid/table/duplicate-key-dotted-table",
-				"invalid/table/duplicate-key-dotted-table2",
+				"invalid/array/extend-defined-aot",
+				"invalid/inline-table/duplicate-key-3",
+				"invalid/inline-table/overwrite-2",
+				"invalid/inline-table/overwrite-7",
+				"invalid/inline-table/overwrite-8",
 				"invalid/spec/inline-table-2-0",
 				"invalid/spec/table-9-1",
-				"invalid/inline-table/nested_key_conflict",
 				"invalid/table/append-to-array-with-dotted-keys",
+				"invalid/table/append-with-dotted-keys-1",
+				"invalid/table/append-with-dotted-keys-2",
+				"invalid/table/duplicate-key-dotted-table",
+				"invalid/table/duplicate-key-dotted-table2",
+				"invalid/table/redefine-2",
+				"invalid/table/redefine-3",
 			},
 		}
 		if includeNext {
@@ -449,7 +464,7 @@ func testError(t *testing.T, test tomltest.Test, shouldExist map[string]struct{}
 
 type parser struct{}
 
-func (p parser) Encode(input string) (output string, outputIsError bool, retErr error) {
+func (p parser) Encode(ctx context.Context, input string) (output string, outputIsError bool, retErr error) {
 	defer func() {
 		if r := recover(); r != nil {
 			switch rr := r.(type) {
@@ -481,7 +496,7 @@ func (p parser) Encode(input string) (output string, outputIsError bool, retErr 
 	return buf.String(), false, retErr
 }
 
-func (p parser) Decode(input string) (output string, outputIsError bool, retErr error) {
+func (p parser) Decode(ctx context.Context, input string) (output string, outputIsError bool, retErr error) {
 	defer func() {
 		if r := recover(); r != nil {
 			switch rr := r.(type) {

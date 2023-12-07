@@ -26,5 +26,6 @@
   ],
   "nested_empty": {
     "empty": {}
-  }
+  },
+  "with_cmt": {}
 }

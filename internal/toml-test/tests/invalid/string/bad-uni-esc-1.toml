@@ -1,1 +1,1 @@
-str = "val\ue"
+bad-uni-esc-1 = "val\ue"

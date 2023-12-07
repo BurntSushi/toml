@@ -27,22 +27,6 @@
     "type": "string",
     "value": "a   \tb"
   },
-  "multiline_empty_four": {
-    "type": "string",
-    "value": ""
-  },
-  "multiline_empty_one": {
-    "type": "string",
-    "value": ""
-  },
-  "multiline_empty_three": {
-    "type": "string",
-    "value": ""
-  },
-  "multiline_empty_two": {
-    "type": "string",
-    "value": ""
-  },
   "no-space": {
     "type": "string",
     "value": "ab"
