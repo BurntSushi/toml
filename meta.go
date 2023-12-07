@@ -133,9 +133,16 @@ func (k Key) maybeQuoted(i int) string {
 	return k[i]
 }
 
+// Like append(), but only increase the cap by 1.
 func (k Key) add(piece string) Key {
+	if cap(k) > len(k) {
+		return append(k, piece)
+	}
 	newKey := make(Key, len(k)+1)
 	copy(newKey, k)
 	newKey[len(k)] = piece
 	return newKey
 }
+
+func (k Key) parent() Key  { return k[:len(k)-1] } // all except the last piece.
+func (k Key) last() string { return k[len(k)-1] }  // last piece of this key.

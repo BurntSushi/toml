@@ -196,11 +196,11 @@ func (p *parser) topLevel(item item) {
 		p.assertEqual(itemKeyEnd, k.typ)
 
 		/// The current key is the last part.
-		p.currentKey = key[len(key)-1]
+		p.currentKey = key.last()
 
 		/// All the other parts (if any) are the context; need to set each part
 		/// as implicit.
-		context := key[:len(key)-1]
+		context := key.parent()
 		for i := range context {
 			p.addImplicitContext(append(p.context, context[i:i+1]...))
 		}
@@ -209,7 +209,8 @@ func (p *parser) topLevel(item item) {
 		/// Set value.
 		vItem := p.next()
 		val, typ := p.value(vItem, false)
-		p.set(p.currentKey, val, typ, vItem.pos)
+		p.setValue(p.currentKey, val)
+		p.setType(p.currentKey, typ, vItem.pos)
 
 		/// Remove the context we added (preserving any context from [tbl] lines).
 		p.context = outerContext
@@ -434,7 +435,7 @@ func (p *parser) valueArray(it item) (any, tomlType) {
 
 func (p *parser) valueInlineTable(it item, parentIsArray bool) (any, tomlType) {
 	var (
-		hash         = make(map[string]any)
+		topHash      = make(map[string]any)
 		outerContext = p.context
 		outerKey     = p.currentKey
 	)
@@ -462,11 +463,11 @@ func (p *parser) valueInlineTable(it item, parentIsArray bool) (any, tomlType) {
 		p.assertEqual(itemKeyEnd, k.typ)
 
 		/// The current key is the last part.
-		p.currentKey = key[len(key)-1]
+		p.currentKey = key.last()
 
 		/// All the other parts (if any) are the context; need to set each part
 		/// as implicit.
-		context := key[:len(key)-1]
+		context := key.parent()
 		for i := range context {
 			p.addImplicitContext(append(p.context, context[i:i+1]...))
 		}
@@ -474,7 +475,18 @@ func (p *parser) valueInlineTable(it item, parentIsArray bool) (any, tomlType) {
 
 		/// Set the value.
 		val, typ := p.value(p.next(), false)
-		p.set(p.currentKey, val, typ, it.pos)
+		p.setValue(p.currentKey, val)
+		p.setType(p.currentKey, typ, it.pos)
+
+		hash := topHash
+		for _, c := range context {
+			h, ok := hash[c]
+			if !ok {
+				h = make(map[string]any)
+				hash[c] = h
+			}
+			hash = h.(map[string]any)
+		}
 		hash[p.currentKey] = val
 
 		/// Restore context.
@@ -482,7 +494,7 @@ func (p *parser) valueInlineTable(it item, parentIsArray bool) (any, tomlType) {
 	}
 	p.context = outerContext
 	p.currentKey = outerKey
-	return hash, tomlHash
+	return topHash, tomlHash
 }
 
 // numHasLeadingZero checks if this number has leading zeroes, allowing for '0',
@@ -537,15 +549,13 @@ func numPeriodsOK(s string) bool {
 // Establishing the context also makes sure that the key isn't a duplicate, and
 // will create implicit hashes automatically.
 func (p *parser) addContext(key Key, array bool) {
-	var ok bool
-
-	// Always start at the top level and drill down for our context.
+	/// Always start at the top level and drill down for our context.
 	hashContext := p.mapping
 	keyContext := make(Key, 0, len(key)-1)
 
-	// We only need implicit hashes for key[0:-1]
-	for _, k := range key[0 : len(key)-1] {
-		_, ok = hashContext[k]
+	/// We only need implicit hashes for the parents.
+	for _, k := range key.parent() {
+		_, ok := hashContext[k]
 		keyContext = append(keyContext, k)
 
 		// No key? Make an implicit hash and move on.
@@ -573,7 +583,7 @@ func (p *parser) addContext(key Key, array bool) {
 	if array {
 		// If this is the first element for this array, then allocate a new
 		// list of tables for it.
-		k := key[len(key)-1]
+		k := key.last()
 		if _, ok := hashContext[k]; !ok {
 			hashContext[k] = make([]map[string]any, 0, 4)
 		}
@@ -586,15 +596,9 @@ func (p *parser) addContext(key Key, array bool) {
 			p.panicf("Key '%s' was already created and cannot be used as an array.", key)
 		}
 	} else {
-		p.setValue(key[len(key)-1], make(map[string]any))
+		p.setValue(key.last(), make(map[string]any))
 	}
-	p.context = append(p.context, key[len(key)-1])
-}
-
-// set calls setValue and setType.
-func (p *parser) set(key string, val any, typ tomlType, pos Position) {
-	p.setValue(key, val)
-	p.setType(key, typ, pos)
+	p.context = append(p.context, key.last())
 }
 
 // setValue sets the given key to the given value in the current context.
@@ -644,9 +648,8 @@ func (p *parser) setValue(key string, value any) {
 			p.removeImplicit(keyContext)
 			return
 		}
-
-		// Otherwise, we have a concrete key trying to override a previous
-		// key, which is *always* wrong.
+		// Otherwise, we have a concrete key trying to override a previous key,
+		// which is *always* wrong.
 		p.panicf("Key '%s' has already been defined.", keyContext)
 	}
 
