@@ -1,11 +1,11 @@
 {
   "sf1": {
     "type": "float",
-    "value": "+inf"
+    "value": "inf"
   },
   "sf2": {
     "type": "float",
-    "value": "+inf"
+    "value": "inf"
   },
   "sf3": {
     "type": "float",

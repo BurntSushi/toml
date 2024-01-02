@@ -313,6 +313,9 @@ func runTomlTest(t *testing.T, includeNext bool, wantFail ...string) {
 			Parser:   parser{},
 			RunTests: runTests,
 			SkipTests: []string{
+				// TODO: https://github.com/BurntSushi/toml/issues/403
+				"invalid/inline-table/overwrite-10",
+
 				// These tests are fine, just doesn't deal well with empty output.
 				"valid/comment/noeol",
 				"valid/comment/nonascii",
@@ -320,9 +323,9 @@ func runTomlTest(t *testing.T, includeNext bool, wantFail ...string) {
 				// TODO: fix this; we allow appending to tables, but shouldn't.
 				"invalid/array/extend-defined-aot",
 				"invalid/inline-table/duplicate-key-3",
-				"invalid/inline-table/overwrite-2",
-				"invalid/inline-table/overwrite-7",
-				"invalid/inline-table/overwrite-8",
+				"invalid/inline-table/overwrite-02",
+				"invalid/inline-table/overwrite-07",
+				"invalid/inline-table/overwrite-08",
 				"invalid/spec/inline-table-2-0",
 				"invalid/spec/table-9-1",
 				"invalid/table/append-to-array-with-dotted-keys",
