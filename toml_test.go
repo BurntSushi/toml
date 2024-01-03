@@ -313,9 +313,6 @@ func runTomlTest(t *testing.T, includeNext bool, wantFail ...string) {
 			Parser:   parser{},
 			RunTests: runTests,
 			SkipTests: []string{
-				// TODO: https://github.com/BurntSushi/toml/issues/403
-				"invalid/inline-table/overwrite-10",
-
 				// These tests are fine, just doesn't deal well with empty output.
 				"valid/comment/noeol",
 				"valid/comment/nonascii",

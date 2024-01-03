@@ -485,7 +485,10 @@ func (p *parser) valueInlineTable(it item, parentIsArray bool) (any, tomlType) {
 				h = make(map[string]any)
 				hash[c] = h
 			}
-			hash = h.(map[string]any)
+			hash, ok = h.(map[string]any)
+			if !ok {
+				p.panicf("%q is not a table", p.context)
+			}
 		}
 		hash[p.currentKey] = val
 
