@@ -53,6 +53,13 @@ func TestEncodeRoundTrip(t *testing.T) {
 	if firstBuffer.String() != secondBuffer.String() {
 		t.Errorf("%s\n\nIS NOT IDENTICAL TO\n\n%s", firstBuffer.String(), secondBuffer.String())
 	}
+	out, err := Marshal(inputs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if firstBuffer.String() != string(out) {
+		t.Errorf("%s\n\nIS NOT IDENTICAL TO\n\n%s", firstBuffer.String(), string(out))
+	}
 }
 
 func TestEncodeArrayHashWithNormalHashOrder(t *testing.T) {
