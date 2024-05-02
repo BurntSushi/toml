@@ -2,6 +2,7 @@ package toml
 
 import (
 	"bufio"
+	"bytes"
 	"encoding"
 	"encoding/json"
 	"errors"
@@ -74,6 +75,17 @@ var (
 // into valid TOML.
 type Marshaler interface {
 	MarshalTOML() ([]byte, error)
+}
+
+// Marshal returns a TOML representation of the Go value.
+//
+// See [Encoder] for a description of the encoding process.
+func Marshal(v any) ([]byte, error) {
+	buff := new(bytes.Buffer)
+	if err := NewEncoder(buff).Encode(v); err != nil {
+		return nil, err
+	}
+	return buff.Bytes(), nil
 }
 
 // Encoder encodes a Go to a TOML document.
