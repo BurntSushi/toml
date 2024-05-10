@@ -2,6 +2,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -16,6 +17,7 @@ import (
 
 var (
 	flagTypes = false
+	flagJSON  = false
 	flagTime  = false
 )
 
@@ -23,6 +25,7 @@ func init() {
 	log.SetFlags(0)
 	flag.BoolVar(&flagTypes, "types", flagTypes, "Show the types for every key.")
 	flag.BoolVar(&flagTime, "time", flagTypes, "Show how long the parsing took.")
+	flag.BoolVar(&flagJSON, "json", flagTypes, "Output parsed document as JSON.")
 	flag.Usage = usage
 	flag.Parse()
 }
@@ -49,6 +52,12 @@ func main() {
 		}
 		if flagTypes {
 			printTypes(md)
+		}
+		if flagJSON {
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetEscapeHTML(false)
+			enc.SetIndent("", "  ")
+			enc.Encode(tmp)
 		}
 	}
 }
