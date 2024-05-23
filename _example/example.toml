@@ -23,7 +23,7 @@ times = [
 # Durations.
 duration = ["4m49s", "8m03s", "1231h15m55s"]
 
-# Table with inline tables.
+# Array with inline tables.
 distros = [
 	{name = "Arch Linux", packages = "pacman"},
 	{name = "Void Linux", packages = "xbps"},
