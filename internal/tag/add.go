@@ -3,6 +3,7 @@ package tag
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/BurntSushi/toml/internal"
@@ -68,7 +69,7 @@ func Add(key string, tomlData any) any {
 		case math.IsInf(orig, -1):
 			return tag("float", "-inf")
 		default:
-			return tag("float", fmt.Sprintf("%v", orig))
+			return tag("float", strconv.FormatFloat(orig, 'f', -1, 64))
 		}
 	}
 }
