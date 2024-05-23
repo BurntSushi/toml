@@ -313,6 +313,10 @@ func runTomlTest(t *testing.T, includeNext bool, wantFail ...string) {
 			Parser:   parser{},
 			RunTests: runTests,
 			SkipTests: []string{
+				// Will be fixed in Go 1.23: https://github.com/BurntSushi/toml/issues/407
+				"invalid/datetime/offset-overflow-hour",
+				"invalid/datetime/offset-overflow-minute",
+
 				// These tests are fine, just doesn't deal well with empty output.
 				"valid/comment/noeol",
 				"valid/comment/nonascii",
