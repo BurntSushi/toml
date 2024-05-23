@@ -3,6 +3,7 @@ package ossfuzz
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
@@ -27,6 +28,11 @@ func FuzzToml(data []byte) int {
 	var v2 any
 	_, err = toml.Decode(buf.String(), &v2)
 	if err != nil {
+		// TODO(manunio): remove this when 1.23 lands, see #407.
+		if strings.Contains(err.Error(), "invalid datetime") {
+			return 0
+		}
+
 		panic(fmt.Sprintf("failed round trip: %s", err))
 	}
 
