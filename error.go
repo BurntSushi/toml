@@ -92,16 +92,11 @@ func (p Position) withCol(tomlFile string) Position {
 }
 
 func (pe ParseError) Error() string {
-	msg := pe.Message
-	if msg == "" { // Error from errorf()
-		msg = pe.err.Error()
-	}
-
 	if pe.LastKey == "" {
-		return fmt.Sprintf("toml: line %d: %s", pe.Position.Line, msg)
+		return fmt.Sprintf("toml: line %d: %s", pe.Position.Line, pe.Message)
 	}
 	return fmt.Sprintf("toml: line %d (last key %q): %s",
-		pe.Position.Line, pe.LastKey, msg)
+		pe.Position.Line, pe.LastKey, pe.Message)
 }
 
 // ErrorWithPosition returns the error with detailed location context.
@@ -112,25 +107,19 @@ func (pe ParseError) ErrorWithPosition() string {
 		return pe.Error()
 	}
 
+	// TODO: don't show control characters as literals? This may not show up
+	// well everywhere.
+
 	var (
 		lines = strings.Split(pe.input, "\n")
 		b     = new(strings.Builder)
 	)
-
-	msg := pe.Message
-	if msg == "" {
-		msg = pe.err.Error()
-	}
-
-	// TODO: don't show control characters as literals? This may not show up
-	// well everywhere.
-
 	if pe.Position.Len == 1 {
 		fmt.Fprintf(b, "toml: error: %s\n\nAt line %d, column %d:\n\n",
-			msg, pe.Position.Line, pe.Position.Col)
+			pe.Message, pe.Position.Line, pe.Position.Col)
 	} else {
 		fmt.Fprintf(b, "toml: error: %s\n\nAt line %d, column %d-%d:\n\n",
-			msg, pe.Position.Line, pe.Position.Col, pe.Position.Col+pe.Position.Len-1)
+			pe.Message, pe.Position.Line, pe.Position.Col, pe.Position.Col+pe.Position.Len-1)
 	}
 	if pe.Position.Line > 2 {
 		fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line-2, expandTab(lines[pe.Position.Line-3]))
