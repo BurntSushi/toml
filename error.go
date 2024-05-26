@@ -67,8 +67,28 @@ type ParseError struct {
 // Position of an error.
 type Position struct {
 	Line  int // Line number, starting at 1.
+	Col   int // Error column, starting at 1.
 	Start int // Start of error, as byte offset starting at 0.
-	Len   int // Lenght in bytes.
+	Len   int // Lenght of the error in bytes.
+}
+
+func (p Position) withCol(tomlFile string) Position {
+	var (
+		pos   int
+		lines = strings.Split(tomlFile, "\n")
+	)
+	for i := range lines {
+		ll := len(lines[i]) + 1 // +1 for the removed newline
+		if pos+ll >= p.Start {
+			p.Col = p.Start - pos + 1
+			if p.Col < 1 { // Should never happen, but just in case.
+				p.Col = 1
+			}
+			break
+		}
+		pos += ll
+	}
+	return p
 }
 
 func (pe ParseError) Error() string {
@@ -94,7 +114,6 @@ func (pe ParseError) ErrorWithPosition() string {
 
 	var (
 		lines = strings.Split(pe.input, "\n")
-		col   = pe.column(lines)
 		b     = new(strings.Builder)
 	)
 
@@ -108,10 +127,10 @@ func (pe ParseError) ErrorWithPosition() string {
 
 	if pe.Position.Len == 1 {
 		fmt.Fprintf(b, "toml: error: %s\n\nAt line %d, column %d:\n\n",
-			msg, pe.Position.Line, col+1)
+			msg, pe.Position.Line, pe.Position.Col)
 	} else {
 		fmt.Fprintf(b, "toml: error: %s\n\nAt line %d, column %d-%d:\n\n",
-			msg, pe.Position.Line, col, col+pe.Position.Len)
+			msg, pe.Position.Line, pe.Position.Col, pe.Position.Col+pe.Position.Len-1)
 	}
 	if pe.Position.Line > 2 {
 		fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line-2, expandTab(lines[pe.Position.Line-3]))
@@ -129,7 +148,7 @@ func (pe ParseError) ErrorWithPosition() string {
 	diff := len(expanded) - len(lines[pe.Position.Line-1])
 
 	fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line, expanded)
-	fmt.Fprintf(b, "% 10s%s%s\n", "", strings.Repeat(" ", col+diff), strings.Repeat("^", pe.Position.Len))
+	fmt.Fprintf(b, "% 10s%s%s\n", "", strings.Repeat(" ", pe.Position.Col-1+diff), strings.Repeat("^", pe.Position.Len))
 	return b.String()
 }
 
@@ -149,23 +168,6 @@ func (pe ParseError) ErrorWithUsage() string {
 		return m + "Error help:\n\n" + strings.Join(lines, "\n") + "\n"
 	}
 	return m
-}
-
-func (pe ParseError) column(lines []string) int {
-	var pos, col int
-	for i := range lines {
-		ll := len(lines[i]) + 1 // +1 for the removed newline
-		if pos+ll >= pe.Position.Start {
-			col = pe.Position.Start - pos
-			if col < 0 { // Should never happen, but just in case.
-				col = 0
-			}
-			break
-		}
-		pos += ll
-	}
-
-	return col
 }
 
 func expandTab(s string) string {
