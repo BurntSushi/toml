@@ -3,6 +3,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -45,6 +46,10 @@ func main() {
 		start := time.Now()
 		md, err := toml.DecodeFile(f, &tmp)
 		if err != nil {
+			var perr toml.ParseError
+			if errors.As(err, &perr) {
+				log.Fatalf("Error in '%s': %s", f, perr.ErrorWithPosition())
+			}
 			log.Fatalf("Error in '%s': %s", f, err)
 		}
 		if flagTime {
