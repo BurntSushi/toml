@@ -92,6 +92,7 @@ func parse(data string) (p *parser, err error) {
 
 func (p *parser) panicErr(it item, err error) {
 	panic(ParseError{
+		Message:  err.Error(),
 		err:      err,
 		Position: it.pos.withCol(p.lx.input),
 		Line:     it.pos.Len,
@@ -123,10 +124,11 @@ func (p *parser) next() item {
 	if it.typ == itemError {
 		if it.err != nil {
 			panic(ParseError{
+				Message:  it.err.Error(),
+				err:      it.err,
 				Position: it.pos.withCol(p.lx.input),
 				Line:     it.pos.Line,
 				LastKey:  p.current(),
-				err:      it.err,
 			})
 		}
 

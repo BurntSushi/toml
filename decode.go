@@ -542,10 +542,11 @@ func (md *MetaData) parseErr(err error) error {
 	k := md.context.String()
 	d := string(md.data)
 	return ParseError{
+		Message:  err.Error(),
+		err:      err,
 		LastKey:  k,
 		Position: md.keyInfo[k].pos.withCol(d),
 		Line:     md.keyInfo[k].pos.Line,
-		err:      err,
 		input:    d,
 	}
 }
