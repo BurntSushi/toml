@@ -51,8 +51,23 @@ At line 2, column 5-15:
       1 | # Date cannot end with trailing T
       2 | d = 2006-01-30T
               ^^^^^^^^^^^`},
-	}
 
+		{"key/without-value-1.toml", `
+toml: error: expected '.' or '=', but got '\n' instead
+
+At line 1, column 4:
+
+      1 | key
+             ^`},
+		// Position looks wonky, but test has trailing space, so it's correct.
+		{"key/without-value-2.toml", `
+toml: error: expected value but found '\n' instead
+
+At line 1, column 7:
+
+      1 | key = 
+                ^`},
+	}
 	fsys := tomltest.EmbeddedTests()
 	for _, tt := range tests {
 		t.Run(tt.test, func(t *testing.T) {
