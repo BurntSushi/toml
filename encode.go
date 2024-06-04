@@ -402,31 +402,30 @@ func (enc *Encoder) eMap(key Key, rv reflect.Value, inline bool) {
 
 	// Sort keys so that we have deterministic output. And write keys directly
 	// underneath this key first, before writing sub-structs or sub-maps.
-	var mapKeysDirect, mapKeysSub []string
+	var mapKeysDirect, mapKeysSub []reflect.Value
 	for _, mapKey := range rv.MapKeys() {
-		k := mapKey.String()
 		if typeIsTable(tomlTypeOfGo(eindirect(rv.MapIndex(mapKey)))) {
-			mapKeysSub = append(mapKeysSub, k)
+			mapKeysSub = append(mapKeysSub, mapKey)
 		} else {
-			mapKeysDirect = append(mapKeysDirect, k)
+			mapKeysDirect = append(mapKeysDirect, mapKey)
 		}
 	}
 
-	var writeMapKeys = func(mapKeys []string, trailC bool) {
-		sort.Strings(mapKeys)
+	writeMapKeys := func(mapKeys []reflect.Value, trailC bool) {
+		sort.Slice(mapKeys, func(i, j int) bool { return mapKeys[i].String() < mapKeys[j].String() })
 		for i, mapKey := range mapKeys {
-			val := eindirect(rv.MapIndex(reflect.ValueOf(mapKey)))
+			val := eindirect(rv.MapIndex(mapKey))
 			if isNil(val) {
 				continue
 			}
 
 			if inline {
-				enc.writeKeyValue(Key{mapKey}, val, true)
+				enc.writeKeyValue(Key{mapKey.String()}, val, true)
 				if trailC || i != len(mapKeys)-1 {
 					enc.wf(", ")
 				}
 			} else {
-				enc.encode(key.add(mapKey), val)
+				enc.encode(key.add(mapKey.String()), val)
 			}
 		}
 	}
