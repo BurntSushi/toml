@@ -837,10 +837,13 @@ func TestEncodeJSONNumber(t *testing.T) {
 }
 
 func TestEncode(t *testing.T) {
-	type Embedded struct {
-		Int int `toml:"_int"`
-	}
-	type NonStruct int
+	type (
+		Embedded struct {
+			Int int `toml:"_int"`
+		}
+		NonStruct int
+		MyInt     int
+	)
 
 	date := time.Date(2014, 5, 11, 19, 30, 40, 0, time.UTC)
 	dateStr := "2014-05-11T19:30:40Z"
@@ -1165,6 +1168,10 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 			input:     map[int]string{1: ""},
 			wantError: errNonString,
 		},
+		"(error) map no string key indirect": {
+			input:     map[MyInt]string{1: ""},
+			wantError: errNonString,
+		},
 
 		"tbl-in-arr-struct": {
 			input: struct {
@@ -1279,7 +1286,7 @@ func encodeExpected(t *testing.T, label string, val any, want string, wantErr er
 				if wantErr == errAnything && err != nil {
 					return
 				}
-				t.Errorf("want Encode error %v, got %v", wantErr, err)
+				t.Errorf("wrong error:\nwant: %v\nhave: %v", wantErr, err)
 			} else {
 				t.Errorf("Encode failed: %s", err)
 			}
@@ -1296,4 +1303,41 @@ func encodeExpected(t *testing.T, label string, val any, want string, wantErr er
 				"\t"+strings.ReplaceAll(want, "\n", "\n\t"))
 		}
 	})
+}
+
+func TestMapCustomKeytype(t *testing.T) {
+	type (
+		MyString string
+		MyMap    map[MyString]any
+	)
+
+	m := MyMap{
+		"k1":     "a",
+		"nested": MyMap{"k2": "b"},
+	}
+	have := new(bytes.Buffer)
+	err := NewEncoder(have).Encode(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := `
+k1 = "a"
+
+[nested]
+  k2 = "b"
+`[1:]
+
+	if have.String() != want {
+		t.Fatalf("\nhave: %q\nwant: %q", have, want)
+	}
+
+	var m2 MyMap
+	_, err = Decode(have.String(), &m2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h, w := fmt.Sprintf("%s", m2), fmt.Sprintf("%s", m); h != w {
+		t.Fatalf("\nhave: %s\nwant: %s", h, w)
+	}
 }
