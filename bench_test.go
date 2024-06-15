@@ -79,8 +79,7 @@ func BenchmarkEncode(b *testing.B) {
 			// "next" version of TOML.
 			switch path {
 			case "valid/string/escape-esc.toml", "valid/datetime/no-seconds.toml",
-				"valid/string/hex-escape.toml", "valid/inline-table/newline.toml",
-				"valid/key/unicode.toml":
+				"valid/string/hex-escape.toml", "valid/inline-table/newline.toml":
 				return nil
 			}
 
