@@ -174,7 +174,7 @@ func (p *parser) topLevel(item item) {
 		p.assertEqual(itemTableEnd, name.typ)
 
 		p.addContext(key, false)
-		p.setType("", tomlHash, item.pos, false)
+		p.setTypeContext(tomlHash, item.pos, false)
 		p.ordered = append(p.ordered, key)
 	case itemArrayTableStart: // [[ .. ]]
 		name := p.nextPos()
@@ -186,7 +186,7 @@ func (p *parser) topLevel(item item) {
 		p.assertEqual(itemArrayTableEnd, name.typ)
 
 		p.addContext(key, true)
-		p.setType("", tomlArrayHash, item.pos, false)
+		p.setTypeContext(tomlArrayHash, item.pos, false)
 		p.ordered = append(p.ordered, key)
 	case itemKeyStart: // key = ..
 		outerContext := p.context
@@ -676,18 +676,12 @@ func (p *parser) setValue(key string, value any) {
 // Note that if `key` is empty, then the type given will be applied to the
 // current context (which is either a table or an array of tables).
 func (p *parser) setType(key string, typ tomlType, pos Position, locked bool) {
-	keyContext := make(Key, 0, len(p.context)+1)
-	keyContext = append(keyContext, p.context...)
-	if len(key) > 0 { // allow type setting for hashes
-		keyContext = append(keyContext, key)
-	}
-	// Special case to make empty keys ("" = 1) work.
-	// Without it it will set "" rather than `""`.
-	// TODO: why is this needed? And why is this only needed here?
-	if len(keyContext) == 0 {
-		keyContext = Key{""}
-	}
+	keyContext := p.context.add(key)
+	p.keyInfo[keyContext.String()] = keyInfo{tomlType: typ, pos: pos, locked: locked}
+}
 
+func (p *parser) setTypeContext(typ tomlType, pos Position, locked bool) {
+	keyContext := p.context
 	p.keyInfo[keyContext.String()] = keyInfo{tomlType: typ, pos: pos, locked: locked}
 }
 
