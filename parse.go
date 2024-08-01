@@ -29,6 +29,7 @@ type parser struct {
 type keyInfo struct {
 	pos      Position
 	tomlType tomlType
+	locked   bool // Writing to inline arrays after definition is forbidden.
 }
 
 func parse(data string) (p *parser, err error) {
@@ -173,7 +174,7 @@ func (p *parser) topLevel(item item) {
 		p.assertEqual(itemTableEnd, name.typ)
 
 		p.addContext(key, false)
-		p.setType("", tomlHash, item.pos)
+		p.setType("", tomlHash, item.pos, false)
 		p.ordered = append(p.ordered, key)
 	case itemArrayTableStart: // [[ .. ]]
 		name := p.nextPos()
@@ -185,7 +186,7 @@ func (p *parser) topLevel(item item) {
 		p.assertEqual(itemArrayTableEnd, name.typ)
 
 		p.addContext(key, true)
-		p.setType("", tomlArrayHash, item.pos)
+		p.setType("", tomlArrayHash, item.pos, false)
 		p.ordered = append(p.ordered, key)
 	case itemKeyStart: // key = ..
 		outerContext := p.context
@@ -212,7 +213,7 @@ func (p *parser) topLevel(item item) {
 		vItem := p.next()
 		val, typ := p.value(vItem, false)
 		p.setValue(p.currentKey, val)
-		p.setType(p.currentKey, typ, vItem.pos)
+		p.setType(p.currentKey, typ, vItem.pos, true)
 
 		/// Remove the context we added (preserving any context from [tbl] lines).
 		p.context = outerContext
@@ -408,7 +409,7 @@ func missingLeadingZero(d, l string) bool {
 }
 
 func (p *parser) valueArray(it item) (any, tomlType) {
-	p.setType(p.currentKey, tomlArray, it.pos)
+	p.setType(p.currentKey, tomlArray, it.pos, false)
 
 	var (
 		// Initialize to a non-nil slice to make it consistent with how S = []
@@ -478,7 +479,7 @@ func (p *parser) valueInlineTable(it item, parentIsArray bool) (any, tomlType) {
 		/// Set the value.
 		val, typ := p.value(p.next(), false)
 		p.setValue(p.currentKey, val)
-		p.setType(p.currentKey, typ, it.pos)
+		p.setType(p.currentKey, typ, it.pos, true)
 
 		hash := topHash
 		for _, c := range context {
@@ -575,8 +576,12 @@ func (p *parser) addContext(key Key, array bool) {
 		// Otherwise, it better be a table, since this MUST be a key group (by
 		// virtue of it not being the last element in a key).
 		switch t := hashContext[k].(type) {
-		case []map[string]any:
-			hashContext = t[len(t)-1]
+		case []any:
+			if !p.isLocked(keyContext) {
+				hashContext = t[len(t)-1].(map[string]any)
+			} else {
+				p.panicf("Key '%s' was already created as a hash.", keyContext)
+			}
 		case map[string]any:
 			hashContext = t
 		default:
@@ -590,13 +595,17 @@ func (p *parser) addContext(key Key, array bool) {
 		// list of tables for it.
 		k := key.last()
 		if _, ok := hashContext[k]; !ok {
-			hashContext[k] = make([]map[string]any, 0, 4)
+			hashContext[k] = make([]any, 0, 4)
 		}
 
 		// Add a new table. But make sure the key hasn't already been used
 		// for something else.
-		if hash, ok := hashContext[k].([]map[string]any); ok {
-			hashContext[k] = append(hash, make(map[string]any))
+		if hash, ok := hashContext[k].([]any); ok {
+			if !p.isLocked(append(keyContext, k)) {
+				hashContext[k] = append(hash, make(map[string]any))
+			} else {
+				p.panicf("Key '%s' was already created and cannot be used as an array.", key)
+			}
 		} else {
 			p.panicf("Key '%s' was already created and cannot be used as an array.", key)
 		}
@@ -622,10 +631,10 @@ func (p *parser) setValue(key string, value any) {
 			p.bug("Context for key '%s' has not been established.", keyContext)
 		}
 		switch t := tmpHash.(type) {
-		case []map[string]any:
+		case []any:
 			// The context is a table of hashes. Pick the most recent table
 			// defined as the current hash.
-			hash = t[len(t)-1]
+			hash = t[len(t)-1].(map[string]any)
 		case map[string]any:
 			hash = t
 		default:
@@ -666,7 +675,7 @@ func (p *parser) setValue(key string, value any) {
 //
 // Note that if `key` is empty, then the type given will be applied to the
 // current context (which is either a table or an array of tables).
-func (p *parser) setType(key string, typ tomlType, pos Position) {
+func (p *parser) setType(key string, typ tomlType, pos Position, locked bool) {
 	keyContext := make(Key, 0, len(p.context)+1)
 	keyContext = append(keyContext, p.context...)
 	if len(key) > 0 { // allow type setting for hashes
@@ -678,7 +687,8 @@ func (p *parser) setType(key string, typ tomlType, pos Position) {
 	if len(keyContext) == 0 {
 		keyContext = Key{""}
 	}
-	p.keyInfo[keyContext.String()] = keyInfo{tomlType: typ, pos: pos}
+
+	p.keyInfo[keyContext.String()] = keyInfo{tomlType: typ, pos: pos, locked: locked}
 }
 
 // Implicit keys need to be created when tables are implied in "a.b.c.d = 1" and
@@ -687,6 +697,7 @@ func (p *parser) addImplicit(key Key)        { p.implicits[key.String()] = struc
 func (p *parser) removeImplicit(key Key)     { delete(p.implicits, key.String()) }
 func (p *parser) isImplicit(key Key) bool    { _, ok := p.implicits[key.String()]; return ok }
 func (p *parser) isArray(key Key) bool       { return p.keyInfo[key.String()].tomlType == tomlArray }
+func (p *parser) isLocked(key Key) bool      { return p.keyInfo[key.String()].locked }
 func (p *parser) addImplicitContext(key Key) { p.addImplicit(key); p.addContext(key, false) }
 
 // current returns the full key name of the current context.
