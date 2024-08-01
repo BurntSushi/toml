@@ -3,7 +3,6 @@ package toml
 import (
 	"fmt"
 	"math"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -31,9 +30,7 @@ type keyInfo struct {
 	tomlType tomlType
 }
 
-func parse(data string) (p *parser, err error) {
-	_, tomlNext := os.LookupEnv("BURNTSUSHI_TOML_110")
-
+func parse(data string, tomlNext bool) (p *parser, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if pErr, ok := r.(ParseError); ok {

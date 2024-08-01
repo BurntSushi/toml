@@ -1112,6 +1112,43 @@ func TestDecodeParallel(t *testing.T) {
 	wg.Wait()
 }
 
+func TestDecoderTomlNext(t *testing.T) {
+	os.Unsetenv("BURNTSUSHI_TOML_110")
+	dec := NewDecoder(nil)
+
+	if dec.IsTomlNext() {
+		t.Error("TOML next enabled by default, but shouldn't")
+	}
+
+	dec = NewDecoder(nil)
+	dec.SetTomlNext(true)
+
+	if !dec.IsTomlNext() {
+		t.Error("TOML next should have been enabled by SetTomlNext, but wasn't")
+	}
+
+	dec.SetTomlNext(false)
+
+	if dec.IsTomlNext() {
+		t.Error("TOML next should have been disabled by SetTomlNext, but wasn't")
+	}
+
+	WithTomlNext(func() {
+		dec = NewDecoder(nil)
+
+		if !dec.IsTomlNext() {
+			t.Error("TOML next should have been enabled by environment variable, but wasn't")
+		}
+
+		dec = NewDecoder(nil)
+		dec.SetTomlNext(false)
+
+		if dec.IsTomlNext() {
+			t.Error("TOML next should have been disabled by SetTomlNext environment variable, but wasn't")
+		}
+	})
+}
+
 // errorContains checks if the error message in have contains the text in
 // want.
 //

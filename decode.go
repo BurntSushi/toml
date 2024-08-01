@@ -118,7 +118,8 @@ const (
 // This decoder does not handle cyclic types. Decode will not terminate if a
 // cyclic type is passed.
 type Decoder struct {
-	r io.Reader
+	r        io.Reader
+	tomlNext *bool
 }
 
 // NewDecoder creates a new Decoder.
@@ -131,6 +132,19 @@ var (
 	unmarshalText = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
 	primitiveType = reflect.TypeOf((*Primitive)(nil)).Elem()
 )
+
+func (dec *Decoder) SetTomlNext(use bool) {
+	dec.tomlNext = &use
+}
+
+func (dec *Decoder) IsTomlNext() bool {
+	if dec.tomlNext != nil {
+		return *dec.tomlNext
+	} else {
+		_, tomlNext := os.LookupEnv("BURNTSUSHI_TOML_110")
+		return tomlNext
+	}
+}
 
 // Decode TOML data in to the pointer `v`.
 func (dec *Decoder) Decode(v any) (MetaData, error) {
@@ -164,7 +178,9 @@ func (dec *Decoder) Decode(v any) (MetaData, error) {
 		return MetaData{}, err
 	}
 
-	p, err := parse(string(data))
+	tomlNext := dec.IsTomlNext()
+
+	p, err := parse(string(data), tomlNext)
 	if err != nil {
 		return MetaData{}, err
 	}
