@@ -1018,7 +1018,7 @@ func TestCustomEncode(t *testing.T) {
 // Test for #341
 func TestCustomDecode(t *testing.T) {
 	var outer Outer
-	_, err := Decode(`
+	meta, err := Decode(`
 		Int = 10
 		Enum = "OTHER_VALUE"
 		Slice = ["text1", "text2"]
@@ -1035,6 +1035,9 @@ func TestCustomDecode(t *testing.T) {
 	}
 	if fmt.Sprint(outer.Slice.value) != fmt.Sprint([]string{"text1", "text2"}) {
 		t.Errorf("\nhave:\n%v\nwant:\n%v\n", outer.Slice.value, []string{"text1", "text2"})
+	}
+	if len(meta.Undecoded()) > 0 {
+		t.Errorf("\ncustom decode leaves unencoded fields: %v\n", meta.Undecoded())
 	}
 }
 
@@ -1142,5 +1145,47 @@ func BenchmarkKey(b *testing.B) {
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		k.String()
+	}
+}
+
+type UnmarshalTOMLNoop struct {
+}
+
+func (cs *UnmarshalTOMLNoop) UnmarshalTOML(data any) error {
+	return nil
+}
+
+func TestDecodeCustomStructMarkedDecoded(t *testing.T) {
+	var s struct {
+		Str UnmarshalTOMLNoop `toml:"str"`
+		Int UnmarshalTOMLNoop `toml:"int"`
+		Arr UnmarshalTOMLNoop `toml:"arr"`
+		Tbl UnmarshalTOMLNoop `toml:"tbl"`
+		Aot UnmarshalTOMLNoop `toml:"aot"`
+	}
+	meta, err := Decode(`
+		str = "bar"
+		int   = 1
+		arr = [2]
+
+		[tbl]
+		b = 3
+		inline = {c = 4}
+
+		[[aot]]
+		a = 1
+		[[aot]]
+		a = 1
+	`, &s)
+	if err != nil {
+		t.Fatalf("Decode failed: %s", err)
+	}
+
+	// Note that even though the custom unmarshaller did not decode all fields
+	// as far as the metadata is concerned they are handled. It is the job of
+	// the unmarshaller to ensure this or we would need a more powerful
+	// interface like UnmarshalTOML(data any, md *MetaData)
+	if len(meta.Undecoded()) > 0 {
+		t.Errorf("\ncustom decode leaves undecoded fields: %v\n", meta.Undecoded())
 	}
 }
