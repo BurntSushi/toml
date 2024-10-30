@@ -836,6 +836,17 @@ func TestEncodeJSONNumber(t *testing.T) {
 	}
 }
 
+type (
+	StructA struct{ StructB }
+	StructB struct{ StructC }
+	StructC struct{ StructD }
+	StructD struct {
+		FieldD1 string
+		FieldD2 string
+		FieldD3 string
+	}
+)
+
 func TestEncode(t *testing.T) {
 	type (
 		Embedded struct {
@@ -1113,6 +1124,20 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 				Struct struct{ Embedded } `toml:"_struct"`
 			}{struct{ Embedded }{Embedded{1}}},
 			wantOutput: "[_struct]\n  _int = 1\n",
+		},
+		"deeply nested embedded struct": { // #430
+			input: StructA{
+				StructB: StructB{
+					StructC: StructC{
+						StructD: StructD{
+							FieldD1: "V1",
+							FieldD2: "V2",
+							FieldD3: "V3",
+						},
+					},
+				},
+			},
+			wantOutput: "FieldD1 = \"V1\"\nFieldD2 = \"V2\"\nFieldD3 = \"V3\"\n",
 		},
 		"nested embedded *struct": {
 			input: struct {
