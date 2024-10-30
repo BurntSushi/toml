@@ -220,6 +220,11 @@ var metaTests = map[string]string{
 		a:    Hash
 		a.b:  Hash
 	`,
+	"table/sub-sub-subtable": `
+		x.y.z:      Hash
+		x.y.z.a:    Integer
+		x.y.z.b:    Integer
+	`,
 	"table/whitespace": `
 		"valid key": Hash
 	`,
