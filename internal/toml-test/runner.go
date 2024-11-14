@@ -101,7 +101,7 @@ type Test struct {
 
 	Skipped          bool          // Skipped this test?
 	Failure          string        // Failure message.
-	Key              string        // TOML key the failure occured on; may be blank.
+	Key              string        // TOML key the failure occurred on; may be blank.
 	Encoder          bool          // Encoder test?
 	Input            string        // The test case that we sent to the external program.
 	Output           string        // Output from the external program.

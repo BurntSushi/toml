@@ -529,7 +529,7 @@ func numUnderscoresOK(s string) bool {
 			}
 		}
 
-		// isHexis a superset of all the permissable characters surrounding an
+		// isHex is a superset of all the permissible characters surrounding an
 		// underscore.
 		accept = isHex(r)
 	}

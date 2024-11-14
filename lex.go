@@ -1117,7 +1117,7 @@ func lexBaseNumberOrDate(lx *lexer) stateFn {
 	case 'x':
 		r = lx.peek()
 		if !isHex(r) {
-			lx.errorf("not a hexidecimal number: '%s%c'", lx.current(), r)
+			lx.errorf("not a hexadecimal number: '%s%c'", lx.current(), r)
 		}
 		return lexHexInteger
 	}

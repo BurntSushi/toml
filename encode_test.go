@@ -149,7 +149,7 @@ func TestEncodeOmitEmptyStruct(t *testing.T) {
 }
 
 func TestEncodeOmitEmpty(t *testing.T) {
-	type compareable struct {
+	type comparable struct {
 		Bool bool `toml:"bool,omitempty"`
 	}
 	type uncomparable struct {
@@ -166,8 +166,8 @@ func TestEncodeOmitEmpty(t *testing.T) {
 		Slice               []int              `toml:"slice,omitempty"`
 		Map                 map[string]string  `toml:"map,omitempty"`
 		Time                time.Time          `toml:"time,omitempty"`
-		Compareable1        compareable        `toml:"compareable1,omitempty"`
-		Compareable2        compareable        `toml:"compareable2,omitempty"`
+		Comparable1         comparable         `toml:"comparable1,omitempty"`
+		Comparable2         comparable         `toml:"comparable2,omitempty"`
 		Uncomparable1       uncomparable       `toml:"uncomparable1,omitempty"`
 		Uncomparable2       uncomparable       `toml:"uncomparable2,omitempty"`
 		NestedUncomparable1 nestedUncomparable `toml:"nesteduncomparable1,omitempty"`
@@ -182,7 +182,7 @@ func TestEncodeOmitEmpty(t *testing.T) {
 		Slice:               []int{2, 3, 4},
 		Map:                 map[string]string{"foo": "bar"},
 		Time:                time.Date(1985, 6, 18, 15, 16, 17, 0, time.UTC),
-		Compareable2:        compareable{true},
+		Comparable2:         comparable{true},
 		Uncomparable2:       uncomparable{[]string{"XXX"}},
 		NestedUncomparable1: nestedUncomparable{uncomparable{[]string{"XXX"}}, false},
 		NestedUncomparable2: nestedUncomparable{uncomparable{}, true},
@@ -195,7 +195,7 @@ time = 1985-06-18T15:16:17Z
 [map]
   foo = "bar"
 
-[compareable2]
+[comparable2]
   bool = true
 
 [uncomparable2]

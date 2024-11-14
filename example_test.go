@@ -225,7 +225,7 @@ func Example_strictDecoding() {
 type order struct {
 	// NOTE `order.parts` is a private slice of type `part` which is an
 	// interface and may only be loaded from toml using the UnmarshalTOML()
-	// method of the Umarshaler interface.
+	// method of the Unmarshaler interface.
 	parts parts
 }
 

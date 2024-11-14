@@ -275,7 +275,7 @@ func runTomlTest(t *testing.T, includeNext bool, wantFail ...string) {
 	}
 
 	// TODO: bit of a hack to make sure not all test run; without this "-run=.."
-	// will still run alll tests, but just report the errors for the -run value.
+	// will still run all tests, but just report the errors for the -run value.
 	// This is annoying in cases where you have some debug printf.
 	//
 	// Need to update toml-test a bit to make this easier, but this good enough
