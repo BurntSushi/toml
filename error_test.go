@@ -245,6 +245,19 @@ func TestParseError(t *testing.T) {
             |         15:04:05.856018510
 			`,
 		},
+
+		{
+			&struct{ String string }{},
+			`string = "test`,
+			`
+            | toml: error: unexpected EOF; expected '"'
+			|
+			| At line 1, column 14:
+			|
+			|       1 | string = "test
+			|                        ^
+			`,
+		},
 	}
 
 	prep := func(s string) string {
