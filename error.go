@@ -124,24 +124,17 @@ func (pe ParseError) ErrorWithPosition() string {
 	if pe.Position.Line > 2 {
 		fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line-2, expandTab(lines[pe.Position.Line-3]))
 	}
+	if pe.Position.Line > 1 {
+		fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line-1, expandTab(lines[pe.Position.Line-2]))
+	}
 
 	/// Expand tabs, so that the ^^^s are at the correct position, but leave
 	/// "column 10-13" intact. Adjusting this to the visual column would be
 	/// better, but we don't know the tabsize of the user in their editor, which
 	/// can be 8, 4, 2, or something else. We can't know. So leaving it as the
 	/// character index is probably the "most correct".
-	var (
-		expanded string
-		diff     int
-	)
-	if pe.Position.Line > 1 {
-		fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line-1, expandTab(lines[pe.Position.Line-2]))
-		expanded = expandTab(lines[pe.Position.Line-1])
-		diff = len(expanded) - len(lines[pe.Position.Line-1])
-	} else {
-		expanded = expandTab(lines[0])
-		diff = len(expanded) - len(lines[0])
-	}
+	expanded := expandTab(lines[pe.Position.Line-1])
+	diff := len(expanded) - len(lines[pe.Position.Line-1])
 
 	fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line, expanded)
 	fmt.Fprintf(b, "% 10s%s%s\n", "", strings.Repeat(" ", pe.Position.Col-1+diff), strings.Repeat("^", pe.Position.Len))
