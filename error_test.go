@@ -252,9 +252,9 @@ func TestParseError(t *testing.T) {
 			`
             | toml: error: unexpected EOF; expected '"'
 			|
-			| At line 0, column 14:
+			| At line 1, column 14:
 			|
-			|       0 | string = "test
+			|       1 | string = "test
 			|                        ^
 			`,
 		},
