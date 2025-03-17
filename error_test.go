@@ -337,7 +337,7 @@ func (n *Enum2) UnmarshalTOML(text any) error {
 	return nil
 }
 
-func TestMarhsalError(t *testing.T) {
+func TestMarshalError(t *testing.T) {
 	var c struct {
 		K1 string `toml:"k1"`
 		K2 Enum2  `toml:"k2"`
