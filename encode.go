@@ -503,7 +503,7 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value, inline bool) {
 	}
 	addFields(rt, rv, nil)
 
-	writeFields := func(fields [][]int) {
+	writeFields := func(fields [][]int, totalFields int) {
 		for _, fieldIndex := range fields {
 			fieldType := rt.FieldByIndex(fieldIndex)
 			fieldVal := rv.FieldByIndex(fieldIndex)
@@ -533,7 +533,7 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value, inline bool) {
 
 			if inline {
 				enc.writeKeyValue(Key{keyName}, fieldVal, true)
-				if fieldIndex[0] != len(fields)-1 {
+				if fieldIndex[0] != totalFields-1 {
 					enc.wf(", ")
 				}
 			} else {
@@ -545,8 +545,10 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value, inline bool) {
 	if inline {
 		enc.wf("{")
 	}
-	writeFields(fieldsDirect)
-	writeFields(fieldsSub)
+
+	l := len(fieldsDirect) + len(fieldsSub)
+	writeFields(fieldsDirect, l)
+	writeFields(fieldsSub, l)
 	if inline {
 		enc.wf("}")
 	}

@@ -854,6 +854,10 @@ func TestEncode(t *testing.T) {
 		}
 		NonStruct int
 		MyInt     int
+		IntAndMap struct {
+			I int
+			M map[string]int
+		}
 	)
 
 	date := time.Date(2014, 5, 11, 19, 30, 40, 0, time.UTC)
@@ -1228,6 +1232,25 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 				[][]struct{ Int int }{{{1}}, {{2}}, {{3}}},
 			},
 			wantOutput: "Slices = [[{Int = 1}], [{Int = 2}], [{Int = 3}]]",
+		},
+
+		"table in array": {
+			input: struct {
+				A []IntAndMap
+			}{A: []IntAndMap{
+				{I: 1, M: map[string]int{"c": 2}},
+			}},
+			wantOutput: "[[A]]\n  I = 1\n  [A.M]\n    c = 2",
+		},
+
+		"table in double array": {
+			input: struct {
+				A [][]IntAndMap
+			}{A: [][]IntAndMap{{{
+				I: 1,
+				M: map[string]int{"c": 2},
+			}}}},
+			wantOutput: `A = [[{I = 1, M = {c = 2}}]]`,
 		},
 	}
 	for label, test := range tests {
