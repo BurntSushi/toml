@@ -243,6 +243,14 @@ var metaTests = map[string]string{
 		x.y.z.w:  Hash
 		x:        Hash
 	`,
+	"table/without-super-with-values": `
+		x.y.z.w: Hash
+		x.y.z.w.a: Integer
+		x.y.z.w.b: Integer
+		x: Hash
+		x.c: Integer
+		x.d: Integer
+	`,
 }
 
 // TOML 1.0
