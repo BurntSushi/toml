@@ -1144,7 +1144,7 @@ func BenchmarkKey(b *testing.B) {
 	k := Key{"cargo-credential-macos-keychain", "version"}
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		k.String()
+		_ = k.String()
 	}
 }
 

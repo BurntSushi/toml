@@ -53,7 +53,7 @@ func main() {
 			log.Fatalf("Error in '%s': %s", f, err)
 		}
 		if flagTime {
-			fmt.Printf("%f\n", time.Now().Sub(start).Seconds())
+			fmt.Printf("%f\n", time.Since(start).Seconds())
 		}
 		if flagTypes {
 			printTypes(md)
