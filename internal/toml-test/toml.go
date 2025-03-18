@@ -5,6 +5,7 @@ import (
 	"math"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -21,16 +22,16 @@ func (r Test) CompareTOML(want, have any) Test {
 	if isTomlValue(want) {
 		if !isTomlValue(have) {
 			return r.fail("Type for key %q differs:\n"+
-				"  Expected:     %v (%s)\n"+
-				"  Your encoder: %v (%s)",
-				r.Key, want, fmtType(want), have, fmtType(have))
+				"  Expected:     %s (%s)\n"+
+				"  Your encoder: %s (%s)",
+				r.Key, fmtVal(want), fmtType(want), fmtVal(have), fmtType(have))
 		}
 
 		if !deepEqual(want, have) {
 			return r.fail("Values for key %q differ:\n"+
-				"  Expected:     %v (%s)\n"+
-				"  Your encoder: %v (%s)",
-				r.Key, want, fmtType(want), have, fmtType(have))
+				"  Expected:     %s (%s)\n"+
+				"  Your encoder: %s (%s)",
+				r.Key, fmtVal(want), fmtType(want), fmtVal(have), fmtType(have))
 		}
 		return r
 	}
@@ -155,6 +156,15 @@ func isTomlValue(v any) bool {
 // fmt %T with "interface {}" replaced with "any", which is far more readable.
 func fmtType(t any) string  { return strings.ReplaceAll(fmt.Sprintf("%T", t), "interface {}", "any") }
 func fmtHashV(t any) string { return strings.ReplaceAll(fmt.Sprintf("%#v", t), "interface {}", "any") }
+
+func fmtVal(v any) string {
+	switch vv := v.(type) {
+	case float64:
+		return strconv.FormatFloat(vv, 'f', -1, 64)
+	default:
+		return fmt.Sprintf("%v", vv)
+	}
+}
 
 func mapKeys[M ~map[string]V, V any](m M) []string {
 	keys := make([]string, 0, len(m))

@@ -1,8 +1,5 @@
 {
-  "3": {
-    "14159": {
-      "type": "string",
-      "value": "pi"
+    "3": {
+        "14159": {"type": "string", "value": "pi"}
     }
-  }
 }

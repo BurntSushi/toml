@@ -1,24 +1,15 @@
 {
-  "many": {
-    "dots": {
-      "dot": {
-        "dot": {
-          "dot": {
-            "type": "integer",
-            "value": "42"
-          }
+    "many": {
+        "dots": {
+            "dot": {
+                "dot": {
+                    "dot": {"type": "integer", "value": "42"}
+                }
+            }
         }
-      }
-    }
-  },
-  "name": {
-    "first": {
-      "type": "string",
-      "value": "Arthur"
     },
-    "last": {
-      "type": "string",
-      "value": "Dent"
+    "name": {
+        "first": {"type": "string", "value": "Arthur"},
+        "last":  {"type": "string", "value": "Dent"}
     }
-  }
 }

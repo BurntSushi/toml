@@ -17,7 +17,6 @@ var versions = map[string]versionSpec{
 			"invalid/inline-table/linebreak-2",
 			"invalid/inline-table/linebreak-3",
 			"invalid/inline-table/linebreak-4",
-			"invalid/key/special-character", // Unicode can now be in bare keys.
 		},
 	},
 
@@ -27,7 +26,6 @@ var versions = map[string]versionSpec{
 			"valid/string/hex-escape", "invalid/string/bad-hex-esc", // \x..
 			"valid/datetime/no-seconds", // Times without seconds
 			"valid/inline-table/newline",
-			"valid/key/unicode", // Unicode bare keys
 		},
 	},
 }

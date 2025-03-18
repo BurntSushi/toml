@@ -1,12 +1,6 @@
 {
-  "title": [
-    {
-      "type": "string",
-      "value": "Client: XXXX,\nJob: XXXX"
-    },
-    {
-      "type": "string",
-      "value": "Code: XXXX"
-    }
-  ]
+    "title": [
+        {"type": "string", "value": "Client: XXXX,\nJob: XXXX"},
+        {"type": "string", "value": "Code: XXXX"}
+    ]
 }

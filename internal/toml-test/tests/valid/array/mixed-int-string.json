@@ -1,12 +1,6 @@
 {
-  "strings-and-ints": [
-    {
-      "type": "string",
-      "value": "hi"
-    },
-    {
-      "type": "integer",
-      "value": "42"
-    }
-  ]
+    "strings-and-ints": [
+        {"type": "string", "value": "hi"},
+        {"type": "integer", "value": "42"}
+    ]
 }

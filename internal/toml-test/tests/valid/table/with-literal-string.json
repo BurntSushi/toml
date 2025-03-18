@@ -1,12 +1,9 @@
 {
-  "a": {
-    "\"b\"": {
-      "c": {
-        "answer": {
-          "type": "integer",
-          "value": "42"
+    "a": {
+        "\"b\"": {
+            "c": {
+                "answer": {"type": "integer", "value": "42"}
+            }
         }
-      }
     }
-  }
 }

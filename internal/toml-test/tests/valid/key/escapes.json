@@ -1,28 +1,13 @@
 {
-  "\u0008": {
-    "type": "string",
-    "value": "bell"
-  },
-  "\n": {
-    "type": "string",
-    "value": "newline"
-  },
-  "\"": {
-    "type": "string",
-    "value": "just a quote"
-  },
-  "\"quoted\"": {
-    "quote": {
-      "type": "bool",
-      "value": "true"
+    "\b":         {"type": "string", "value": "bell"},
+    "\n":         {"type": "string", "value": "newline"},
+    "\"":         {"type": "string", "value": "just a quote"},
+    "backsp\b\b": {},
+    "À":          {"type": "string", "value": "latin capital letter A with grave"},
+    "\"quoted\"": {
+        "quote": {"type": "bool", "value": "true"}
+    },
+    "a.b": {
+        "À": {}
     }
-  },
-  "a.b": {
-    "À": {}
-  },
-  "backsp\u0008\u0008": {},
-  "À": {
-    "type": "string",
-    "value": "latin capital letter A with grave"
-  }
 }

@@ -1,10 +1,5 @@
 {
-  "foo": [
-    {
-      "bar": {
-        "type": "string",
-        "value": "\"{{baz}}\""
-      }
-    }
-  ]
+    "foo": [{
+        "bar": {"type": "string", "value": "\"{{baz}}\""}
+    }]
 }

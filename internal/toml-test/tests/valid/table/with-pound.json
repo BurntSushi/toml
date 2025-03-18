@@ -1,8 +1,5 @@
 {
-  "key#group": {
-    "answer": {
-      "type": "integer",
-      "value": "42"
+    "key#group": {
+        "answer": {"type": "integer", "value": "42"}
     }
-  }
 }

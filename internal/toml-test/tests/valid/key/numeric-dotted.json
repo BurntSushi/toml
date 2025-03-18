@@ -1,8 +1,5 @@
 {
-  "1": {
-    "2": {
-      "type": "integer",
-      "value": "3"
+    "1": {
+        "2": {"type": "integer", "value": "3"}
     }
-  }
 }

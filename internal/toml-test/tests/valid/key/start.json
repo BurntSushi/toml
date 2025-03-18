@@ -1,72 +1,36 @@
 {
-  "-": {
     "-": {
-      "type": "integer",
-      "value": "4"
-    }
-  },
-  "---": {
+        "-": {"type": "integer", "value": "4"}
+    },
     "---": {
-      "type": "integer",
-      "value": "7"
-    }
-  },
-  "-key": {
+        "---": {"type": "integer", "value": "7"}
+    },
     "-key": {
-      "type": "integer",
-      "value": "1"
-    }
-  },
-  "1": {
+        "-key": {"type": "integer", "value": "1"}
+    },
     "1": {
-      "type": "integer",
-      "value": "6"
-    }
-  },
-  "111": {
+        "1": {"type": "integer", "value": "6"}
+    },
     "111": {
-      "type": "integer",
-      "value": "9"
-    }
-  },
-  "1key": {
+        "111": {"type": "integer", "value": "9"}
+    },
     "1key": {
-      "type": "integer",
-      "value": "3"
-    }
-  },
-  "_": {
+        "1key": {"type": "integer", "value": "3"}
+    },
     "_": {
-      "type": "integer",
-      "value": "5"
-    }
-  },
-  "___": {
+        "_": {"type": "integer", "value": "5"}
+    },
     "___": {
-      "type": "integer",
-      "value": "8"
-    }
-  },
-  "_key": {
+        "___": {"type": "integer", "value": "8"}
+    },
     "_key": {
-      "type": "integer",
-      "value": "2"
+        "_key": {"type": "integer", "value": "2"}
+    },
+    "inline": {
+        "---": {
+            "---": {"type": "integer", "value": "10"},
+            "111": {"type": "integer", "value": "12"},
+            "___": {"type": "integer", "value": "11"}
+        }
     }
-  },
-  "inline": {
-    "---": {
-      "---": {
-        "type": "integer",
-        "value": "10"
-      },
-      "111": {
-        "type": "integer",
-        "value": "12"
-      },
-      "___": {
-        "type": "integer",
-        "value": "11"
-      }
-    }
-  }
 }

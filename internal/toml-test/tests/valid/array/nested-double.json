@@ -1,28 +1,10 @@
 {
-  "nest": [
-    [
-      [
-        {
-          "type": "string",
-          "value": "a"
-        }
-      ],
-      [
-        {
-          "type": "integer",
-          "value": "1"
-        },
-        {
-          "type": "integer",
-          "value": "2"
-        },
+    "nest": [[
+        [{"type": "string", "value": "a"}],
         [
-          {
-            "type": "integer",
-            "value": "3"
-          }
+            {"type": "integer", "value": "1"},
+            {"type": "integer", "value": "2"},
+            [{"type": "integer", "value": "3"}]
         ]
-      ]
-    ]
-  ]
+    ]]
 }
