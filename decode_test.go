@@ -1157,11 +1157,12 @@ func (cs *UnmarshalTOMLNoop) UnmarshalTOML(data any) error {
 
 func TestDecodeCustomStructMarkedDecoded(t *testing.T) {
 	var s struct {
-		Str UnmarshalTOMLNoop `toml:"str"`
-		Int UnmarshalTOMLNoop `toml:"int"`
-		Arr UnmarshalTOMLNoop `toml:"arr"`
-		Tbl UnmarshalTOMLNoop `toml:"tbl"`
-		Aot UnmarshalTOMLNoop `toml:"aot"`
+		Str    UnmarshalTOMLNoop `toml:"str"`
+		Int    UnmarshalTOMLNoop `toml:"int"`
+		Arr    UnmarshalTOMLNoop `toml:"arr"`
+		Tbl    UnmarshalTOMLNoop `toml:"tbl"`
+		Aot    UnmarshalTOMLNoop `toml:"aot"`
+		Nested UnmarshalTOMLNoop `toml:"nested"`
 	}
 	meta, err := Decode(`
 		str = "bar"
@@ -1176,6 +1177,11 @@ func TestDecodeCustomStructMarkedDecoded(t *testing.T) {
 		a = 1
 		[[aot]]
 		a = 1
+
+		[[nested.a]]
+		e = 5
+		[[nested.a]]
+		f = 6
 	`, &s)
 	if err != nil {
 		t.Fatalf("Decode failed: %s", err)
