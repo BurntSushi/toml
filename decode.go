@@ -206,6 +206,13 @@ func markDecodedRecursive(md *MetaData, tmap map[string]any) {
 			markDecodedRecursive(md, tmap)
 			md.context = md.context[0 : len(md.context)-1]
 		}
+		if tarr, ok := tmap[key].([]map[string]any); ok {
+			for _, elm := range tarr {
+				md.context = append(md.context, key)
+				markDecodedRecursive(md, elm)
+				md.context = md.context[0 : len(md.context)-1]
+			}
+		}
 	}
 }
 
