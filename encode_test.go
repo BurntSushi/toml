@@ -7,58 +7,59 @@ import (
 	"math"
 	"net"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 )
 
-func TestEncodeRoundTrip(t *testing.T) {
-	type Config struct {
-		Age        int
-		Cats       []string
-		Pi         float64
-		Perfection []int
-		DOB        time.Time
-		Ipaddress  net.IP
+func TestRoundtrip(t *testing.T) {
+	type scan struct {
+		Age        int       `toml:"age"`
+		Cats       []string  `toml:"cats"`
+		Pi         float64   `toml:"pi"`
+		Perfection []int     `toml:"perfection"`
+		DOB        time.Time `toml:"dob"`
+		IP         net.IP    `toml:"ip"`
+		LargeFloat float64   `toml:"large_float"`
 	}
 
-	var inputs = Config{
+	doc := `
+age = 13
+cats = ["one", "two", "three"]
+pi = 3.145
+perfection = [11, 2, 3, 4]
+dob = 2012-01-02T15:16:17Z
+ip = "192.168.59.254"
+large_float = 5e+22
+`[1:]
+
+	want := scan{
 		Age:        13,
 		Cats:       []string{"one", "two", "three"},
 		Pi:         3.145,
 		Perfection: []int{11, 2, 3, 4},
-		DOB:        time.Now(),
-		Ipaddress:  net.ParseIP("192.168.59.254"),
+		DOB:        time.Date(2012, 01, 02, 15, 16, 17, 0, time.UTC),
+		IP:         net.ParseIP("192.168.59.254"),
+		LargeFloat: 5e+22,
 	}
 
-	var (
-		firstBuffer  bytes.Buffer
-		secondBuffer bytes.Buffer
-		outputs      Config
-	)
-	err := NewEncoder(&firstBuffer).Encode(inputs)
+	var s scan
+	_, err := Decode(doc, &s)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = Decode(firstBuffer.String(), &outputs)
-	if err != nil {
-		t.Logf("Could not decode:\n%s\n", firstBuffer.String())
-		t.Fatal(err)
+	if !reflect.DeepEqual(s, want) {
+		t.Errorf("\nhave: %v\nwant: %v", s, want)
 	}
-	err = NewEncoder(&secondBuffer).Encode(outputs)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if firstBuffer.String() != secondBuffer.String() {
-		t.Errorf("%s\n\nIS NOT IDENTICAL TO\n\n%s", firstBuffer.String(), secondBuffer.String())
-	}
-	out, err := Marshal(inputs)
+
+	out, err := Marshal(s)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if firstBuffer.String() != string(out) {
-		t.Errorf("%s\n\nIS NOT IDENTICAL TO\n\n%s", firstBuffer.String(), string(out))
+	if string(out) != doc {
+		t.Errorf("\nhave:\n%v\nwant:\n%v", string(out), doc)
 	}
 }
 

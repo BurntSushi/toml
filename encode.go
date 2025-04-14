@@ -297,7 +297,7 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 			}
 			enc.wf("inf")
 		} else {
-			enc.wf(floatAddDecimal(strconv.FormatFloat(f, 'f', -1, 32)))
+			enc.wf(floatAddDecimal(strconv.FormatFloat(f, 'g', -1, 32)))
 		}
 	case reflect.Float64:
 		f := rv.Float()
@@ -312,7 +312,7 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 			}
 			enc.wf("inf")
 		} else {
-			enc.wf(floatAddDecimal(strconv.FormatFloat(f, 'f', -1, 64)))
+			enc.wf(floatAddDecimal(strconv.FormatFloat(f, 'g', -1, 64)))
 		}
 	case reflect.Array, reflect.Slice:
 		enc.eArrayOrSliceElement(rv)
@@ -330,10 +330,15 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 // By the TOML spec, all floats must have a decimal with at least one number on
 // either side.
 func floatAddDecimal(fstr string) string {
-	if !strings.Contains(fstr, ".") {
-		return fstr + ".0"
+	for _, c := range fstr {
+		if c == 'e' { // Exponent syntax
+			return fstr
+		}
+		if c == '.' {
+			return fstr
+		}
 	}
-	return fstr
+	return fstr + ".0"
 }
 
 func (enc *Encoder) writeQuoted(s string) {
