@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path"
@@ -38,32 +39,49 @@ func usage() {
 }
 
 func main() {
-	if flag.NArg() < 1 {
-		flag.Usage()
+	if flag.NArg() < 1 || flag.Args()[0] == "-" {
+		read("-", os.Stdin)
+		return
 	}
+
 	for _, f := range flag.Args() {
-		var tmp any
-		start := time.Now()
-		md, err := toml.DecodeFile(f, &tmp)
+		fp, err := os.Open(f)
 		if err != nil {
-			var perr toml.ParseError
-			if errors.As(err, &perr) {
-				log.Fatalf("Error in '%s': %s", f, perr.ErrorWithPosition())
-			}
-			log.Fatalf("Error in '%s': %s", f, err)
+			log.Fatalf("reading %q: %s", f, err)
 		}
-		if flagTime {
-			fmt.Printf("%f\n", time.Since(start).Seconds())
+		read(f, fp)
+		fp.Close()
+	}
+}
+
+func read(f string, fp io.Reader) {
+	// Read data first so -time doesn't include the time it took to read.
+	d, err := io.ReadAll(fp)
+	if err != nil {
+		log.Fatalf("Error in '%s': %s", f, err)
+	}
+
+	var tmp any
+	start := time.Now()
+	md, err := toml.Decode(string(d), &tmp)
+	if err != nil {
+		var perr toml.ParseError
+		if errors.As(err, &perr) {
+			log.Fatalf("Error in '%s': %s", f, perr.ErrorWithPosition())
 		}
-		if flagTypes {
-			printTypes(md)
-		}
-		if flagJSON {
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetEscapeHTML(false)
-			enc.SetIndent("", "  ")
-			enc.Encode(tmp)
-		}
+		log.Fatalf("Error in '%s': %s", f, err)
+	}
+	if flagTime {
+		fmt.Printf("%f\n", time.Since(start).Seconds())
+	}
+	if flagTypes {
+		printTypes(md)
+	}
+	if flagJSON {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetEscapeHTML(false)
+		enc.SetIndent("", "  ")
+		enc.Encode(tmp)
 	}
 }
 
