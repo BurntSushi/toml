@@ -22,7 +22,7 @@ func TestPositionString(t *testing.T) {
 }
 
 func TestItemTypeString(t *testing.T) {
-	for _, it := range []itemType{itemError, itemNIL, itemEOF, itemText,
+	for _, it := range []itemType{itemError, itemEOF, itemText,
 		itemString, itemStringEsc, itemRawString, itemMultilineString,
 		itemRawMultilineString, itemBool, itemInteger, itemFloat, itemDatetime,
 		itemArray, itemArrayEnd, itemTableStart, itemTableEnd, itemArrayTableStart,

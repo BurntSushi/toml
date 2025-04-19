@@ -13,7 +13,6 @@ type itemType int
 
 const (
 	itemError itemType = iota
-	itemNIL            // used in the parser to indicate no type
 	itemEOF
 	itemText
 	itemString
@@ -1202,8 +1201,6 @@ func (itype itemType) String() string {
 	switch itype {
 	case itemError:
 		return "Error"
-	case itemNIL:
-		return "NIL"
 	case itemEOF:
 		return "EOF"
 	case itemText:
