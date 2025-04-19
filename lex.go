@@ -392,8 +392,6 @@ func lexTableNameStart(lx *lexer) stateFn {
 func lexTableNameEnd(lx *lexer) stateFn {
 	lx.skip(isWhitespace)
 	switch r := lx.next(); {
-	case isWhitespace(r):
-		return lexTableNameEnd
 	case r == '.':
 		lx.ignore()
 		return lexTableNameStart
