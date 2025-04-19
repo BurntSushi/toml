@@ -108,7 +108,7 @@ func (lx *lexer) push(state stateFn) {
 
 func (lx *lexer) pop() stateFn {
 	if len(lx.stack) == 0 {
-		return lx.errorf("BUG in lexer: no states to pop")
+		panic("BUG in lexer: no states to pop")
 	}
 	last := lx.stack[len(lx.stack)-1]
 	lx.stack = lx.stack[0 : len(lx.stack)-1]
@@ -305,6 +305,8 @@ func lexTop(lx *lexer) stateFn {
 		return lexTableStart
 	case eof:
 		if lx.pos > lx.start {
+			// TODO: never reached? I think this can only occur on a bug in the
+			// lexer(?)
 			return lx.errorf("unexpected EOF")
 		}
 		lx.emit(itemEOF)
@@ -418,23 +420,23 @@ func lexBareName(lx *lexer) stateFn {
 	return lx.pop()
 }
 
-// lexBareName lexes one part of a key or table.
-//
-// It assumes that at least one valid character for the table has already been
-// read.
+// lexQuotedName lexes one part of a quoted key or table name. It assumes that
+// it starts lexing at the quote itself (" or ').
 //
 // Lexes only one part, e.g. only '"a"' inside '"a".b'.
 func lexQuotedName(lx *lexer) stateFn {
 	r := lx.next()
 	switch {
-	case isWhitespace(r):
-		return lexSkip(lx, lexValue)
 	case r == '"':
 		lx.ignore() // ignore the '"'
 		return lexString
 	case r == '\'':
 		lx.ignore() // ignore the "'"
 		return lexRawString
+
+	// TODO: I don't think any of the below conditions can ever be reached?
+	case isWhitespace(r):
+		return lexSkip(lx, lexValue)
 	case r == eof:
 		return lx.errorf("unexpected EOF; expected value")
 	default:
@@ -462,17 +464,19 @@ func lexKeyStart(lx *lexer) stateFn {
 func lexKeyNameStart(lx *lexer) stateFn {
 	lx.skip(isWhitespace)
 	switch r := lx.peek(); {
-	case r == '=' || r == eof:
-		return lx.errorf("unexpected '='")
-	case r == '.':
-		return lx.errorf("unexpected '.'")
+	default:
+		lx.push(lexKeyEnd)
+		return lexBareName
 	case r == '"' || r == '\'':
 		lx.ignore()
 		lx.push(lexKeyEnd)
 		return lexQuotedName
-	default:
-		lx.push(lexKeyEnd)
-		return lexBareName
+
+	// TODO: I think these can never be reached?
+	case r == '=' || r == eof:
+		return lx.errorf("unexpected '='")
+	case r == '.':
+		return lx.errorf("unexpected '.'")
 	}
 }
 
@@ -483,7 +487,7 @@ func lexKeyEnd(lx *lexer) stateFn {
 	switch r := lx.next(); {
 	case isWhitespace(r):
 		return lexSkip(lx, lexKeyEnd)
-	case r == eof:
+	case r == eof: // TODO: never reached
 		return lx.errorf("unexpected EOF; expected key separator '='")
 	case r == '.':
 		lx.ignore()
@@ -1184,12 +1188,12 @@ func lexSkip(lx *lexer, nextState stateFn) stateFn {
 }
 
 func (s stateFn) String() string {
+	if s == nil {
+		return "<nil>"
+	}
 	name := runtime.FuncForPC(reflect.ValueOf(s).Pointer()).Name()
 	if i := strings.LastIndexByte(name, '.'); i > -1 {
 		name = name[i+1:]
-	}
-	if s == nil {
-		name = "<nil>"
 	}
 	return name + "()"
 }
@@ -1214,18 +1218,22 @@ func (itype itemType) String() string {
 		return "Float"
 	case itemDatetime:
 		return "DateTime"
-	case itemTableStart:
-		return "TableStart"
-	case itemTableEnd:
-		return "TableEnd"
-	case itemKeyStart:
-		return "KeyStart"
-	case itemKeyEnd:
-		return "KeyEnd"
 	case itemArray:
 		return "Array"
 	case itemArrayEnd:
 		return "ArrayEnd"
+	case itemTableStart:
+		return "TableStart"
+	case itemTableEnd:
+		return "TableEnd"
+	case itemArrayTableStart:
+		return "ArrayTableStart"
+	case itemArrayTableEnd:
+		return "ArrayTableEnd"
+	case itemKeyStart:
+		return "KeyStart"
+	case itemKeyEnd:
+		return "KeyEnd"
 	case itemCommentStart:
 		return "CommentStart"
 	case itemInlineTableStart:
