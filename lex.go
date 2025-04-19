@@ -928,19 +928,9 @@ func lexLongUnicodeEscape(lx *lexer) stateFn {
 // lexBaseNumberOrDate can differentiate base prefixed integers from other
 // types.
 func lexNumberOrDateStart(lx *lexer) stateFn {
-	r := lx.next()
-	switch r {
-	case '0':
+	if lx.next() == '0' {
 		return lexBaseNumberOrDate
 	}
-
-	if !isDigit(r) {
-		// The only way to reach this state is if the value starts
-		// with a digit, so specifically treat anything else as an
-		// error.
-		return lx.errorf("expected a digit but got %q", r)
-	}
-
 	return lexNumberOrDate
 }
 
