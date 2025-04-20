@@ -39,12 +39,6 @@ func (r Test) CompareTOML(want, have any) Test {
 	switch w := want.(type) {
 	case map[string]any:
 		return r.cmpTOMLMap(w, have)
-	case []map[string]any:
-		ww := make([]any, 0, len(w))
-		for _, v := range w {
-			ww = append(ww, v)
-		}
-		return r.cmpTOMLArrays(ww, have)
 	case []any:
 		return r.cmpTOMLArrays(w, have)
 	default:
@@ -84,21 +78,10 @@ func (r Test) cmpTOMLMap(want map[string]any, have any) Test {
 }
 
 func (r Test) cmpTOMLArrays(want []any, have any) Test {
-	// Slice can be decoded to []any for an array of primitives, or
-	// []map[string]any for an array of tables.
-	//
-	// TODO: it would be nicer if it could always decode to []any?
 	haveSlice, ok := have.([]any)
-	if !ok {
-		tblArray, ok := have.([]map[string]any)
-		if !ok {
-			return r.mismatch("array", want, have)
-		}
 
-		haveSlice = make([]any, len(tblArray))
-		for i := range tblArray {
-			haveSlice[i] = tblArray[i]
-		}
+	if !ok {
+		return r.mismatch("array", want, have)
 	}
 
 	if len(want) != len(haveSlice) {
@@ -147,7 +130,7 @@ func deepEqual(want, have any) bool {
 
 func isTomlValue(v any) bool {
 	switch v.(type) {
-	case map[string]any, []map[string]any, []any:
+	case map[string]any, []any:
 		return false
 	}
 	return true
