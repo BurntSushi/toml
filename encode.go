@@ -663,7 +663,34 @@ func getOptions(tag reflect.StructTag) tagOptions {
 	return opts
 }
 
+func callIsZero(rv reflect.Value) (bool, bool) {
+	if !rv.IsValid() {
+		return false, false
+	}
+
+	isZeroMethod := rv.MethodByName("IsZero")
+	if !isZeroMethod.IsValid() {
+		return false, false
+	}
+
+	methodType := isZeroMethod.Type()
+	if methodType.NumIn() != 0 || methodType.NumOut() != 1 || methodType.Out(0) != reflect.TypeOf(true) {
+		return false, false
+	}
+
+	returnValues := isZeroMethod.Call(nil)
+	if len(returnValues) == 1 && returnValues[0].Kind() == reflect.Bool {
+		return returnValues[0].Bool(), true
+	}
+
+	return false, false
+}
+
 func isZero(rv reflect.Value) bool {
+	if zero, ok := callIsZero(rv); ok {
+		return zero
+	}
+
 	switch rv.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return rv.Int() == 0
