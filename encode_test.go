@@ -274,14 +274,23 @@ slice = ["XXX"]
 	})
 }
 
+// a test type that is zero when its value is 42
+type int42 int
+
+func (i int42) IsZero() bool {
+	return i == 42
+}
+
 func TestEncodeOmitZero(t *testing.T) {
 	type simple struct {
-		Number   int     `toml:"number,omitzero"`
-		Real     float64 `toml:"real,omitzero"`
-		Unsigned uint    `toml:"unsigned,omitzero"`
+		Number   int       `toml:"number,omitzero"`
+		Real     float64   `toml:"real,omitzero"`
+		Unsigned uint      `toml:"unsigned,omitzero"`
+		Int42    int42     `toml:"int42,omitzero"`
+		Time     time.Time `toml:"time,omitzero"`
 	}
 
-	value := simple{0, 0.0, uint(0)}
+	value := simple{0, 0.0, uint(0), int42(42), time.Time{}}
 	expected := ""
 
 	encodeExpected(t, "simple with omitzero, all zero", value, expected, nil)
@@ -289,9 +298,13 @@ func TestEncodeOmitZero(t *testing.T) {
 	value.Number = 10
 	value.Real = 20
 	value.Unsigned = 5
+	value.Int42 = int42(13)
+	value.Time, _ = time.Parse("2006-01-02T15:04:05Z", "2013-05-13T00:00:00Z")
 	expected = `number = 10
 real = 20.0
 unsigned = 5
+int42 = 13
+time = 2013-05-13T00:00:00Z
 `
 	encodeExpected(t, "simple with omitzero, non-zero", value, expected, nil)
 }
