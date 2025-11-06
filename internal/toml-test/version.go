@@ -6,7 +6,7 @@ type versionSpec struct {
 }
 
 var versions = map[string]versionSpec{
-	"1.1.0": versionSpec{
+	"1.1.0": {
 		exclude: []string{
 			"invalid/datetime/no-secs", // Times without seconds is no longer invalid.
 			"invalid/local-time/no-secs",
@@ -20,7 +20,7 @@ var versions = map[string]versionSpec{
 		},
 	},
 
-	"1.0.0": versionSpec{
+	"1.0.0": {
 		exclude: []string{
 			"valid/string/escape-esc",                               // \e
 			"valid/string/hex-escape", "invalid/string/bad-hex-esc", // \x..

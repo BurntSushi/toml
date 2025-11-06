@@ -349,10 +349,7 @@ func (md *MetaData) unifyMap(mapping any, rv reflect.Value) error {
 
 	tmap, ok := mapping.(map[string]any)
 	if !ok {
-		if tmap == nil {
-			return nil
-		}
-		return md.badtype("map", mapping)
+		return nil
 	}
 	if rv.IsNil() {
 		rv.Set(reflect.MakeMap(rv.Type()))

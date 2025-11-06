@@ -1076,12 +1076,12 @@ func TestMetaKeys(t *testing.T) {
 		want []Key
 	}{
 		{"", []Key{}},
-		{"b=1\na=1", []Key{Key{"b"}, Key{"a"}}},
-		{"a.b=1\na.a=1", []Key{Key{"a", "b"}, Key{"a", "a"}}}, // TODO: should include "a"
-		{"[tbl]\na=1", []Key{Key{"tbl"}, Key{"tbl", "a"}}},
-		{"[tbl]\na.a=1", []Key{Key{"tbl"}, Key{"tbl", "a", "a"}}}, // TODO: should include "a.a"
-		{"tbl={a=1}", []Key{Key{"tbl"}, Key{"tbl", "a"}}},
-		{"tbl={a={b=1}}", []Key{Key{"tbl"}, Key{"tbl", "a"}, Key{"tbl", "a", "b"}}},
+		{"b=1\na=1", []Key{{"b"}, {"a"}}},
+		{"a.b=1\na.a=1", []Key{{"a", "b"}, {"a", "a"}}}, // TODO: should include "a"
+		{"[tbl]\na=1", []Key{{"tbl"}, {"tbl", "a"}}},
+		{"[tbl]\na.a=1", []Key{{"tbl"}, {"tbl", "a", "a"}}}, // TODO: should include "a.a"
+		{"tbl={a=1}", []Key{{"tbl"}, {"tbl", "a"}}},
+		{"tbl={a={b=1}}", []Key{{"tbl"}, {"tbl", "a"}, {"tbl", "a", "b"}}},
 	}
 
 	for _, tt := range tests {

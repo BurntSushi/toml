@@ -273,7 +273,7 @@ func (p *parser) value(it item, parentIsArray bool) (any, tomlType) {
 	case itemArray:
 		return p.valueArray(it)
 	case itemInlineTableStart:
-		return p.valueInlineTable(it, parentIsArray)
+		return p.valueInlineTable(parentIsArray)
 	default:
 		p.bug("Unexpected value type: %s", it.typ)
 	}
@@ -434,7 +434,7 @@ func (p *parser) valueArray(it item) (any, tomlType) {
 	return array, tomlArray
 }
 
-func (p *parser) valueInlineTable(it item, parentIsArray bool) (any, tomlType) {
+func (p *parser) valueInlineTable(parentIsArray bool) (any, tomlType) {
 	var (
 		topHash      = make(map[string]any)
 		outerContext = p.context

@@ -28,7 +28,7 @@ func (r Test) CompareJSON(want, have any) Test {
 func (r Test) cmpJSONMaps(want map[string]any, have any) Test {
 	haveMap, ok := have.(map[string]any)
 	if !ok {
-		return r.mismatch("table", want, haveMap)
+		return r.mismatch("table", haveMap)
 	}
 
 	// Check to make sure both or neither are values.
@@ -243,7 +243,7 @@ func isValue(m map[string]any) bool {
 	return true
 }
 
-func (r Test) mismatch(wantType string, want, have any) Test {
+func (r Test) mismatch(wantType string, have any) Test {
 	return r.fail("Key %[1]q (type %[2]q):\n"+
 		"  Expected:     %s\n"+
 		"  Your encoder: %s",

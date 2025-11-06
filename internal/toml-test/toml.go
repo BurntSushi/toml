@@ -55,7 +55,7 @@ func (r Test) CompareTOML(want, have any) Test {
 func (r Test) cmpTOMLMap(want map[string]any, have any) Test {
 	haveMap, ok := have.(map[string]any)
 	if !ok {
-		return r.mismatch("table", want, haveMap)
+		return r.mismatch("table", haveMap)
 	}
 
 	wantKeys, haveKeys := mapKeys(want), mapKeys(haveMap)
@@ -92,7 +92,7 @@ func (r Test) cmpTOMLArrays(want []any, have any) Test {
 	if !ok {
 		tblArray, ok := have.([]map[string]any)
 		if !ok {
-			return r.mismatch("array", want, have)
+			return r.mismatch("array", have)
 		}
 
 		haveSlice = make([]any, len(tblArray))

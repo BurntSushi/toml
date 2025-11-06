@@ -15,7 +15,7 @@ This library requires Go 1.18 or newer; add it to your go.mod with:
 
 It also comes with a TOML validator CLI tool:
 
-    % go install github.com/BurntSushi/toml/cmd/tomlv@latest
+    % go install github.com/go-confs/toml/cmd/tomlv@latest
     % tomlv some-toml-file.toml
 
 ### Examples

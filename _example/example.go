@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BurntSushi/toml"
+	"github.com/go-confs/toml"
 )
 
 type (
