@@ -18,7 +18,7 @@ func TestErrorPosition(t *testing.T) {
 	tests := []struct {
 		test, err string
 	}{
-		{"array/missing-separator-2.toml", `
+		{"array/missing-separator-02.toml", `
 toml: error: expected a comma (',') or array terminator (']'), but got '2'
 
 At line 1, column 13:
@@ -26,15 +26,15 @@ At line 1, column 13:
       1 | wrong = [ 1 2 3 ]
                       ^`},
 
-		{"array/no-close-1.toml", `
+		{"array/no-close-01.toml", `
 toml: error: expected a comma (',') or array terminator (']'), but got end of file
 
-At line 1, column 23:
+At line 1, column 24:
 
-      1 | no-close-1 = [ 1, 2, 3
-                                ^`},
+      1 | no-close-01 = [ 1, 2, 3
+                                 ^`},
 
-		{"array/tables-2.toml", `
+		{"array/tables-02.toml", `
 toml: error: Key 'fruit.variety' has already been defined.
 
 At line 9, column 4-8:
@@ -52,7 +52,7 @@ At line 2, column 5-15:
       2 | d = 2006-01-30T
               ^^^^^^^^^^^`},
 
-		{"key/without-value-1.toml", `
+		{"key/without-value-01.toml", `
 toml: error: expected '.' or '=', but got '\n' instead
 
 At line 1, column 4:
@@ -60,7 +60,7 @@ At line 1, column 4:
       1 | key
              ^`},
 		// Position looks wonky, but test has trailing space, so it's correct.
-		{"key/without-value-2.toml", `
+		{"key/without-value-02.toml", `
 toml: error: expected value but found '\n' instead
 
 At line 1, column 7:

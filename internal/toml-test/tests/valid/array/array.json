@@ -5,8 +5,9 @@
     ],
     "dates": [
         {"type": "datetime", "value": "1987-07-05T17:45:00Z"},
-        {"type": "datetime", "value": "1979-05-27T07:32:00Z"},
-        {"type": "datetime", "value": "2006-06-01T11:00:00Z"}
+        {"type": "datetime-local", "value": "1979-05-27T07:32:00"},
+        {"type": "date-local", "value": "2006-06-01"},
+        {"type": "time-local", "value": "11:00:00"}
     ],
     "floats": [
         {"type": "float", "value": "1.1"},

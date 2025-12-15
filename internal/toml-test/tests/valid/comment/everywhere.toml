@@ -26,3 +26,8 @@ more = [ # Comment
 # Make sure the space between the datetime and "#" isn't lexed.
 dt = 1979-05-27T07:32:12-07:00  # c
 d = 1979-05-27 # Comment
+
+[[aot]] # Comment
+k = 98 # Comment
+[[aot]]# Comment
+k = 99# Comment

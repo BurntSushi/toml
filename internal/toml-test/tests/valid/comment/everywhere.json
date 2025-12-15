@@ -1,4 +1,12 @@
 {
+    "aot": [
+        {
+            "k": {"type": "integer", "value": "98"}
+        },
+        {
+            "k": {"type": "integer", "value": "99"}
+        }
+    ],
     "group": {
         "answer": {"type": "integer", "value": "42"},
         "d":      {"type": "date-local", "value": "1979-05-27"},

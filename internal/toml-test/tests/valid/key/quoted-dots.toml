@@ -8,3 +8,4 @@ plain = 3
 [table.withdot]
 plain = 5
 "key.with.dots" = 6
+"escaped\u002edot" = 7

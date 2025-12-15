@@ -22,3 +22,11 @@ tbl-2 = {
 	Hello
 	"""
 }
+
+no-newline-before-brace = {
+a = 1,
+b = 2}
+
+no-newline-before-brace-with-comma = {
+a = 1,
+b = 2,}
