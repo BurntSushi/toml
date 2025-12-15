@@ -644,6 +644,11 @@ func (p *parser) setValue(key string, value any) {
 		// Note that since it has already been defined (as a hash), we don't
 		// want to overwrite it. So our business is done.
 		if p.isArray(keyContext) {
+			if !p.isImplicit(keyContext) {
+				if _, ok := hash[key]; ok {
+					p.panicf("Key '%s' has already been defined.", keyContext)
+				}
+			}
 			p.removeImplicit(keyContext)
 			hash[key] = value
 			return

@@ -315,8 +315,6 @@ func runTomlTest(t *testing.T, includeNext bool, wantFail ...string) {
 			Parser:   parser{},
 			RunTests: runTests,
 			SkipTests: []string{
-				"invalid/key/duplicate-keys-08",
-
 				// Will be fixed in Go 1.23: https://github.com/BurntSushi/toml/issues/407
 				"invalid/datetime/offset-overflow-hour",
 				"invalid/datetime/offset-overflow-minute",
