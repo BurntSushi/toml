@@ -46,14 +46,13 @@ func (p Position) String() string {
 }
 
 type lexer struct {
-	input    string
-	start    int
-	pos      int
-	line     int
-	state    stateFn
-	items    chan item
-	tomlNext bool
-	esc      bool
+	input string
+	start int
+	pos   int
+	line  int
+	state stateFn
+	items chan item
+	esc   bool
 
 	// Allow for backing up up to 4 runes. This is necessary because TOML
 	// contains 3-rune tokens (""" and ''').
@@ -89,14 +88,13 @@ func (lx *lexer) nextItem() item {
 	}
 }
 
-func lex(input string, tomlNext bool) *lexer {
+func lex(input string) *lexer {
 	lx := &lexer{
-		input:    input,
-		state:    lexTop,
-		items:    make(chan item, 10),
-		stack:    make([]stateFn, 0, 10),
-		line:     1,
-		tomlNext: tomlNext,
+		input: input,
+		state: lexTop,
+		items: make(chan item, 10),
+		stack: make([]stateFn, 0, 10),
+		line:  1,
 	}
 	return lx
 }
@@ -411,7 +409,7 @@ func lexTableNameEnd(lx *lexer) stateFn {
 // Lexes only one part, e.g. only 'a' inside 'a.b'.
 func lexBareName(lx *lexer) stateFn {
 	r := lx.next()
-	if isBareKeyChar(r, lx.tomlNext) {
+	if isBareKeyChar(r) {
 		return lexBareName
 	}
 	lx.backup()
@@ -629,10 +627,7 @@ func lexInlineTableValue(lx *lexer) stateFn {
 	case isWhitespace(r):
 		return lexSkip(lx, lexInlineTableValue)
 	case isNL(r):
-		if lx.tomlNext {
-			return lexSkip(lx, lexInlineTableValue)
-		}
-		return lx.errorPrevLine(errLexInlineTableNL{})
+		return lexSkip(lx, lexInlineTableValue)
 	case r == '#':
 		lx.push(lexInlineTableValue)
 		return lexCommentStart
@@ -654,10 +649,7 @@ func lexInlineTableValueEnd(lx *lexer) stateFn {
 	case isWhitespace(r):
 		return lexSkip(lx, lexInlineTableValueEnd)
 	case isNL(r):
-		if lx.tomlNext {
-			return lexSkip(lx, lexInlineTableValueEnd)
-		}
-		return lx.errorPrevLine(errLexInlineTableNL{})
+		return lexSkip(lx, lexInlineTableValueEnd)
 	case r == '#':
 		lx.push(lexInlineTableValueEnd)
 		return lexCommentStart
@@ -665,10 +657,7 @@ func lexInlineTableValueEnd(lx *lexer) stateFn {
 		lx.ignore()
 		lx.skip(isWhitespace)
 		if lx.peek() == '}' {
-			if lx.tomlNext {
-				return lexInlineTableValueEnd
-			}
-			return lx.errorf("trailing comma not allowed in inline tables")
+			return lexInlineTableValueEnd
 		}
 		return lexInlineTableValue
 	case r == '}':
@@ -856,9 +845,6 @@ func lexStringEscape(lx *lexer) stateFn {
 	r := lx.next()
 	switch r {
 	case 'e':
-		if !lx.tomlNext {
-			return lx.error(errLexEscape{r})
-		}
 		fallthrough
 	case 'b':
 		fallthrough
@@ -879,9 +865,6 @@ func lexStringEscape(lx *lexer) stateFn {
 	case '\\':
 		return lx.pop()
 	case 'x':
-		if !lx.tomlNext {
-			return lx.error(errLexEscape{r})
-		}
 		return lexHexEscape
 	case 'u':
 		return lexShortUnicodeEscape
@@ -1259,7 +1242,7 @@ func isDigit(r rune) bool  { return r >= '0' && r <= '9' }
 func isBinary(r rune) bool { return r == '0' || r == '1' }
 func isOctal(r rune) bool  { return r >= '0' && r <= '7' }
 func isHex(r rune) bool    { return (r >= '0' && r <= '9') || (r|0x20 >= 'a' && r|0x20 <= 'f') }
-func isBareKeyChar(r rune, tomlNext bool) bool {
+func isBareKeyChar(r rune) bool {
 	return (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') ||
 		(r >= '0' && r <= '9') || r == '_' || r == '-'
 }

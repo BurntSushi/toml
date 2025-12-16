@@ -257,19 +257,7 @@ var metaTests = map[string]string{
 	`,
 }
 
-// TOML 1.0
 func TestToml(t *testing.T) {
-	runTomlTest(t, false)
-}
-
-// TOML 1.1
-func TestTomlNext(t *testing.T) {
-	toml.WithTomlNext(func() {
-		runTomlTest(t, true)
-	})
-}
-
-func runTomlTest(t *testing.T, includeNext bool, wantFail ...string) {
 	for k := range errorTests { // Make sure patterns are valid.
 		_, err := filepath.Match(k, "")
 		if err != nil {
@@ -310,6 +298,7 @@ func runTomlTest(t *testing.T, includeNext bool, wantFail ...string) {
 
 	run := func(t *testing.T, enc bool) {
 		r := tomltest.Runner{
+			Version:  "1.1.0",
 			Files:    tomltest.EmbeddedTests(),
 			Encoder:  enc,
 			Parser:   parser{},
@@ -351,26 +340,15 @@ func runTomlTest(t *testing.T, includeNext bool, wantFail ...string) {
 				"invalid/table/redefine-03",
 			},
 		}
-		if includeNext {
-			r.Version = "1.1.0"
-		}
 
 		tests, err := r.Run()
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		failed := make(map[string]struct{})
 		for _, test := range tests.Tests {
 			t.Run(test.Path, func(t *testing.T) {
 				if test.Failed() {
-					for _, f := range wantFail {
-						if f == test.Path {
-							failed[test.Path] = struct{}{}
-							return
-						}
-					}
-
 					t.Fatalf("\nError:\n%s\n\nInput:\n%s\nOutput:\n%s\nWant:\n%s\n",
 						test.Failure, test.Input, test.Output, test.Want)
 					return
@@ -383,14 +361,9 @@ func runTomlTest(t *testing.T, includeNext bool, wantFail ...string) {
 				// Test metadata
 				if !enc && test.Type() == tomltest.TypeValid {
 					delete(shouldExistValid, test.Path)
-					testMeta(t, test, includeNext)
+					testMeta(t, test)
 				}
 			})
-		}
-		for _, f := range wantFail {
-			if _, ok := failed[f]; !ok {
-				t.Errorf("expected test %q to fail but it didn't", f)
-			}
 		}
 
 		t.Logf("  valid: passed %d; failed %d", tests.PassedValid, tests.FailedValid)
@@ -419,14 +392,9 @@ func runTomlTest(t *testing.T, includeNext bool, wantFail ...string) {
 
 var reCollapseSpace = regexp.MustCompile(` +`)
 
-func testMeta(t *testing.T, test tomltest.Test, includeNext bool) {
+func testMeta(t *testing.T, test tomltest.Test) {
 	want, ok := metaTests[strings.TrimPrefix(test.Path, "valid/")]
 	if !ok {
-		return
-	}
-
-	// Output is slightly different due to different quoting; just skip for now.
-	if includeNext && (test.Path == "valid/table/names" || test.Path == "valid/key/case-sensitive") {
 		return
 	}
 
