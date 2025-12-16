@@ -29,7 +29,7 @@ multi-del  = """null\x7f"""
 
 rawmulti-null = '''null\x00'''
 rawmulti-lf   = '''null\x10'''
-rawmulti-cd   = '''null\x0d'''
+rawmulti-cr   = '''null\x0d'''
 rawmulti-us   = '''null\x1f'''
 rawmulti-del  = '''null\x7f'''
 
