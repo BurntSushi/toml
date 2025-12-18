@@ -274,14 +274,51 @@ slice = ["XXX"]
 	})
 }
 
-func TestEncodeOmitZero(t *testing.T) {
+type AnEnum int
+
+func (e *AnEnum) MarshalText() ([]byte, error) {
+	switch *e {
+	case 0:
+		return []byte("zero"), nil
+	case 1:
+		return []byte("one"), nil
+	case 2:
+		return []byte("two"), nil
+	}
+	return nil, fmt.Errorf("invalid AnEnum value %d", int(*e))
+}
+
+func (e *AnEnum) IsZero() bool {
+	return *e == 0
+}
+
+// This test is surprising. We'd all probably be happier if it failed.
+func TestEncodeNonAddressableField(t *testing.T) {
 	type simple struct {
-		Number   int     `toml:"number,omitzero"`
-		Real     float64 `toml:"real,omitzero"`
-		Unsigned uint    `toml:"unsigned,omitzero"`
+		AnEnumValue AnEnum `toml:"anEnumValue,omitzero"`
 	}
 
-	value := simple{0, 0.0, uint(0)}
+	// NB: value needs to be "addressable" for its type alias fields to
+	// implement interfaces correctly under reflection
+	value := simple{AnEnum(1)}
+	expected := "anEnumValue = 1" // would normally be "one", via MarshalText
+
+	encodeExpected(t, "unaddressable struct fields do not implement interfaces", value, expected, nil)
+}
+
+func TestEncodeOmitZero(t *testing.T) {
+	type simple struct {
+		Number      int     `toml:"number,omitzero"`
+		Real        float64 `toml:"real,omitzero"`
+		Unsigned    uint    `toml:"unsigned,omitzero"`
+		AnEnumValue AnEnum  `toml:"anEnumValue,omitzero"`
+	}
+
+	enumZero := AnEnum(0)
+	enumOne := AnEnum(1)
+	// NB: value needs to be "addressable" for its type alias fields to
+	// implement interfaces correctly under reflection
+	value := &simple{0, 0.0, uint(0), enumZero}
 	expected := ""
 
 	encodeExpected(t, "simple with omitzero, all zero", value, expected, nil)
@@ -289,11 +326,44 @@ func TestEncodeOmitZero(t *testing.T) {
 	value.Number = 10
 	value.Real = 20
 	value.Unsigned = 5
+	value.AnEnumValue = enumOne
 	expected = `number = 10
 real = 20.0
 unsigned = 5
+anEnumValue = "one"
 `
 	encodeExpected(t, "simple with omitzero, non-zero", value, expected, nil)
+}
+
+func TestEncodeOmitZeroArray(t *testing.T) {
+	type simple struct {
+		Number      int     `toml:"number,omitzero"`
+		Real        float64 `toml:"real,omitzero"`
+		Unsigned    uint    `toml:"unsigned,omitzero"`
+		AnEnumValue AnEnum  `toml:"anEnumValue,omitzero"`
+	}
+	type list struct {
+		Simples []simple
+	}
+
+	enumZero := AnEnum(0)
+	enumOne := AnEnum(1)
+	value := list{Simples: []simple{{0, 0.0, uint(0), enumZero}}}
+	expected := "[[Simples]]"
+
+	encodeExpected(t, "list of struct with omitzero, all zero", value, expected, nil)
+
+	value.Simples[0].Number = 10
+	value.Simples[0].Real = 20
+	value.Simples[0].Unsigned = 5
+	value.Simples[0].AnEnumValue = enumOne
+	expected = `[[Simples]]
+  number = 10
+  real = 20.0
+  unsigned = 5
+  anEnumValue = "one"
+`
+	encodeExpected(t, "list of struct with omitzero, non-zero", value, expected, nil)
 }
 
 func TestEncodeOmitemptyEmptyName(t *testing.T) {
