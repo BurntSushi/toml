@@ -18,12 +18,6 @@ import (
 	"github.com/BurntSushi/toml/internal"
 )
 
-func WithTomlNext(f func()) {
-	os.Setenv("BURNTSUSHI_TOML_110", "")
-	defer func() { os.Unsetenv("BURNTSUSHI_TOML_110") }()
-	f()
-}
-
 func TestDecodeReader(t *testing.T) {
 	var i struct{ A int }
 	meta, err := DecodeReader(strings.NewReader("a = 42"), &i)
