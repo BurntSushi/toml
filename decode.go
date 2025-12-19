@@ -313,7 +313,7 @@ func (md *MetaData) unifyStruct(mapping any, rv reflect.Value) error {
 				f = ff
 				break
 			}
-			if f == nil && strings.EqualFold(ff.name, key) {
+			if f == nil && ((!ff.tag && strings.EqualFold(ff.name, key)) || (ff.tag && ff.name == key)) {
 				f = ff
 			}
 		}
