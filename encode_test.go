@@ -1390,3 +1390,47 @@ k1 = "a"
 		t.Fatalf("\nhave: %s\nwant: %s", h, w)
 	}
 }
+
+func TestEncodeFile(t *testing.T) {
+	// Create a temporary file name to write to.
+	tmp, err := os.CreateTemp("", "toml_encode_file_test_*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := tmp.Name()
+	// Close and remove it so EncodeFile will create it fresh.
+	tmp.Close()
+	os.Remove(name)
+
+	// Simple value to encode.
+	v := struct {
+		A int
+	}{A: 1}
+
+	// Use EncodeFile to write the file.
+	if err := EncodeFile(name, v); err != nil {
+		t.Fatalf("EncodeFile failed: %v", err)
+	}
+	defer os.Remove(name)
+
+	// Read back the file and verify contents.
+	b, err := os.ReadFile(name)
+	if err != nil {
+		t.Fatalf("ReadFile failed: %v", err)
+	}
+	want := "A = 1\n"
+	if string(b) != want {
+		t.Fatalf("file contents mismatch\nhave: %q\nwant: %q", string(b), want)
+	}
+
+	// Expect an error when attempting to write to a directory path.
+	dir, err := os.MkdirTemp("", "toml_encode_file_dir_*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	if err := EncodeFile(dir, v); err == nil {
+		t.Fatalf("expected error when writing to directory path, but got nil")
+	}
+}
