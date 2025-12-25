@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"os"
 	"reflect"
 	"sort"
 	"strconv"
@@ -135,6 +136,20 @@ type Encoder struct {
 // NewEncoder create a new Encoder.
 func NewEncoder(w io.Writer) *Encoder {
 	return &Encoder{w: bufio.NewWriter(w), Indent: "  "}
+}
+
+// EncodeFile encodes and writes data to a file using [*Encoder.Encode]
+func EncodeFile(path string, v any) error {
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	err = NewEncoder(file).Encode(v)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Encode writes a TOML representation of the Go value to the [Encoder]'s writer.
