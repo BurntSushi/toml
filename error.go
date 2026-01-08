@@ -187,13 +187,12 @@ func expandTab(s string) string {
 }
 
 type (
-	errLexControl       struct{ r rune }
-	errLexEscape        struct{ r rune }
-	errLexUTF8          struct{ b byte }
-	errParseDate        struct{ v string }
-	errLexInlineTableNL struct{}
-	errLexStringNL      struct{}
-	errParseRange       struct {
+	errLexControl  struct{ r rune }
+	errLexEscape   struct{ r rune }
+	errLexUTF8     struct{ b byte }
+	errParseDate   struct{ v string }
+	errLexStringNL struct{}
+	errParseRange  struct {
 		i    any    // int or float
 		size string // "int64", "uint16", etc.
 	}
@@ -209,18 +208,16 @@ func (e errLexControl) Error() string {
 }
 func (e errLexControl) Usage() string { return "" }
 
-func (e errLexEscape) Error() string        { return fmt.Sprintf(`invalid escape in string '\%c'`, e.r) }
-func (e errLexEscape) Usage() string        { return usageEscape }
-func (e errLexUTF8) Error() string          { return fmt.Sprintf("invalid UTF-8 byte: 0x%02x", e.b) }
-func (e errLexUTF8) Usage() string          { return "" }
-func (e errParseDate) Error() string        { return fmt.Sprintf("invalid datetime: %q", e.v) }
-func (e errParseDate) Usage() string        { return usageDate }
-func (e errLexInlineTableNL) Error() string { return "newlines not allowed within inline tables" }
-func (e errLexInlineTableNL) Usage() string { return usageInlineNewline }
-func (e errLexStringNL) Error() string      { return "strings cannot contain newlines" }
-func (e errLexStringNL) Usage() string      { return usageStringNewline }
-func (e errParseRange) Error() string       { return fmt.Sprintf("%v is out of range for %s", e.i, e.size) }
-func (e errParseRange) Usage() string       { return usageIntOverflow }
+func (e errLexEscape) Error() string   { return fmt.Sprintf(`invalid escape in string '\%c'`, e.r) }
+func (e errLexEscape) Usage() string   { return usageEscape }
+func (e errLexUTF8) Error() string     { return fmt.Sprintf("invalid UTF-8 byte: 0x%02x", e.b) }
+func (e errLexUTF8) Usage() string     { return "" }
+func (e errParseDate) Error() string   { return fmt.Sprintf("invalid datetime: %q", e.v) }
+func (e errParseDate) Usage() string   { return usageDate }
+func (e errLexStringNL) Error() string { return "strings cannot contain newlines" }
+func (e errLexStringNL) Usage() string { return usageStringNewline }
+func (e errParseRange) Error() string  { return fmt.Sprintf("%v is out of range for %s", e.i, e.size) }
+func (e errParseRange) Usage() string  { return usageIntOverflow }
 func (e errUnsafeFloat) Error() string {
 	return fmt.Sprintf("%v is out of the safe %s range", e.i, e.size)
 }
@@ -241,26 +238,6 @@ To prevent a '\' from being recognized as an escape character, use either:
 
 If you're trying to add a Windows path (e.g. "C:\Users\martin") then using '/'
 instead of '\' will usually also work: "C:/Users/martin".
-`
-
-const usageInlineNewline = `
-Inline tables must always be on a single line:
-
-    table = {key = 42, second = 43}
-
-It is invalid to split them over multiple lines like so:
-
-    # INVALID
-    table = {
-        key    = 42,
-        second = 43
-    }
-
-Use regular for this:
-
-    [table]
-    key    = 42
-    second = 43
 `
 
 const usageStringNewline = `
@@ -338,10 +315,10 @@ Seconds may optionally have a fraction, up to nanosecond precision:
 
     15:04:05.123
     15:04:05.856018510
-`
 
-// TOML 1.1:
-// The seconds part in times is optional, and may be omitted:
-//     2006-01-02T15:04Z07:00
-//     2006-01-02T15:04
-//     15:04
+The seconds part in times is optional, and may be omitted:
+
+    2006-01-02T15:04Z07:00
+    2006-01-02T15:04
+    15:04
+`
