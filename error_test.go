@@ -243,6 +243,12 @@ func TestParseError(t *testing.T) {
             |
             |         15:04:05.123
             |         15:04:05.856018510
+            |
+            |     The seconds part in times is optional, and may be omitted:
+            |
+            |         2006-01-02T15:04Z07:00
+            |         2006-01-02T15:04
+            |         15:04
 			`,
 		},
 
