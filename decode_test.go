@@ -641,9 +641,9 @@ func (d *dish) UnmarshalTOML(p any) error {
 	data, _ := p.(map[string]any)
 	d.Name, _ = data["name"].(string)
 	d.Price, _ = data["price"].(float32)
-	ingredients, _ := data["ingredients"].([]map[string]any)
+	ingredients, _ := data["ingredients"].([]any)
 	for _, e := range ingredients {
-		n, _ := any(e).(map[string]any)
+		n, _ := e.(map[string]any)
 		name, _ := n["name"].(string)
 		i := ingredient{name}
 		d.Ingredients = append(d.Ingredients, i)
