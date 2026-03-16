@@ -113,7 +113,7 @@ func decode() {
 }
 ```
 
-To target TOML specifically you can implement `UnmarshalTOML` TOML interface in
+To target TOML specifically you can implement the `UnmarshalTOML` interface in
 a similar way.
 
 ### More complex usage
