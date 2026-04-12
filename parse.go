@@ -643,6 +643,11 @@ func (p *parser) setValue(key string, value any) {
 			return
 		}
 		if p.isImplicit(keyContext) {
+			// Only allow implicit → explicit promotion for tables.
+			// A scalar value must not silently replace an implicitly created table.
+			if _, isHash := value.(map[string]any); !isHash {
+				p.panicf("Key '%s' has already been defined.", keyContext)
+			}
 			p.removeImplicit(keyContext)
 			return
 		}

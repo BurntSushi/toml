@@ -236,6 +236,29 @@ func TestDecodeErrors(t *testing.T) {
 	}
 }
 
+// Regression test for https://github.com/BurntSushi/toml/issues/451
+// Redefining a dotted-key parent as a scalar must be rejected even when
+// only a single sub-key was defined.
+func TestDecodeScalarRedefinesImplicitTable(t *testing.T) {
+	tests := []struct {
+		name string
+		toml string
+	}{
+		{"single sub-key", "a.b = 1\na = 7"},
+		{"two sub-keys", "a.b = 1\na.c = 2\na = 7"},
+		{"scalar then dotted", "a = 7\na.b = 1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var v any
+			_, err := Decode(tt.toml, &v)
+			if err == nil {
+				t.Fatalf("expected error for:\n%s", tt.toml)
+			}
+		})
+	}
+}
+
 func TestDecodeIgnoreFields(t *testing.T) {
 	const input = `
 Number = 123
