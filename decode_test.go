@@ -1194,3 +1194,32 @@ func TestDecodeCustomStructMarkedDecoded(t *testing.T) {
 		t.Errorf("\ncustom decode leaves undecoded fields: %v\n", meta.Undecoded())
 	}
 }
+
+func TestMaxTableNesting(t *testing.T) {
+	tests := []struct {
+		doc     string
+		maxNest int
+		wantErr string
+	}{
+		{"\n\n" + strings.Repeat(".a", 128)[1:] + " = 1", -99, ""},
+		{"\n\n" + strings.Repeat(".a", 129)[1:] + " = 1", -99, "toml: line 3: too many nested tables: can have up to 128 nested tables"},
+		{"\n\n" + strings.Repeat(".a", 300)[1:] + " = 1", 0, ""},
+		{"\n\n" + strings.Repeat(".a", 5)[1:] + " = 1", 5, ""},
+		{"\n\n" + strings.Repeat(".a", 6)[1:] + " = 1", 5, "toml: line 3: too many nested tables: can have up to 5 nested tables"},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			d := NewDecoder(strings.NewReader(tt.doc))
+			if tt.maxNest != -99 {
+				d.MaxTableNesting(tt.maxNest)
+			}
+
+			var m map[string]any
+			_, err := d.Decode(&m)
+			if !errorContains(err, tt.wantErr) {
+				t.Fatalf("wrong error\nhave: %q\nwant: %q", err, tt.wantErr)
+			}
+		})
+	}
+}

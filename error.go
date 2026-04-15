@@ -95,8 +95,7 @@ func (pe ParseError) Error() string {
 	if pe.LastKey == "" {
 		return fmt.Sprintf("toml: line %d: %s", pe.Position.Line, pe.Message)
 	}
-	return fmt.Sprintf("toml: line %d (last key %q): %s",
-		pe.Position.Line, pe.LastKey, pe.Message)
+	return fmt.Sprintf("toml: line %d (last key %q): %s", pe.Position.Line, pe.LastKey, pe.Message)
 }
 
 // ErrorWithPosition returns the error with detailed location context.

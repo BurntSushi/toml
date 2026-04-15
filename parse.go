@@ -13,12 +13,12 @@ import (
 
 type parser struct {
 	lx         *lexer
+	maxNest    int
 	context    Key      // Full key for the current hash in scope.
 	currentKey string   // Base key name for everything except hashes.
 	pos        Position // Current position in the TOML file.
 
-	ordered []Key // List of keys in the order that they appear in the TOML data.
-
+	ordered   []Key               // List of keys in the order that they appear in the TOML data.
 	keyInfo   map[string]keyInfo  // Map keyname → info about the TOML key.
 	mapping   map[string]any      // Map keyname → key value.
 	implicits map[string]struct{} // Record implicit keys (e.g. "key.group.names").
@@ -29,7 +29,7 @@ type keyInfo struct {
 	tomlType tomlType
 }
 
-func parse(data string) (p *parser, err error) {
+func parse(data string, maxNest int) (p *parser, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if pErr, ok := r.(ParseError); ok {
@@ -67,9 +67,10 @@ func parse(data string) (p *parser, err error) {
 	}
 
 	p = &parser{
+		lx:        lex(data),
+		maxNest:   maxNest,
 		keyInfo:   make(map[string]keyInfo),
 		mapping:   make(map[string]any),
-		lx:        lex(data),
 		ordered:   make([]Key, 0),
 		implicits: make(map[string]struct{}),
 	}
@@ -542,6 +543,16 @@ func numPeriodsOK(s string) bool {
 // Establishing the context also makes sure that the key isn't a duplicate, and
 // will create implicit hashes automatically.
 func (p *parser) addContext(key Key, array bool) {
+	if p.maxNest > 0 && len(key) >= p.maxNest {
+		// Don't use panicf() helper because we don't want to set LastKey here –
+		// it's going to be a very long string and not very useful.
+		panic(ParseError{
+			Message:  fmt.Sprintf("too many nested tables: can have up to %d nested tables", p.maxNest),
+			Position: p.pos.withCol(p.lx.input),
+			Line:     p.pos.Line,
+		})
+	}
+
 	/// Always start at the top level and drill down for our context.
 	hashContext := p.mapping
 	keyContext := make(Key, 0, len(key)-1)

@@ -118,13 +118,20 @@ const (
 // This decoder does not handle cyclic types. Decode will not terminate if a
 // cyclic type is passed.
 type Decoder struct {
-	r io.Reader
+	r       io.Reader
+	maxNest int
 }
 
 // NewDecoder creates a new Decoder.
 func NewDecoder(r io.Reader) *Decoder {
-	return &Decoder{r: r}
+	return &Decoder{r: r, maxNest: 128}
 }
+
+// MaxTableNesting sets the maximum table nesting to prevent using an
+// inordinate amount of system resources on deeply nested tables.
+//
+// The default is 128. Set to <=0 to disable the limit.
+func (dec *Decoder) MaxTableNesting(l int) { dec.maxNest = l }
 
 var (
 	unmarshalToml = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
@@ -164,7 +171,7 @@ func (dec *Decoder) Decode(v any) (MetaData, error) {
 		return MetaData{}, err
 	}
 
-	p, err := parse(string(data))
+	p, err := parse(string(data), dec.maxNest)
 	if err != nil {
 		return MetaData{}, err
 	}
