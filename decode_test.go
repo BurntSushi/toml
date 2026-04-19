@@ -333,6 +333,28 @@ func TestDecodeIntOverflow(t *testing.T) {
 	}
 }
 
+func TestDecodeTagCaseSensitive(t *testing.T) {
+	// tests if toml keys are case-sensitive if the
+	// toml key is specified as a struct tag
+	type catch struct {
+		Fish string `toml:"fish"`
+	}
+	var blob = `
+			fish = "cod"
+			Fish = "shark"
+		`
+	// the result is random (random order of map keys), so we repeat
+	// decoding in order to have a chance to detect the error
+	for i := 0; i < 100; i += 1 {
+		var cat catch
+		if _, err := Decode(blob, &cat); err != nil {
+			t.Fatal(err)
+		} else if cat.Fish != "cod" {
+			t.Fatalf("expected to catch cod, got '%s'", cat.Fish)
+		}
+	}
+}
+
 func TestDecodeFloatOverflow(t *testing.T) {
 	tests := []struct {
 		value    string
