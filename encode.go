@@ -65,6 +65,10 @@ var dblQuotedReplacer = strings.NewReplacer(
 	"\x7f", `\u007f`,
 )
 
+type zeroer interface {
+	IsZero() bool
+}
+
 var (
 	marshalToml = reflect.TypeOf((*Marshaler)(nil)).Elem()
 	marshalText = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
@@ -116,7 +120,7 @@ func Marshal(v any) ([]byte, error) {
 //   - bool false
 //
 // If omitzero is given all int and float types with a value of 0 will be
-// skipped.
+// skipped, as well as values with an `IsZero() bool` method.
 //
 // Encoding Go values without a corresponding TOML representation will return an
 // error. Examples of this includes maps with non-string keys, slices with nil
@@ -125,7 +129,9 @@ func Marshal(v any) ([]byte, error) {
 // is okay, as is []map[string][]string).
 //
 // NOTE: only exported keys are encoded due to the use of reflection. Unexported
-// keys are silently discarded.
+// keys are silently discarded. Go also makes a runtime type distinction between
+// fields belonging to addressable and non-addressable values, which impacts whether
+// calls to Encode will notice and use Marshaler and TextMarshaler.
 type Encoder struct {
 	Indent     string // string for a single indentation level; default is two spaces.
 	hasWritten bool   // written any output to w yet?
@@ -664,6 +670,10 @@ func getOptions(tag reflect.StructTag) tagOptions {
 }
 
 func isZero(rv reflect.Value) bool {
+	switch v := rv.Interface().(type) {
+	case zeroer:
+		return v.IsZero()
+	}
 	switch rv.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return rv.Int() == 0
