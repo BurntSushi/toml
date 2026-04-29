@@ -650,16 +650,29 @@ func getOptions(tag reflect.StructTag) tagOptions {
 		return tagOptions{skip: true}
 	}
 	var opts tagOptions
-	parts := strings.Split(t, ",")
-	opts.name = parts[0]
-	for _, s := range parts[1:] {
+	for {
+		i := strings.LastIndexByte(t, ',')
+		if i < 0 {
+			break
+		}
+
+		s := t[i+1:]
 		switch s {
 		case "omitempty":
 			opts.omitempty = true
+			t = t[:i]
 		case "omitzero":
 			opts.omitzero = true
+			t = t[:i]
+		default:
+			// Unknown suffix: treat the full tag value as the key name.
+			i = -1
+		}
+		if i < 0 {
+			break
 		}
 	}
+	opts.name = t
 	return opts
 }
 

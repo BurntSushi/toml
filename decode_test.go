@@ -1064,6 +1064,20 @@ func TestDecodeDoubleTags(t *testing.T) {
 	}
 }
 
+func TestDecodeTagNameWithComma(t *testing.T) {
+	var s struct {
+		Value string `toml:"stack(x,n)"`
+	}
+	_, err := Decode(`"stack(x,n)" = "foobar"`, &s)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if s.Value != "foobar" {
+		t.Errorf("\nhave: %s\nwant: %s\n", s.Value, "foobar")
+	}
+}
+
 func TestMetaKeys(t *testing.T) {
 	tests := []struct {
 		in   string

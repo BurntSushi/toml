@@ -1287,6 +1287,22 @@ c = 3
 	}
 }
 
+func TestEncodeTagNameWithComma(t *testing.T) {
+	v := struct {
+		S string `toml:"stack(x,n)"`
+	}{S: "foobar"}
+
+	encodeExpected(t, "tag name with comma", v, `"stack(x,n)" = "foobar"`, nil)
+}
+
+func TestEncodeTagNameWithCommaAndOptions(t *testing.T) {
+	v := struct {
+		S string `toml:"stack(x,n),omitempty"`
+	}{S: "foobar"}
+
+	encodeExpected(t, "tag name with comma and omitempty", v, `"stack(x,n)" = "foobar"`, nil)
+}
+
 type (
 	Doc1 struct{ N string }
 	Doc2 struct{ N string }
