@@ -301,6 +301,8 @@ func TestParseError(t *testing.T) {
 	}
 }
 
+var errInvalidValue = errors.New("invalid value")
+
 type Enum1 uint8
 
 func (n *Enum1) UnmarshalText(text []byte) error {
@@ -308,7 +310,7 @@ func (n *Enum1) UnmarshalText(text []byte) error {
 	case "ok":
 		*n = 1
 	default:
-		return fmt.Errorf("invalid value: %q", t)
+		return fmt.Errorf("%w: %q", errInvalidValue, t)
 	}
 	return nil
 }
@@ -323,6 +325,9 @@ func TestUnmarshalTypeError(t *testing.T) {
 	_, err := toml.Decode("k1 = 'asd'\nk2 = 'ok'\nk3 = 'invalid'\nk4 = 'ok'", &c)
 	if err == nil {
 		t.Fatal("error is nil")
+	}
+	if !errors.Is(err, errInvalidValue) {
+		t.Errorf("error %#v does not wrap errInvalidValue (%v)", err, errInvalidValue)
 	}
 	var pErr toml.ParseError
 	if !errors.As(err, &pErr) {
@@ -351,7 +356,7 @@ func (n *Enum2) UnmarshalTOML(text any) error {
 	case "ok":
 		*n = 1
 	default:
-		return fmt.Errorf("invalid value: %q", t)
+		return fmt.Errorf("%w: %q", errInvalidValue, t)
 	}
 	return nil
 }
@@ -365,6 +370,9 @@ func TestMarshalError(t *testing.T) {
 	_, err := toml.Decode("k1 = 'asd'\nk2 = 'ok'\nk3 = 'invalid'\nk4 = 'ok'", &c)
 	if err == nil {
 		t.Fatal("error is nil")
+	}
+	if !errors.Is(err, errInvalidValue) {
+		t.Errorf("error %#v does not wrap errInvalidValue (%v)", err, errInvalidValue)
 	}
 	var pErr toml.ParseError
 	if !errors.As(err, &pErr) {
