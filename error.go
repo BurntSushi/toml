@@ -98,6 +98,10 @@ func (pe ParseError) Error() string {
 	return fmt.Sprintf("toml: line %d (last key %q): %s", pe.Position.Line, pe.LastKey, pe.Message)
 }
 
+func (pe ParseError) Unwrap() error {
+	return pe.err
+}
+
 // ErrorWithPosition returns the error with detailed location context.
 //
 // See the documentation on [ParseError].
