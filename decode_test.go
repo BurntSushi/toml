@@ -249,6 +249,8 @@ func TestDecodeErrors(t *testing.T) {
 			fmt.Sprintf(`value = %d`, math.MaxUint32+int64(1)),
 			map[int]string{32: `toml: line 1 (last key "value"): 4294967296 is out of range for uint`}[strconv.IntSize],
 		},
+		// Regression test for #451: scalar redefining implicit table from dotted key.
+		{new(map[string]any), "a.b = 1\na = 7", `toml: line 2 (last key "a"): Key 'a' has already been defined.`},
 	}
 
 	for _, tt := range tests {
