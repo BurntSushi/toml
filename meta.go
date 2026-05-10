@@ -17,6 +17,7 @@ type MetaData struct {
 	keys    []Key
 	decoded map[string]struct{}
 	data    []byte // Input file; for errors.
+	hook    UnifyHook
 }
 
 // IsDefined reports if the key exists in the TOML data.

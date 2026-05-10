@@ -21,11 +21,17 @@ type Unmarshaler interface {
 	UnmarshalTOML(any) error
 }
 
+type UnifyHook func(data any, rv reflect.Value) error
+
 // Unmarshal decodes the contents of data in TOML format into a pointer v.
 //
 // See [Decoder] for a description of the decoding process.
 func Unmarshal(data []byte, v any) error {
-	_, err := NewDecoder(bytes.NewReader(data)).Decode(v)
+	return UnmarshalWith(data, v, nil)
+}
+
+func UnmarshalWith(data []byte, v any, hook UnifyHook) error {
+	_, err := NewDecoder(bytes.NewReader(data)).DecodeWith(v, hook)
 	return err
 }
 
@@ -33,28 +39,40 @@ func Unmarshal(data []byte, v any) error {
 //
 // See [Decoder] for a description of the decoding process.
 func Decode(data string, v any) (MetaData, error) {
-	return NewDecoder(strings.NewReader(data)).Decode(v)
+	return DecodeWith(data, v, nil)
+}
+
+func DecodeWith(data string, v any, hook UnifyHook) (MetaData, error) {
+	return NewDecoder(strings.NewReader(data)).DecodeWith(v, hook)
 }
 
 // DecodeFile reads the contents of a file and decodes it with [Decode].
 func DecodeFile(path string, v any) (MetaData, error) {
+	return DecodeFileWith(path, v, nil)
+}
+
+func DecodeFileWith(path string, v any, hook UnifyHook) (MetaData, error) {
 	fp, err := os.Open(path)
 	if err != nil {
 		return MetaData{}, err
 	}
 	defer fp.Close()
-	return NewDecoder(fp).Decode(v)
+	return NewDecoder(fp).DecodeWith(v, hook)
 }
 
 // DecodeFS reads the contents of a file from [fs.FS] and decodes it with
 // [Decode].
 func DecodeFS(fsys fs.FS, path string, v any) (MetaData, error) {
+	return DecodeFSWith(fsys, path, v, nil)
+}
+
+func DecodeFSWith(fsys fs.FS, path string, v any, hook UnifyHook) (MetaData, error) {
 	fp, err := fsys.Open(path)
 	if err != nil {
 		return MetaData{}, err
 	}
 	defer fp.Close()
-	return NewDecoder(fp).Decode(v)
+	return NewDecoder(fp).DecodeWith(v, hook)
 }
 
 // Primitive is a TOML value that hasn't been decoded into a Go value.
@@ -141,6 +159,10 @@ var (
 
 // Decode TOML data in to the pointer `v`.
 func (dec *Decoder) Decode(v any) (MetaData, error) {
+	return dec.DecodeWith(v, nil)
+}
+
+func (dec *Decoder) DecodeWith(v any, hook UnifyHook) (MetaData, error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Pointer {
 		s := "%q"
@@ -183,6 +205,7 @@ func (dec *Decoder) Decode(v any) (MetaData, error) {
 		decoded: make(map[string]struct{}, len(p.ordered)),
 		context: nil,
 		data:    data,
+		hook:    hook,
 	}
 	return md, md.unify(p.mapping, rv)
 }
@@ -272,6 +295,12 @@ func (md *MetaData) unify(data any, rv reflect.Value) error {
 	// TOML values. But at this point, it will be applied to all kinds of values
 	// and produce an incorrect error whenever those values are hashes or arrays
 	// (including arrays of tables).
+
+	if md.hook != nil {
+		if err := md.hook(data, rv); err != nil {
+			return err
+		}
+	}
 
 	k := rv.Kind()
 
