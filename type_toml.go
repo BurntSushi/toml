@@ -33,6 +33,7 @@ var (
 	tomlBool      tomlBaseType = "Bool"
 	tomlArray     tomlBaseType = "Array"
 	tomlHash      tomlBaseType = "Hash"
+	tomlInline    tomlBaseType = "Inline"
 	tomlArrayHash tomlBaseType = "ArrayHash"
 )
 

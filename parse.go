@@ -21,7 +21,8 @@ type parser struct {
 	ordered   []Key               // List of keys in the order that they appear in the TOML data.
 	keyInfo   map[string]keyInfo  // Map keyname → info about the TOML key.
 	mapping   map[string]any      // Map keyname → key value.
-	implicits map[string]struct{} // Record implicit keys (e.g. "key.group.names").
+	implicits   map[string]struct{} // Record implicit keys (e.g. "key.group.names").
+	closedKeys  map[string]struct{} // Root-level inline tables that cannot be extended.
 }
 
 type keyInfo struct {
@@ -72,7 +73,8 @@ func parse(data string, maxNest int) (p *parser, err error) {
 		keyInfo:   make(map[string]keyInfo),
 		mapping:   make(map[string]any),
 		ordered:   make([]Key, 0),
-		implicits: make(map[string]struct{}),
+		implicits:  make(map[string]struct{}),
+		closedKeys: make(map[string]struct{}),
 	}
 	for {
 		item := p.next()
@@ -208,6 +210,9 @@ func (p *parser) topLevel(item item) {
 		val, typ := p.value(vItem, false)
 		p.setValue(p.currentKey, val)
 		p.setType(p.currentKey, typ, vItem.pos)
+		if typeEqual(typ, tomlInline) && len(p.context) == 0 {
+			p.closedKeys[p.currentKey] = struct{}{}
+		}
 
 		/// Remove the context we added (preserving any context from [tbl] lines).
 		p.context = outerContext
@@ -488,7 +493,7 @@ func (p *parser) valueInlineTable(it item, parentIsArray bool) (any, tomlType) {
 	}
 	p.context = outerContext
 	p.currentKey = outerKey
-	return topHash, tomlHash
+	return topHash, tomlInline
 }
 
 // numHasLeadingZero checks if this number has leading zeroes, allowing for '0',
@@ -578,6 +583,8 @@ func (p *parser) addContext(key Key, array bool) {
 			hashContext = t[len(t)-1]
 		case map[string]any:
 			hashContext = t
+		case []any:
+			p.panicf("Key '%s' is an array and cannot be extended.", keyContext)
 		default:
 			p.panicf("Key '%s' was already created as a hash.", keyContext)
 		}
@@ -634,6 +641,19 @@ func (p *parser) setValue(key string, value any) {
 	keyContext = append(keyContext, key)
 
 	if _, ok := hash[key]; ok {
+		if p.isArray(keyContext) {
+			switch hash[key].(type) {
+			case []any:
+				p.panicf("Key '%s' is an array and cannot be extended.", keyContext)
+			case []map[string]any:
+				if !p.isImplicit(keyContext) {
+					p.panicf("Key '%s' has already been defined.", keyContext)
+				}
+				p.removeImplicit(keyContext)
+				hash[key] = value
+				return
+			}
+		}
 		// Normally redefining keys isn't allowed, but the key could have been
 		// defined implicitly and it's allowed to be redefined concretely. (See
 		// the `valid/implicit-and-explicit-after.toml` in toml-test)
@@ -643,17 +663,11 @@ func (p *parser) setValue(key string, value any) {
 		//
 		// Note that since it has already been defined (as a hash), we don't
 		// want to overwrite it. So our business is done.
-		if p.isArray(keyContext) {
-			if !p.isImplicit(keyContext) {
-				if _, ok := hash[key]; ok {
-					p.panicf("Key '%s' has already been defined.", keyContext)
-				}
-			}
-			p.removeImplicit(keyContext)
-			hash[key] = value
-			return
-		}
 		if p.isImplicit(keyContext) {
+			// Only allow implicit->explicit promotion for tables.
+			if _, isHash := value.(map[string]any); !isHash {
+				p.panicf("Key '%s' has already been defined.", keyContext)
+			}
 			p.removeImplicit(keyContext)
 			return
 		}
@@ -690,8 +704,54 @@ func (p *parser) setType(key string, typ tomlType, pos Position) {
 func (p *parser) addImplicit(key Key)        { p.implicits[key.String()] = struct{}{} }
 func (p *parser) removeImplicit(key Key)     { delete(p.implicits, key.String()) }
 func (p *parser) isImplicit(key Key) bool    { _, ok := p.implicits[key.String()]; return ok }
-func (p *parser) isArray(key Key) bool       { return p.keyInfo[key.String()].tomlType == tomlArray }
-func (p *parser) addImplicitContext(key Key) { p.addImplicit(key); p.addContext(key, false) }
+func (p *parser) isArray(key Key) bool { return p.keyInfo[key.String()].tomlType == tomlArray }
+func (p *parser) isClosed(key Key) bool { _, ok := p.closedKeys[key.String()]; return ok }
+
+func (p *parser) keyDefined(key Key) bool {
+	_, ok := p.keyInfo[key.String()]
+	return ok
+}
+
+// valueAtKey returns the value stored at key, or nil if any part is missing.
+func (p *parser) valueAtKey(key Key) any {
+	hash := p.mapping
+	for i, k := range key {
+		v, ok := hash[k]
+		if !ok {
+			return nil
+		}
+		if i == len(key)-1 {
+			return v
+		}
+		switch t := v.(type) {
+		case map[string]any:
+			hash = t
+		case []map[string]any:
+			if len(t) == 0 {
+				return nil
+			}
+			hash = t[len(t)-1]
+		default:
+			return v
+		}
+	}
+	return nil
+}
+
+func (p *parser) addImplicitContext(key Key) {
+	switch p.valueAtKey(key).(type) {
+	case []any:
+		p.panicf("Key '%s' is an array and cannot be extended.", key)
+	case map[string]any:
+		if p.isClosed(key) {
+			p.panicf("Key '%s' was defined as an inline table and cannot be extended.", key)
+		}
+	}
+	if !p.keyDefined(key) || p.isImplicit(key) {
+		p.addImplicit(key)
+	}
+	p.addContext(key, false)
+}
 
 // current returns the full key name of the current context.
 func (p *parser) current() string {

@@ -221,6 +221,17 @@ func TestDecodeErrors(t *testing.T) {
 			`V.N = [1,2,3]`,
 			`toml: line 1 (last key "V.N"): expected array length 1; got TOML array of length 3`,
 		},
+		// Regression tests for #470: cannot extend arrays or inline tables.
+		{new(map[string]any), `a = []
+a.b = ''`, `toml: line 2 (last key "b"): Key 'a' is an array and cannot be extended.`},
+		{new(map[string]any), `a = {}
+a.b = ''`, `toml: line 2 (last key "b"): Key 'a' was defined as an inline table and cannot be extended.`},
+		{new(map[string]any), `[a.b]
+[a]
+b.c = ''`, `toml: line 3 (last key "a.c"): Key 'a.b' has already been defined.`},
+		// Regression test for #451: scalar redefining implicit table from dotted key.
+		{new(map[string]any), `a.b = 1
+a = 7`, `toml: line 2 (last key "a"): Key 'a' has already been defined.`},
 	}
 
 	for _, tt := range tests {
