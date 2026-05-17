@@ -333,6 +333,23 @@ func TestDecodeIntOverflow(t *testing.T) {
 	}
 }
 
+func TestDecodeCaseInsensitiveDuplicateKeys(t *testing.T) {
+	type cfg struct {
+		Fish string `toml:"fish"`
+	}
+	var conf cfg
+	_, err := Decode(`
+fish = "Cod"
+Fish = "Shark"
+`, &conf)
+	if err == nil {
+		t.Fatal("expected error for case-insensitive duplicate keys")
+	}
+	if !strings.Contains(err.Error(), `keys "fish" and "Fish"`) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestDecodeFloatOverflow(t *testing.T) {
 	tests := []struct {
 		value    string

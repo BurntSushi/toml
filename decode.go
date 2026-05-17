@@ -302,6 +302,20 @@ func (md *MetaData) unify(data any, rv reflect.Value) error {
 	return md.e("unsupported type %s", rv.Kind())
 }
 
+func fieldIndexKey(index []int) string {
+	if len(index) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for i, n := range index {
+		if i > 0 {
+			b.WriteByte('.')
+		}
+		b.WriteString(strconv.Itoa(n))
+	}
+	return b.String()
+}
+
 func (md *MetaData) unifyStruct(mapping any, rv reflect.Value) error {
 	tmap, ok := mapping.(map[string]any)
 	if !ok {
@@ -311,6 +325,7 @@ func (md *MetaData) unifyStruct(mapping any, rv reflect.Value) error {
 		return md.e("type mismatch for %s: expected table but found %s", rv.Type().String(), fmtType(mapping))
 	}
 
+	assigned := make(map[string]string)
 	for key, datum := range tmap {
 		var f *field
 		fields := cachedTypeFields(rv.Type())
@@ -325,6 +340,12 @@ func (md *MetaData) unifyStruct(mapping any, rv reflect.Value) error {
 			}
 		}
 		if f != nil {
+			fieldKey := fieldIndexKey(f.index)
+			if prev, ok := assigned[fieldKey]; ok {
+				return md.e("keys %q and %q both map to the field %q", prev, key, f.name)
+			}
+			assigned[fieldKey] = key
+
 			subv := rv
 			for _, i := range f.index {
 				subv = indirect(subv.Field(i))
