@@ -333,6 +333,23 @@ func TestDecodeIntOverflow(t *testing.T) {
 	}
 }
 
+func TestDecodeCaseInsensitiveDuplicateKeys(t *testing.T) {
+	type cfg struct {
+		Fish string `toml:"fish"`
+	}
+	var conf cfg
+	_, err := Decode(`
+fish = "Cod"
+Fish = "Shark"
+`, &conf)
+	if err == nil {
+		t.Fatal("expected error for case-insensitive duplicate keys")
+	}
+	if !strings.Contains(err.Error(), `keys "fish" and "Fish"`) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestDecodeFloatOverflow(t *testing.T) {
 	tests := []struct {
 		value    string
@@ -753,6 +770,35 @@ func TestDecodeDatetime(t *testing.T) {
 				t.Errorf("\nhave: %s\nwant: %s", h, w)
 			}
 		})
+	}
+}
+
+type decodeMapKeyID string
+
+func (id *decodeMapKeyID) UnmarshalText(b []byte) error {
+	*id = decodeMapKeyID(string(b))
+	return nil
+}
+
+type decodeMapKeyName string
+
+func TestDecodeMapKeyTextUnmarshaler(t *testing.T) {
+	var withUnmarshaler map[decodeMapKeyID]string
+	_, err := Decode(`foo = "bar"`, &withUnmarshaler)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if withUnmarshaler[decodeMapKeyID("foo")] != "bar" {
+		t.Fatalf("got %#v", withUnmarshaler)
+	}
+
+	var namedString map[decodeMapKeyName]string
+	_, err = Decode(`foo = "bar"`, &namedString)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if namedString[decodeMapKeyName("foo")] != "bar" {
+		t.Fatalf("got %#v", namedString)
 	}
 }
 

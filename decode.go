@@ -137,6 +137,7 @@ var (
 	unmarshalToml = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
 	unmarshalText = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
 	primitiveType = reflect.TypeOf((*Primitive)(nil)).Elem()
+	stringType    = reflect.TypeOf("")
 )
 
 // Decode TOML data in to the pointer `v`.
@@ -302,6 +303,20 @@ func (md *MetaData) unify(data any, rv reflect.Value) error {
 	return md.e("unsupported type %s", rv.Kind())
 }
 
+func fieldIndexKey(index []int) string {
+	if len(index) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for i, n := range index {
+		if i > 0 {
+			b.WriteByte('.')
+		}
+		b.WriteString(strconv.Itoa(n))
+	}
+	return b.String()
+}
+
 func (md *MetaData) unifyStruct(mapping any, rv reflect.Value) error {
 	tmap, ok := mapping.(map[string]any)
 	if !ok {
@@ -311,6 +326,7 @@ func (md *MetaData) unifyStruct(mapping any, rv reflect.Value) error {
 		return md.e("type mismatch for %s: expected table but found %s", rv.Type().String(), fmtType(mapping))
 	}
 
+	assigned := make(map[string]string)
 	for key, datum := range tmap {
 		var f *field
 		fields := cachedTypeFields(rv.Type())
@@ -325,6 +341,12 @@ func (md *MetaData) unifyStruct(mapping any, rv reflect.Value) error {
 			}
 		}
 		if f != nil {
+			fieldKey := fieldIndexKey(f.index)
+			if prev, ok := assigned[fieldKey]; ok {
+				return md.e("keys %q and %q both map to the field %q", prev, key, f.name)
+			}
+			assigned[fieldKey] = key
+
 			subv := rv
 			for _, i := range f.index {
 				subv = indirect(subv.Field(i))
@@ -347,11 +369,43 @@ func (md *MetaData) unifyStruct(mapping any, rv reflect.Value) error {
 	return nil
 }
 
+func typeImplementsTextUnmarshaler(t reflect.Type) bool {
+	return t.Implements(unmarshalText) || reflect.PointerTo(t).Implements(unmarshalText)
+}
+
+func (md *MetaData) unifyMapKey(keyTyp reflect.Type, k string) (reflect.Value, error) {
+	switch keyTyp.Kind() {
+	case reflect.Interface:
+		return reflect.ValueOf(k), nil
+	case reflect.String:
+		if keyTyp == stringType {
+			return reflect.ValueOf(k), nil
+		}
+		if typeImplementsTextUnmarshaler(keyTyp) {
+			if keyTyp.Implements(unmarshalText) {
+				v := reflect.New(keyTyp).Elem()
+				if err := md.unifyText(k, v.Addr().Interface().(encoding.TextUnmarshaler)); err != nil {
+					return reflect.Value{}, err
+				}
+				return v, nil
+			}
+			v := reflect.New(keyTyp)
+			if err := md.unifyText(k, v.Interface().(encoding.TextUnmarshaler)); err != nil {
+				return reflect.Value{}, err
+			}
+			return v.Elem(), nil
+		}
+		return reflect.ValueOf(k).Convert(keyTyp), nil
+	default:
+		return reflect.Value{}, fmt.Errorf("toml: cannot decode to a map with non-string key type (%s)", keyTyp)
+	}
+}
+
 func (md *MetaData) unifyMap(mapping any, rv reflect.Value) error {
-	keyType := rv.Type().Key().Kind()
-	if keyType != reflect.String && keyType != reflect.Interface {
+	keyTyp := rv.Type().Key()
+	if keyTyp.Kind() != reflect.String && keyTyp.Kind() != reflect.Interface {
 		return fmt.Errorf("toml: cannot decode to a map with non-string key type (%s in %q)",
-			keyType, rv.Type())
+			keyTyp.Kind(), rv.Type())
 	}
 
 	tmap, ok := mapping.(map[string]any)
@@ -376,13 +430,9 @@ func (md *MetaData) unifyMap(mapping any, rv reflect.Value) error {
 		}
 		md.context = md.context[0 : len(md.context)-1]
 
-		rvkey := indirect(reflect.New(rv.Type().Key()))
-
-		switch keyType {
-		case reflect.Interface:
-			rvkey.Set(reflect.ValueOf(k))
-		case reflect.String:
-			rvkey.SetString(k)
+		rvkey, err := md.unifyMapKey(keyTyp, k)
+		if err != nil {
+			return err
 		}
 
 		rv.SetMapIndex(rvkey, rvval)
