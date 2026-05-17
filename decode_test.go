@@ -1223,3 +1223,62 @@ func TestMaxTableNesting(t *testing.T) {
 		})
 	}
 }
+
+func TestDecodeHexBytes(t *testing.T) {
+	hash := "6501bc346e2ad6eecae3bcf7eee78ac21b1a03bdc4fda879a4d24793c1f08db7"
+	want, err := decodeHexBytes(hash)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("0x literal", func(t *testing.T) {
+		var s struct {
+			X []byte `toml:"x"`
+		}
+		if _, err := Decode(`x = 0x`+hash, &s); err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(s.X, want) {
+			t.Fatalf("got %x, want %x", s.X, want)
+		}
+	})
+
+	t.Run("hex string", func(t *testing.T) {
+		var s struct {
+			X []byte `toml:"x"`
+		}
+		if _, err := Decode(`x = "`+hash+`"`, &s); err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(s.X, want) {
+			t.Fatalf("got %x, want %x", s.X, want)
+		}
+	})
+
+	t.Run("fixed array", func(t *testing.T) {
+		var s struct {
+			X [32]byte `toml:"x"`
+		}
+		if _, err := Decode(`x = 0x`+hash, &s); err != nil {
+			t.Fatal(err)
+		}
+		var expect [32]byte
+		copy(expect[:], want)
+		if s.X != expect {
+			t.Fatalf("got %x, want %x", s.X, want)
+		}
+	})
+
+	t.Run("small int literal", func(t *testing.T) {
+		var s struct {
+			X []byte `toml:"x"`
+		}
+		if _, err := Decode(`x = 0xff`, &s); err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(s.X, []byte{0xff}) {
+			t.Fatalf("got %x, want ff", s.X)
+		}
+	})
+}
+

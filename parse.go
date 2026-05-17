@@ -292,6 +292,9 @@ func (p *parser) valueInteger(it item) (any, tomlType) {
 		// So mark the former as a bug but the latter as a legitimate user
 		// error.
 		if e, ok := err.(*strconv.NumError); ok && e.Err == strconv.ErrRange {
+			if b, ok := tryParseOversizedHexInteger(it.val); ok {
+				return b, p.typeOfPrimitive(it)
+			}
 			p.panicErr(it, errParseRange{i: it.val, size: "int64"})
 		} else {
 			p.bug("Expected integer value, but got '%s'.", it.val)

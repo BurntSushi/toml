@@ -275,6 +275,13 @@ func (md *MetaData) unify(data any, rv reflect.Value) error {
 
 	k := rv.Kind()
 
+	if (k == reflect.Slice || k == reflect.Array) && rv.Type().Elem().Kind() == reflect.Uint8 {
+		if k == reflect.Slice {
+			return md.unifyBytes(data, rv)
+		}
+		return md.unifyBytesArray(data, rv)
+	}
+
 	if k >= reflect.Int && k <= reflect.Uint64 {
 		return md.unifyInt(data, rv)
 	}
@@ -420,6 +427,60 @@ func (md *MetaData) unifySlice(data any, rv reflect.Value) error {
 	return md.unifySliceArray(datav, rv)
 }
 
+
+
+func (md *MetaData) unifyBytes(data any, rv reflect.Value) error {
+	b, err := md.byteSliceFromData(data)
+	if err != nil {
+		return err
+	}
+	if !rv.IsNil() && rv.Len() != len(b) {
+		rv.Set(reflect.MakeSlice(rv.Type(), len(b), len(b)))
+	} else if rv.IsNil() || rv.Cap() < len(b) {
+		rv.Set(reflect.MakeSlice(rv.Type(), len(b), len(b)))
+	} else {
+		rv.SetLen(len(b))
+	}
+	reflect.Copy(rv, reflect.ValueOf(b))
+	return nil
+}
+
+func (md *MetaData) unifyBytesArray(data any, rv reflect.Value) error {
+	b, err := md.byteSliceFromData(data)
+	if err != nil {
+		return err
+	}
+	if len(b) != rv.Len() {
+		return md.e("expected array length %d; got %d bytes", rv.Len(), len(b))
+	}
+	reflect.Copy(rv, reflect.ValueOf(b))
+	return nil
+}
+
+func (md *MetaData) byteSliceFromData(data any) ([]byte, error) {
+	switch v := data.(type) {
+	case []byte:
+		out := make([]byte, len(v))
+		copy(out, v)
+		return out, nil
+	case string:
+		return decodeHexBytes(v)
+	case int64:
+		if v < 0 {
+			return nil, md.badtype("[]byte", data)
+		}
+		if v == 0 {
+			return []byte{}, nil
+		}
+		s := strconv.FormatInt(v, 16)
+		if len(s)%2 != 0 {
+			s = "0" + s
+		}
+		return decodeHexBytes(s)
+	default:
+		return nil, md.badtype("[]byte", data)
+	}
+}
 func (md *MetaData) unifySliceArray(data, rv reflect.Value) error {
 	l := data.Len()
 	for i := 0; i < l; i++ {
