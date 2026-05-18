@@ -1223,3 +1223,23 @@ func TestMaxTableNesting(t *testing.T) {
 		})
 	}
 }
+
+func TestDecodeDuplicateCaseKey(t *testing.T) {
+	// Regression for #449: two TOML keys that differ only in case both map
+	// to the same struct field via the case-insensitive fallback. The
+	// result used to depend on Go's randomised map iteration order.
+	type out struct {
+		Fish string `toml:"fish"`
+	}
+	for i := 0; i < 20; i++ {
+		var got out
+		_, err := Decode("fish = \"Cod\"\nFish = \"Shark\"\n", &got)
+		if err != nil {
+			t.Fatalf("decode error: %v", err)
+		}
+		// Tagged exact-case match should win deterministically.
+		if got.Fish != "Cod" {
+			t.Fatalf("iter %d: Fish = %q, want \"Cod\"", i, got.Fish)
+		}
+	}
+}

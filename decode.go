@@ -10,6 +10,7 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -311,20 +312,53 @@ func (md *MetaData) unifyStruct(mapping any, rv reflect.Value) error {
 		return md.e("type mismatch for %s: expected table but found %s", rv.Type().String(), fmtType(mapping))
 	}
 
-	for key, datum := range tmap {
+	// When several TOML keys differ only in case, both could map to the
+	// same struct field via the case-insensitive fallback below. Go's map
+	// iteration order is randomised, so without help here the field would
+	// end up holding a non-deterministic one of the values. Prefer the
+	// exact-case match if there is one, otherwise pick the first by
+	// sorted key order.
+	keys := make([]string, 0, len(tmap))
+	for k := range tmap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	fields := cachedTypeFields(rv.Type())
+	exact := make(map[string]bool, len(fields))
+	for i := range fields {
+		if _, ok := tmap[fields[i].name]; ok {
+			exact[fields[i].name] = true
+		}
+	}
+	consumed := make(map[int]bool, len(fields))
+
+	for _, key := range keys {
+		datum := tmap[key]
 		var f *field
-		fields := cachedTypeFields(rv.Type())
+		var fIdx int
 		for i := range fields {
 			ff := &fields[i]
 			if ff.name == key {
 				f = ff
+				fIdx = i
 				break
 			}
 			if f == nil && strings.EqualFold(ff.name, key) {
+				// If an exact-case match exists for this field, defer
+				// to that key instead of using the case-insensitive one.
+				if exact[ff.name] {
+					continue
+				}
 				f = ff
+				fIdx = i
 			}
 		}
+		if f != nil && consumed[fIdx] {
+			f = nil
+		}
 		if f != nil {
+			consumed[fIdx] = true
 			subv := rv
 			for _, i := range f.index {
 				subv = indirect(subv.Field(i))
