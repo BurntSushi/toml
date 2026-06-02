@@ -27,6 +27,7 @@ type parser struct {
 type keyInfo struct {
 	pos      Position
 	tomlType tomlType
+	inline   bool // True if this value was defined as an inline array or table
 }
 
 func parse(data string, maxNest int) (p *parser, err error) {
@@ -198,6 +199,19 @@ func (p *parser) topLevel(item item) {
 		/// All the other parts (if any) are the context; need to set each part
 		/// as implicit.
 		context := key.parent()
+
+		// Check if any parent key was defined as an inline array or table.
+		// If so, we cannot add keys to it.
+		for i := range context {
+			checkKey := append(p.context, context[i:i+1]...)
+			if ki, exists := p.keyInfo[checkKey.String()]; exists {
+				if ki.inline {
+					p.panicf("Key '%s' was already created as an inline %s and cannot have more keys added to it.",
+						checkKey, ki.tomlType.typeString())
+				}
+			}
+		}
+
 		for i := range context {
 			p.addImplicitContext(append(p.context, context[i:i+1]...))
 		}
@@ -207,7 +221,13 @@ func (p *parser) topLevel(item item) {
 		vItem := p.next()
 		val, typ := p.value(vItem, false)
 		p.setValue(p.currentKey, val)
-		p.setType(p.currentKey, typ, vItem.pos)
+		// Inline arrays and inline tables are marked as such
+		isInline := typeEqual(typ, tomlArray) || typeEqual(typ, tomlHash)
+		if isInline {
+			p.setTypeInline(p.currentKey, typ, vItem.pos, true)
+		} else {
+			p.setType(p.currentKey, typ, vItem.pos)
+		}
 
 		/// Remove the context we added (preserving any context from [tbl] lines).
 		p.context = outerContext
@@ -397,7 +417,7 @@ func missingLeadingZero(d, l string) bool {
 }
 
 func (p *parser) valueArray(it item) (any, tomlType) {
-	p.setType(p.currentKey, tomlArray, it.pos)
+	p.setTypeInline(p.currentKey, tomlArray, it.pos, true)
 
 	var (
 		// Initialize to a non-nil slice to make it consistent with how S = []
@@ -583,6 +603,22 @@ func (p *parser) addContext(key Key, array bool) {
 		}
 	}
 
+	// Check if we're trying to add keys to something that was defined as inline.
+	// Inline arrays and tables cannot have keys added to them later.
+	if len(key) > 1 {
+		// key.parent() gives us everything except the last element.
+		// We need to check each parent to ensure it wasn't defined as inline.
+		for i := 1; i < len(key); i++ {
+			parentKey := key[:i]
+			if ki, exists := p.keyInfo[parentKey.String()]; exists {
+				if ki.inline {
+					p.panicf("Key '%s' was already created as an inline %s and cannot have more keys added to it.",
+						parentKey, ki.tomlType.typeString())
+				}
+			}
+		}
+	}
+
 	p.context = keyContext
 	if array {
 		// If this is the first element for this array, then allocate a new
@@ -671,6 +707,10 @@ func (p *parser) setValue(key string, value any) {
 // Note that if `key` is empty, then the type given will be applied to the
 // current context (which is either a table or an array of tables).
 func (p *parser) setType(key string, typ tomlType, pos Position) {
+	p.setTypeInline(key, typ, pos, false)
+}
+
+func (p *parser) setTypeInline(key string, typ tomlType, pos Position, inline bool) {
 	keyContext := make(Key, 0, len(p.context)+1)
 	keyContext = append(keyContext, p.context...)
 	if len(key) > 0 { // allow type setting for hashes
@@ -682,7 +722,7 @@ func (p *parser) setType(key string, typ tomlType, pos Position) {
 	if len(keyContext) == 0 {
 		keyContext = Key{""}
 	}
-	p.keyInfo[keyContext.String()] = keyInfo{tomlType: typ, pos: pos}
+	p.keyInfo[keyContext.String()] = keyInfo{tomlType: typ, pos: pos, inline: inline}
 }
 
 // Implicit keys need to be created when tables are implied in "a.b.c.d = 1" and
