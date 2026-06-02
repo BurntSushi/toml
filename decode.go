@@ -512,9 +512,10 @@ func (md *MetaData) unifyInt(data any, rv reflect.Value) error {
 		rv.SetInt(num)
 	case rvk >= reflect.Uint && rvk <= reflect.Uint64:
 		unum := uint64(num)
-		if rvk == reflect.Uint8 && (num < 0 || unum > math.MaxUint8) ||
-			rvk == reflect.Uint16 && (num < 0 || unum > math.MaxUint16) ||
-			rvk == reflect.Uint32 && (num < 0 || unum > math.MaxUint32) {
+		if num < 0 ||
+			rvk == reflect.Uint8 && unum > math.MaxUint8 ||
+			rvk == reflect.Uint16 && unum > math.MaxUint16 ||
+			rvk == reflect.Uint32 && unum > math.MaxUint32 {
 			return md.parseErr(errParseRange{i: num, size: rvk.String()})
 		}
 		rv.SetUint(unum)
