@@ -165,6 +165,16 @@ func TestDecodeErrors(t *testing.T) {
 			`toml: line 1 (last key "V"): 999999999999999 is out of the safe float32 range`,
 		},
 		{
+			&struct{ V uint64 }{},
+			`V = -1`,
+			`toml: line 1 (last key "V"): -1 is out of range for uint64`,
+		},
+		{
+			&struct{ V uint }{},
+			`V = -5`,
+			`toml: line 1 (last key "V"): -5 is out of range for uint`,
+		},
+		{
 			&struct{ V string }{},
 			`V = 5`,
 			`toml: line 1 (last key "V"): incompatible types: TOML value has type int64; destination has type string`,
