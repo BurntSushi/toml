@@ -231,13 +231,34 @@ func TestDecodeErrors(t *testing.T) {
 			`V.N = [1,2,3]`,
 			`toml: line 1 (last key "V.N"): expected array length 1; got TOML array of length 3`,
 		},
+		{
+			&struct{ Value int8 }{},
+			`value = 500`,
+			`toml: line 1 (last key "value"): 500 is out of range for int8`,
+		},
+
+		// Make sure int overflows on 32bit systems on >32bit values. Note this test
+		// should only fail on 32bit systems.
+		{
+			&struct{ Value int }{},
+			fmt.Sprintf(`value = %d`, math.MaxInt32+int64(1)),
+			map[int]string{32: `toml: line 1 (last key "value"): 2147483648 is out of range for int`}[strconv.IntSize],
+		},
+		{
+			&struct{ Value uint }{},
+			fmt.Sprintf(`value = %d`, math.MaxUint32+int64(1)),
+			map[int]string{32: `toml: line 1 (last key "value"): 4294967296 is out of range for uint`}[strconv.IntSize],
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
 			_, err := Decode(tt.toml, tt.s)
-			if err == nil {
+			if err == nil && tt.wantErr != "" {
 				t.Fatal("err is nil")
+			}
+			if tt.wantErr == "" {
+				return
 			}
 			if err.Error() != tt.wantErr {
 				t.Errorf("\nhave: %q\nwant: %q", err, tt.wantErr)
@@ -247,14 +268,14 @@ func TestDecodeErrors(t *testing.T) {
 }
 
 func TestDecodeIgnoreFields(t *testing.T) {
-	const input = `
-Number = 123
-- = 234
-`
 	var s struct {
 		Number int `toml:"-"`
 	}
-	if _, err := Decode(input, &s); err != nil {
+	_, err := Decode(`
+		Number = 123
+		- = 234
+	 `, &s)
+	if err != nil {
 		t.Fatal(err)
 	}
 	if s.Number != 0 {
@@ -285,24 +306,23 @@ func TestDecodePointers(t *testing.T) {
 		BaseObject: &Object{"BASE", "da base"},
 	}
 
-	ex1 := `
-Strptr = "blah"
-Strptrs = ["abc", "def"]
-
-[NamedObject.foo]
-Type = "FOO"
-Description = "fooooo!!!"
-
-[NamedObject.bar]
-Type = "BAR"
-Description = "ba-ba-ba-ba-barrrr!!!"
-
-[BaseObject]
-Type = "BASE"
-Description = "da base"
-`
 	dict := new(Dict)
-	_, err := Decode(ex1, dict)
+	_, err := Decode(`
+		Strptr = "blah"
+		Strptrs = ["abc", "def"]
+
+		[NamedObject.foo]
+		Type = "FOO"
+		Description = "fooooo!!!"
+
+		[NamedObject.bar]
+		Type = "BAR"
+		Description = "ba-ba-ba-ba-barrrr!!!"
+
+		[BaseObject]
+		Type = "BASE"
+		Description = "da base"
+	`, dict)
 	if err != nil {
 		t.Errorf("Decode error: %v", err)
 	}
@@ -330,16 +350,6 @@ func TestDecodeArrayWrongSize(t *testing.T) {
 	var s1 sphere
 	if _, err := Decode(`center = [0.1, 2.3]`, &s1); err == nil {
 		t.Fatal("Expected array type mismatch error")
-	}
-}
-
-func TestDecodeIntOverflow(t *testing.T) {
-	type table struct {
-		Value int8
-	}
-	var tab table
-	if _, err := Decode(`value = 500`, &tab); err == nil {
-		t.Fatal("Expected integer out-of-bounds error.")
 	}
 }
 
