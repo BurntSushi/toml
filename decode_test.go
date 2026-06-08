@@ -814,6 +814,35 @@ func TestDecodeTextUnmarshaler(t *testing.T) {
 	}
 }
 
+// recordText is a TextUnmarshaler that keeps the exact bytes it was handed.
+type recordText struct{ text string }
+
+func (r *recordText) UnmarshalText(b []byte) error { r.text = string(b); return nil }
+
+func TestDecodeTextUnmarshalerFloat(t *testing.T) {
+	tests := []struct {
+		toml string
+		want string
+	}{
+		{"v = 3.141592653589793", "3.141592653589793"},
+		{"v = 1e-10", "1e-10"},
+		{"v = 1.5e300", "1.5e+300"},
+		{"v = 0.1", "0.1"},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			var s struct{ V recordText }
+			if _, err := Decode(tt.toml, &s); err != nil {
+				t.Fatal(err)
+			}
+			if s.V.text != tt.want {
+				t.Errorf("\nhave: %s\nwant: %s", s.V.text, tt.want)
+			}
+		})
+	}
+}
+
 func TestDecodeDuration(t *testing.T) {
 	tests := []struct {
 		in                  any
