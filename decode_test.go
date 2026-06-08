@@ -344,12 +344,11 @@ func TestDecodeIntOverflow(t *testing.T) {
 }
 
 // A value that fits int64 but not a 32-bit int/uint must still be rejected when
-// decoding into the platform-sized int/uint kinds, not silently truncated.
+// decoding into the platform-sized int/uint kinds, not silently truncated. The
+// thresholds differ per kind: int wraps past MaxInt32, uint past MaxUint32.
 func TestDecodeIntPlatformOverflow(t *testing.T) {
-	const v = math.MaxInt32 + int64(1)
-
 	var i struct{ Value int }
-	_, err := Decode(fmt.Sprintf(`value = %d`, v), &i)
+	_, err := Decode(fmt.Sprintf(`value = %d`, math.MaxInt32+int64(1)), &i)
 	if strconv.IntSize == 32 {
 		if err == nil {
 			t.Fatalf("int: expected out-of-range error on %d-bit int, got value %d", strconv.IntSize, i.Value)
@@ -359,7 +358,7 @@ func TestDecodeIntPlatformOverflow(t *testing.T) {
 	}
 
 	var u struct{ Value uint }
-	_, err = Decode(fmt.Sprintf(`value = %d`, v), &u)
+	_, err = Decode(fmt.Sprintf(`value = %d`, math.MaxUint32+int64(1)), &u)
 	if strconv.IntSize == 32 {
 		if err == nil {
 			t.Fatalf("uint: expected out-of-range error on %d-bit uint, got value %d", strconv.IntSize, u.Value)
