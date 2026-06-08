@@ -562,7 +562,7 @@ func (md *MetaData) unifyText(data any, v encoding.TextUnmarshaler) error {
 	case int64:
 		s = fmt.Sprintf("%d", sdata)
 	case float64:
-		s = fmt.Sprintf("%f", sdata)
+		s = strconv.FormatFloat(sdata, 'g', -1, 64)
 	default:
 		return md.badtype("primitive (string-like)", data)
 	}
