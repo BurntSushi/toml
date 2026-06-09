@@ -654,8 +654,15 @@ func (p *parser) setValue(key string, value any) {
 			return
 		}
 		if p.isImplicit(keyContext) {
-			p.removeImplicit(keyContext)
-			return
+			// An implicit key (created by a dotted key like "a.b" or a [table]
+			// header) always names a table. It may be made explicit later, but
+			// only as a table. A non-table value here means the same key was
+			// used both as a table and as a scalar, which is a conflict.
+			if _, ok := value.(map[string]any); ok {
+				p.removeImplicit(keyContext)
+				return
+			}
+			p.panicf("Key '%s' has already been defined.", keyContext)
 		}
 		// Otherwise, we have a concrete key trying to override a previous key,
 		// which is *always* wrong.

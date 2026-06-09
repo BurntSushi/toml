@@ -231,6 +231,16 @@ func TestDecodeErrors(t *testing.T) {
 			`V.N = [1,2,3]`,
 			`toml: line 1 (last key "V.N"): expected array length 1; got TOML array of length 3`,
 		},
+		{
+			&map[string]any{},
+			"a.b = \"hello\"\na = 7",
+			`toml: line 2 (last key "a"): Key 'a' has already been defined.`,
+		},
+		{
+			&map[string]any{},
+			"[tbl]\na.b = 1\na = 2",
+			`toml: line 3 (last key "tbl.a"): Key 'tbl.a' has already been defined.`,
+		},
 	}
 
 	for _, tt := range tests {
