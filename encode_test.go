@@ -25,15 +25,15 @@ func TestRoundtrip(t *testing.T) {
 		LargeFloat float64   `toml:"large_float"`
 	}
 
-	doc := `
-age = 13
-cats = ["one", "two", "three"]
-pi = 3.145
-perfection = [11, 2, 3, 4]
-dob = 2012-01-02T15:16:17Z
-ip = "192.168.59.254"
-large_float = 5e+22
-`[1:]
+	doc := strings.ReplaceAll(`
+		age = 13
+		cats = ["one", "two", "three"]
+		pi = 3.145
+		perfection = [11, 2, 3, 4]
+		dob = 2012-01-02T15:16:17Z
+		ip = "192.168.59.254"
+		large_float = 5e+22
+	`[1:], "\t", "")
 
 	want := scan{
 		Age:        13,
@@ -60,6 +60,43 @@ large_float = 5e+22
 	}
 	if string(out) != doc {
 		t.Errorf("\nhave:\n%v\nwant:\n%v", string(out), doc)
+	}
+}
+
+// local date types have no offset – encoding must emit the wall clock value as
+// present in the time.Time.
+//
+// Previously the encoder shifted them to UTC first, which corrupted the value
+// on any machine not in UTC (e.g. a local time of "07:32:00" was emitted as
+// "11:32:00" in UTC-4).
+func TestEncodeRoundtripLocalDatetime(t *testing.T) {
+	docs := []string{
+		"d = 1987-07-05T17:45:00\n",
+		"d = 1977-12-21T10:32:00.555\n",
+		"d = 1987-07-05\n",
+		"d = 17:45:00\n",
+		"d = 10:32:00.555\n",
+		"d = 2024-03-10T23:30:00\n", // Near a day boundary, a UTC shift could even roll the date over.
+		"d = 23:30:00\n",
+	}
+	for _, doc := range docs {
+		t.Run("", func(t *testing.T) {
+			var m map[string]any
+			_, err := Decode(doc, &m)
+			if err != nil {
+				t.Fatalf("decode %q: %s", doc, err)
+			}
+
+			var buf bytes.Buffer
+			err = NewEncoder(&buf).Encode(m)
+			if err != nil {
+				t.Fatalf("encode %q: %s", doc, err)
+			}
+
+			if buf.String() != doc {
+				t.Errorf("\nhave: %q\nwant: %q", buf.String(), doc)
+			}
+		})
 	}
 }
 

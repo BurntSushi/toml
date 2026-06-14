@@ -226,12 +226,7 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 		case internal.LocalTime:
 			format = "15:04:05.999999999"
 		}
-		switch v.Location() {
-		default:
-			enc.write(v.Format(format))
-		case internal.LocalDatetime, internal.LocalDate, internal.LocalTime:
-			enc.write(v.In(time.UTC).Format(format))
-		}
+		enc.write(v.Format(format))
 		return
 	case Marshaler:
 		s, err := v.MarshalTOML()
