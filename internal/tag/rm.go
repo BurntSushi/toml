@@ -100,12 +100,15 @@ func untag(typed map[string]any) (any, error) {
 }
 
 func parseTime(v, format string, l *time.Location) (time.Time, error) {
-	t, err := time.Parse(format, v)
+	if l == nil {
+		l = time.UTC
+	}
+	// Parse the wall-clock value directly into the target location, matching
+	// how the decoder builds local datetimes/dates/times. Using time.Parse and
+	// then .In(l) would instead shift the value by l's offset.
+	t, err := time.ParseInLocation(format, v, l)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("could not parse %q as a datetime: %w", v, err)
-	}
-	if l != nil {
-		t = t.In(l)
 	}
 	return t, nil
 }
