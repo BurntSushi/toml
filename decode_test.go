@@ -344,8 +344,11 @@ func TestDecodeIntOverflow(t *testing.T) {
 }
 
 // A value that fits int64 but not a 32-bit int/uint must still be rejected when
-// decoding into the platform-sized int/uint kinds, not silently truncated. The
-// thresholds differ per kind: int wraps past MaxInt32, uint past MaxUint32.
+// decoding into the platform-sized int/uint kinds, not silently truncated. This
+// only bites on a 32-bit build, where int/uint are 32 bits wide; on a 64-bit
+// build both values fit, so the decode succeeds and the assertion is a no-op,
+// hence the strconv.IntSize gate. The thresholds also differ per kind: int wraps
+// past MaxInt32, uint past MaxUint32.
 func TestDecodeIntPlatformOverflow(t *testing.T) {
 	var i struct{ Value int }
 	_, err := Decode(fmt.Sprintf(`value = %d`, math.MaxInt32+int64(1)), &i)
