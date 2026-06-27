@@ -231,6 +231,16 @@ func TestDecodeErrors(t *testing.T) {
 			`V.N = [1,2,3]`,
 			`toml: line 1 (last key "V.N"): expected array length 1; got TOML array of length 3`,
 		},
+		{
+			&map[string]any{},
+			"a.b = \"hello\"\na = 7",
+			`toml: line 2 (last key "a"): Key 'a' has already been defined.`,
+		},
+		{
+			&map[string]any{},
+			"[tbl]\na.b = 1\na = 2",
+			`toml: line 3 (last key "tbl.a"): Key 'tbl.a' has already been defined.`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -243,6 +253,23 @@ func TestDecodeErrors(t *testing.T) {
 				t.Errorf("\nhave: %q\nwant: %q", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+// An inline table inside an array marks its array key implicit, and an empty
+// key inside that table records its type against the parent key. Together that
+// made the implicit-redefinition check above reject the array as if it were a
+// scalar overwriting a table. It's a valid array of tables, not a redefinition.
+func TestDecodeImplicitArrayNotRedefined(t *testing.T) {
+	for _, in := range []string{
+		`l = [{"" = 0}]`,
+		`l = [{"" = 0}, 1]`,
+		`l = [{"" = {"" = 0}}, 1]`,
+	} {
+		var v any
+		if _, err := Decode(in, &v); err != nil {
+			t.Errorf("%q: unexpected error: %s", in, err)
+		}
 	}
 }
 
