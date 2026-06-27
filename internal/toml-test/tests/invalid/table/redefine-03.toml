@@ -1,3 +1,4 @@
+# Define t2.t3 as a table via dotted key in [t1] block, and then redefine [t1.t2.t3]
 [t1]
 t2.t3.v = 0
 [t1.t2.t3]

@@ -40,3 +40,9 @@ invalid-bin = 0b0012
 capital-hex = 0X1
 capital-oct = 0O0
 capital-bin = 0B0
+
+# U+0660 ARABIC-INDIC DIGIT ZERO; accepted by e.g. Python's int('1٠')
+arabic-zero-01 = 1٠
+arabic-zero-02 = 1_0٠
+arabic-zero-03 = ٠.1
+arabic-zero-04 = ٠e0

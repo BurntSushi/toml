@@ -1,8 +1,10 @@
-lower = 3e2
-upper = 3E2
-neg = 3e-2
-pos = 3E+2
-zero = 3e0
-pointlower = 3.1e2
-pointupper = 3.1E2
-minustenth = -1E-1
+# Please keep exponent-upper.toml in sync with this.
+
+exp       = 3e2
+pos-exp   = 3e+2
+neg-exp   = 3e-2
+zero-exp  = 3e0
+frac      = 3.1e2
+neg       = -1e-1
+zero      = 0e2
+zero-plus = +0e2

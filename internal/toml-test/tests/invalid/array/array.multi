@@ -16,3 +16,8 @@ no-close-05 = [{ key = 42}
 no-close-06 = [{ key = 42 #}]
 no-close-07 = [{ key = 42} #]
 no-close-08 = [
+
+no-close-table-01 = [{ key = 42
+no-close-table-02 = [{ key = 42 #
+no-close-table-03 = [1,{a=1]
+no-close-table-04 = [1,{2]

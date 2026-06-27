@@ -1,0 +1,5 @@
+{
+    "table": {
+        "a": {"type": "integer", "value": "1"}
+    }
+}
