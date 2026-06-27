@@ -31,6 +31,7 @@ var versions = map[string]versionSpec{
 			"valid/datetime/no-seconds", // Times without seconds
 			"valid/inline-table/newline",
 			"valid/inline-table/newline-comment",
+			"invalid/control/multi-cr", "invalid/control/rawmulti-cr", // See #174
 		},
 	},
 }

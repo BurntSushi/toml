@@ -21,14 +21,14 @@ import (
 func (r Test) CompareTOML(want, have any) Test {
 	if isTomlValue(want) {
 		if !isTomlValue(have) {
-			return r.fail("Type for key %q differs:\n"+
+			return r.failf("Type for key %q differs:\n"+
 				"  Expected:     %s (%s)\n"+
 				"  Your encoder: %s (%s)",
 				r.Key, fmtVal(want), fmtType(want), fmtVal(have), fmtType(have))
 		}
 
 		if !deepEqual(want, have) {
-			return r.fail("Values for key %q differ:\n"+
+			return r.failf("Values for key %q differ:\n"+
 				"  Expected:     %s (%s)\n"+
 				"  Your encoder: %s (%s)",
 				r.Key, fmtVal(want), fmtType(want), fmtVal(have), fmtType(have))
@@ -48,7 +48,7 @@ func (r Test) CompareTOML(want, have any) Test {
 	case []any:
 		return r.cmpTOMLArrays(w, have)
 	default:
-		return r.fail("Unrecognized TOML structure: %s", fmtType(want))
+		return r.failf("Unrecognized TOML structure: %s", fmtType(want))
 	}
 }
 
@@ -64,13 +64,13 @@ func (r Test) cmpTOMLMap(want map[string]any, have any) Test {
 	for _, k := range wantKeys {
 		if _, ok := haveMap[k]; !ok {
 			bunk := r.kjoin(k)
-			return bunk.fail("Could not find key %q in encoder output", bunk.Key)
+			return bunk.failf("Could not find key %q in encoder output", bunk.Key)
 		}
 	}
 	for _, k := range haveKeys {
 		if _, ok := want[k]; !ok {
 			bunk := r.kjoin(k)
-			return bunk.fail("Could not find key %q in expected output", bunk.Key)
+			return bunk.failf("Could not find key %q in expected output", bunk.Key)
 		}
 	}
 
@@ -102,7 +102,7 @@ func (r Test) cmpTOMLArrays(want []any, have any) Test {
 	}
 
 	if len(want) != len(haveSlice) {
-		return r.fail("Array lengths differ for key %q"+
+		return r.failf("Array lengths differ for key %q"+
 			"  Expected:     %[2]v (len=%[4]d)\n"+
 			"  Your encoder: %[3]v (len=%[5]d)",
 			r.Key, want, haveSlice, len(want), len(haveSlice))
@@ -160,7 +160,7 @@ func fmtHashV(t any) string { return strings.ReplaceAll(fmt.Sprintf("%#v", t), "
 func fmtVal(v any) string {
 	switch vv := v.(type) {
 	case float64:
-		return strconv.FormatFloat(vv, 'f', -1, 64)
+		return strconv.FormatFloat(vv, 'g', -1, 64)
 	default:
 		return fmt.Sprintf("%v", vv)
 	}

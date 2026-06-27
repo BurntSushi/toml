@@ -47,3 +47,9 @@ nan-incomplete-03 = -na
 
 nan_underscore = na_n
 inf_underscore = in_f
+
+# U+0660 ARABIC-INDIC DIGIT ZERO; accepted by e.g. Python's int('1٠')
+arabic-zero-01 = 1.٠
+arabic-zero-02 = ٠
+arabic-zero-03 = 1e٠
+arabic-zero-04 = +٠

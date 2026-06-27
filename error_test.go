@@ -68,7 +68,7 @@ At line 1, column 7:
       1 | key = 
                 ^`},
 	}
-	fsys := tomltest.EmbeddedTests()
+	fsys := tomltest.TestCases()
 	for _, tt := range tests {
 		t.Run(tt.test, func(t *testing.T) {
 			input, err := fs.ReadFile(fsys, "invalid/"+tt.test)

@@ -10,12 +10,14 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
+	"testing/fstest"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -25,20 +27,59 @@ type testType uint8
 
 const (
 	TypeValid testType = iota
+	TypeEncoder
 	TypeInvalid
 )
+
+const DefaultVersion = "1.0.0"
 
 //go:embed tests/*
 var embeddedTests embed.FS
 
-// EmbeddedTests are the tests embedded in toml-test, rooted to the "test/"
-// directory.
-func EmbeddedTests() fs.FS {
+// TestCases embedded in toml-test, rooted to the "test/" directory.
+func TestCases() fs.FS {
 	f, err := fs.Sub(embeddedTests, "tests")
 	if err != nil {
 		panic(err)
 	}
-	return f
+
+	fsys := make(fstest.MapFS)
+	err = fs.WalkDir(f, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		fi, err := d.Info()
+		if err != nil {
+			return err
+		}
+		var data []byte
+		if !d.IsDir() {
+			data, err = fs.ReadFile(f, path)
+			if err != nil {
+				return err
+			}
+		}
+
+		fsys[path] = &fstest.MapFile{
+			Data:    data,
+			Mode:    fi.Mode(),
+			ModTime: fi.ModTime(),
+			Sys:     fi.Sys(),
+		}
+		if strings.HasPrefix(path, "valid") {
+			fsys["encoder"+path[5:]] = &fstest.MapFile{
+				Data:    data,
+				Mode:    fi.Mode(),
+				ModTime: fi.ModTime(),
+				Sys:     fi.Sys(),
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		panic(err)
+	}
+	return fsys
 }
 
 // Runner runs a set of tests.
@@ -46,69 +87,81 @@ func EmbeddedTests() fs.FS {
 // The validity of the parameters is not checked extensively; the caller should
 // verify this if need be. See ./cmd/toml-test for an example.
 type Runner struct {
-	Files      fs.FS             // Test files.
-	Encoder    bool              // Are we testing an encoder?
-	RunTests   []string          // Tests to run; run all if blank.
-	SkipTests  []string          // Tests to skip.
-	Parser     Parser            // Send data to a parser.
-	Version    string            // TOML version to run tests for.
-	Parallel   int               // Number of tests to run in parallel
-	Timeout    time.Duration     // Maximum time for parse.
-	IntAsFloat bool              // Int values have type=float.
-	Errors     map[string]string // Expected errors list.
+	Files         fs.FS  // Test files.
+	Decoder       Parser // Send data to a parser.
+	Encoder       Parser
+	RunTests      []string          // Tests to run; run all if blank.
+	SkipTests     []string          // Tests to skip.
+	Version       string            // TOML version to run tests for.
+	Parallel      int               // Number of tests to run in parallel
+	Timeout       time.Duration     // Maximum time for parse.
+	IntAsFloat    bool              // Int values have type=float.
+	Errors        map[string]string // Expected errors list.
+	SkipMustError bool              // Tests in SkipTests must fail. Useful for CI.
+}
+
+func NewRunner(r Runner) Runner {
+	if r.Version == "" || r.Version == "1.0" {
+		r.Version = "1.0.0"
+	} else if r.Version == "1.1" {
+		r.Version = "1.1.0"
+	} else if r.Version == "latest" {
+		r.Version = "1.1.0"
+	}
+	if r.Files == nil {
+		r.Files = TestCases()
+	}
+	return r
 }
 
 // A Parser instance is used to call the TOML parser we test.
 //
 // By default this is done through an external command.
 type Parser interface {
-	// Encode a JSON string to TOML.
+	// Run a parser command (decoder or encoder).
 	//
-	// The output is the TOML string; if outputIsError is true then it's assumed
-	// that an encoding error occurred.
+	// If outputIsError is true then it's assumed that an encoding error
+	// occurred.
 	//
 	// An error return should only be used in case an unrecoverable error
 	// occurred; failing to encode to TOML is not an error, but the encoder
 	// unexpectedly panicking is.
-	Encode(ctx context.Context, jsonInput string) (output string, outputIsError bool, err error)
+	Run(ctx context.Context, input string) (pid int, output string, outputIsError bool, err error)
 
-	// Decode a TOML string to JSON. The same semantics as Encode apply.
-	Decode(ctx context.Context, tomlInput string) (output string, outputIsError bool, err error)
-}
-
-// CommandParser calls an external command.
-type CommandParser struct {
-	fsys fs.FS
-	cmd  []string
+	Cmd() []string
 }
 
 // Tests are tests to run.
 type Tests struct {
-	Tests []Test
+	Tests []Test `json:"tests"`
 
 	// Set when test are run.
 
-	Skipped                      int
-	PassedValid, FailedValid     int
-	PassedInvalid, FailedInvalid int
+	Skipped       int `json:"skipped"`
+	PassedValid   int `json:"passed_valid"`
+	FailedValid   int `json:"failed_valid"`
+	PassedInvalid int `json:"passed_invalid"`
+	FailedInvalid int `json:"failed_invalid"`
+	PassedEncoder int `json:"passed_encoder"`
+	FailedEncoder int `json:"failed_encoder"`
 }
 
 // Result is the result of a single test.
 type Test struct {
-	Path string // Path of test, e.g. "valid/string-test"
+	Path string `json:"path"` // Path of test, e.g. "valid/string-test"
 
 	// Set when a test is run.
 
-	Skipped          bool          // Skipped this test?
-	Failure          string        // Failure message.
-	Key              string        // TOML key the failure occured on; may be blank.
-	Encoder          bool          // Encoder test?
-	Input            string        // The test case that we sent to the external program.
-	Output           string        // Output from the external program.
-	Want             string        // The output we want.
-	OutputFromStderr bool          // The Output came from stderr, not stdout.
-	Timeout          time.Duration // Maximum time for parse.
-	IntAsFloat       bool          // Int values have type=float.
+	Skipped          bool          `json:"skipped"`            // Skipped this test?
+	Failure          string        `json:"failure"`            // Failure message.
+	Key              string        `json:"key"`                // TOML key the failure occured on; may be blank.
+	Input            string        `json:"input"`              // The test case that we sent to the external program.
+	Output           string        `json:"output"`             // Output from the external program.
+	Want             string        `json:"want"`               // The output we want.
+	OutputFromStderr bool          `json:"output_from_stderr"` // The Output came from stderr, not stdout.
+	PID              int           `json:"pid"`                // PID from test run.
+	Timeout          time.Duration `json:"-"`                  // Maximum time for parse.
+	IntAsFloat       bool          `json:"-"`                  // Int values have type=float.
 }
 
 type timeoutError struct{ d time.Duration }
@@ -119,9 +172,6 @@ func (err timeoutError) Error() string {
 
 // List all tests in Files for the current TOML version.
 func (r Runner) List() ([]string, error) {
-	if r.Version == "" {
-		r.Version = "1.0.0"
-	}
 	if _, ok := versions[r.Version]; !ok {
 		v := make([]string, 0, len(versions))
 		for k := range versions {
@@ -137,6 +187,11 @@ func (r Runner) List() ([]string, error) {
 		exclude = make([]string, 0, 8)
 	)
 	for {
+		for _, vv := range v.exclude {
+			if strings.HasPrefix(vv, "valid") {
+				v.exclude = append(v.exclude, "encoder"+vv[5:])
+			}
+		}
 		exclude = append(exclude, v.exclude...)
 		if v.inherit == "" {
 			break
@@ -146,14 +201,14 @@ func (r Runner) List() ([]string, error) {
 
 	ls := make([]string, 0, 256)
 	if err := r.findTOML("valid", &ls, exclude); err != nil {
-		return nil, fmt.Errorf("reading 'valid/' dir: %w", err)
+		return nil, fmt.Errorf(`reading "valid/": %w`, err)
 	}
-
-	d := "invalid" + map[bool]string{true: "-encoder", false: ""}[r.Encoder]
-	if err := r.findTOML(d, &ls, exclude); err != nil {
-		return nil, fmt.Errorf("reading %q dir: %w", d, err)
+	if err := r.findTOML("encoder", &ls, exclude); err != nil {
+		return nil, fmt.Errorf(`reading "encoder/": %w`, err)
 	}
-
+	if err := r.findTOML("invalid", &ls, exclude); err != nil {
+		return nil, fmt.Errorf(`reading "invalid/": %w`, err)
+	}
 	return ls, nil
 }
 
@@ -196,14 +251,15 @@ func (r Runner) Run() (Tests, error) {
 		mu    sync.Mutex
 	)
 	for _, p := range r.RunTests {
-		invalid := strings.Contains(p, "invalid/")
 		t := Test{
 			Path:       p,
-			Encoder:    r.Encoder,
 			Timeout:    r.Timeout,
 			IntAsFloat: r.IntAsFloat,
 		}
-		if r.hasSkip(p) {
+		if r.Encoder == nil && t.Encoder() {
+			continue
+		}
+		if r.hasSkip(p) && !r.SkipMustError {
 			tests.Skipped++
 			mu.Lock()
 			t.Skipped = true
@@ -217,36 +273,60 @@ func (r Runner) Run() (Tests, error) {
 		go func(p string) {
 			defer func() { <-limit; wg.Done() }()
 
-			t = t.Run(r.Parser, r.Files)
+			cmd := r.Decoder
+			if t.Encoder() {
+				cmd = r.Encoder
+			}
+			t = t.Run(cmd, r.Files)
 
 			mu.Lock()
-			if e, ok := r.Errors[p]; invalid && ok && !t.Failed() && !strings.Contains(t.Output, e) {
+			if e, ok := r.Errors[p]; t.Invalid() && ok && !t.Failed() && !strings.Contains(t.Output, e) {
 				t.Failure = fmt.Sprintf("%q does not contain %q", t.Output, e)
 			}
 			delete(r.Errors, p)
 
-			tests.Tests = append(tests.Tests, t)
-			if t.Failed() {
-				if invalid {
+			if r.SkipMustError && r.hasSkip(p) {
+				if t.Failed() {
+					tests.Skipped++
+					t.Skipped = true
+					t.Failure = ""
+				} else {
+					t.Failure = "Test skipped with -skip but didn't fail"
+					if t.Invalid() {
+						tests.FailedInvalid++
+					} else if t.Encoder() {
+						tests.FailedEncoder++
+					} else {
+						tests.FailedValid++
+					}
+				}
+			} else if t.Failed() {
+				if t.Invalid() {
 					tests.FailedInvalid++
+				} else if t.Encoder() {
+					tests.FailedEncoder++
 				} else {
 					tests.FailedValid++
 				}
 			} else {
-				if invalid {
+				if t.Invalid() {
 					tests.PassedInvalid++
+				} else if t.Encoder() {
+					tests.PassedEncoder++
 				} else {
 					tests.PassedValid++
 				}
 			}
+			tests.Tests = append(tests.Tests, t)
 			mu.Unlock()
 		}(p)
 	}
 	wg.Wait()
 
+	// Sort valid first, encoder second, and invalid last.
+	tr := strings.NewReplacer("encoder/", "wencoder/", "invalid/", "zinvalid/")
 	sort.Slice(tests.Tests, func(i, j int) bool {
-		return strings.Replace(tests.Tests[i].Path, "invalid/", "zinvalid", 1) <
-			strings.Replace(tests.Tests[j].Path, "invalid/", "zinvalid", 1)
+		return tr.Replace(tests.Tests[i].Path) < tr.Replace(tests.Tests[j].Path)
 	})
 
 	if len(r.Errors) > 0 {
@@ -261,7 +341,8 @@ func (r Runner) Run() (Tests, error) {
 
 // find all TOML files in 'path' relative to the test directory.
 func (r Runner) findTOML(path string, appendTo *[]string, exclude []string) error {
-	// It's okay if the directory doesn't exist.
+	// It's okay if the directory doesn't exist. Mainly to make testing a bit
+	// easier.
 	if _, err := fs.Stat(r.Files, path); errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}
@@ -338,7 +419,14 @@ func (r Runner) hasSkip(path string) bool {
 	return false
 }
 
-func (c CommandParser) Encode(ctx context.Context, input string) (output string, outputIsError bool, err error) {
+// CommandParser calls an external command.
+type CommandParser struct {
+	cmd []string
+}
+
+func (c CommandParser) Cmd() []string { return c.cmd }
+
+func (c CommandParser) Run(ctx context.Context, input string) (pid int, output string, outputIsError bool, err error) {
 	stdout, stderr := new(bytes.Buffer), new(bytes.Buffer)
 	cmd := exec.CommandContext(ctx, c.cmd[0])
 	cmd.Args = c.cmd
@@ -353,19 +441,22 @@ func (c CommandParser) Encode(ctx context.Context, input string) (output string,
 		}
 	}
 
-	if stderr.Len() > 0 {
-		return strings.TrimSpace(stderr.String()) + "\n", true, err
+	if cmd.Process != nil {
+		pid = cmd.Process.Pid
 	}
-	return strings.TrimSpace(stdout.String()) + "\n", false, err
+	if stderr.Len() > 0 {
+		return pid, strings.TrimSpace(stderr.String()) + "\n", true, err
+	}
+	return pid, strings.TrimSpace(stdout.String()) + "\n", false, err
 }
-func NewCommandParser(fsys fs.FS, cmd []string) CommandParser { return CommandParser{fsys, cmd} }
-func (c CommandParser) Decode(ctx context.Context, input string) (string, bool, error) {
-	return c.Encode(ctx, input)
+
+func NewCommandParser(cmd []string) CommandParser {
+	return CommandParser{cmd}
 }
 
 // Run this test.
 func (t Test) Run(p Parser, fsys fs.FS) Test {
-	if t.Type() == TypeInvalid {
+	if t.Invalid() {
 		return t.runInvalid(p, fsys)
 	}
 	return t.runValid(p, fsys)
@@ -381,11 +472,7 @@ func (t Test) runInvalid(p Parser, fsys fs.FS) Test {
 	ctx, cancel := context.WithTimeout(context.Background(), t.Timeout)
 	defer cancel()
 
-	if t.Encoder {
-		t.Output, t.OutputFromStderr, err = p.Encode(ctx, t.Input)
-	} else {
-		t.Output, t.OutputFromStderr, err = p.Decode(ctx, t.Input)
-	}
+	t.PID, t.Output, t.OutputFromStderr, err = p.Run(ctx, t.Input)
 	if ctx.Err() != nil {
 		err = timeoutError{t.Timeout}
 	}
@@ -408,11 +495,7 @@ func (t Test) runValid(p Parser, fsys fs.FS) Test {
 	ctx, cancel := context.WithTimeout(context.Background(), t.Timeout)
 	defer cancel()
 
-	if t.Encoder {
-		t.Output, t.OutputFromStderr, err = p.Encode(ctx, t.Input)
-	} else {
-		t.Output, t.OutputFromStderr, err = p.Decode(ctx, t.Input)
-	}
+	t.PID, t.Output, t.OutputFromStderr, err = p.Run(ctx, t.Input)
 	if ctx.Err() != nil {
 		err = timeoutError{t.Timeout}
 	}
@@ -423,22 +506,18 @@ func (t Test) runValid(p Parser, fsys fs.FS) Test {
 		return t.fail(t.Output)
 	}
 	if t.Output == "" {
-		// Special case: we expect an empty output here.
-		if t.Path != "valid/empty-file" {
-			return t.fail("stdout is empty")
-		}
+		return t.fail("stdout is empty")
 	}
 
 	// Compare for encoder test
-	if t.Encoder {
+	if t.Encoder() {
 		want, err := t.ReadWantTOML(fsys)
 		if err != nil {
 			return t.bug(err.Error())
 		}
 		var have any
 		if _, err := toml.Decode(t.Output, &have); err != nil {
-			//return t.fail("decode TOML from encoder %q:\n  %s", cmd, err)
-			return t.fail("decode TOML from encoder:\n  %s", err)
+			return t.failf("decode TOML from encoder:\n  %s", err)
 		}
 		return t.CompareTOML(want, have)
 	}
@@ -451,7 +530,7 @@ func (t Test) runValid(p Parser, fsys fs.FS) Test {
 
 	var have any
 	if err := json.Unmarshal([]byte(t.Output), &have); err != nil {
-		return t.fail("decode JSON output from parser:\n  %s", err)
+		return t.failf("decode JSON output from parser:\n  %s", err)
 	}
 
 	return t.CompareJSON(want, have)
@@ -459,7 +538,7 @@ func (t Test) runValid(p Parser, fsys fs.FS) Test {
 
 // ReadInput reads the file sent to the encoder.
 func (t Test) ReadInput(fsys fs.FS) (path, data string, err error) {
-	path = t.Path + map[bool]string{true: ".json", false: ".toml"}[t.Encoder]
+	path = t.Path + map[bool]string{true: ".json", false: ".toml"}[t.Encoder()]
 	d, err := fs.ReadFile(fsys, path)
 	if err != nil {
 		return path, "", err
@@ -468,11 +547,11 @@ func (t Test) ReadInput(fsys fs.FS) (path, data string, err error) {
 }
 
 func (t Test) ReadWant(fsys fs.FS) (path, data string, err error) {
-	if t.Type() == TypeInvalid {
+	if t.Invalid() {
 		panic("testoml.Test.ReadWant: invalid tests do not have a 'correct' version")
 	}
 
-	path = t.Path + map[bool]string{true: ".toml", false: ".json"}[t.Encoder]
+	path = t.Path + map[bool]string{true: ".toml", false: ".json"}[t.Encoder()]
 	d, err := fs.ReadFile(fsys, path)
 	if err != nil {
 		return path, "", err
@@ -502,23 +581,83 @@ func (t *Test) ReadWantTOML(fsys fs.FS) (v any, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not decode TOML file %q:\n  %s", path, err)
 	}
+
+	// All numbers are floats, but assume that natural numbers are encoded
+	// without the .0.
+	if t.IntAsFloat {
+		if vv, ok := v.(map[string]any); ok {
+			v = floatToInt(vv)
+		}
+	}
+
 	return v, nil
 }
 
-// Test type: "valid", "invalid"
+func floatToInt(m map[string]any) map[string]any {
+	newm := make(map[string]any)
+	for k, v := range m {
+		switch vv := v.(type) {
+		case float64:
+			_, frac := math.Modf(vv)
+			maxSafeFloat := float64(9007199254740991)
+			if !math.IsNaN(vv) && !math.IsInf(vv, 0) && vv <= maxSafeFloat && frac == 0 {
+				v = int64(vv)
+			}
+		case map[string]any:
+			v = floatToInt(vv)
+		case []map[string]any:
+			arr := make([]map[string]any, len(vv))
+			for i, t := range vv {
+				arr[i] = floatToInt(t)
+			}
+			v = arr
+		case []any:
+			arr := make([]any, len(vv))
+			for i, t := range vv {
+				// TODO: doesn't process nested arrays. It's okay for now as no
+				// tests need it.
+				switch tt := t.(type) {
+				case float64:
+					if !math.IsNaN(tt) && !math.IsInf(tt, 0) && tt == math.Round(tt) {
+						t = int64(tt)
+					}
+				case map[string]any:
+					t = floatToInt(tt)
+				}
+				arr[i] = t
+			}
+			v = arr
+		}
+		newm[k] = v
+	}
+	return newm
+}
+
+// Test type: "valid", "encoder", "invalid"
 func (t Test) Type() testType {
 	if strings.HasPrefix(t.Path, "invalid") {
 		return TypeInvalid
 	}
+	if strings.HasPrefix(t.Path, "encoder") {
+		return TypeEncoder
+	}
 	return TypeValid
 }
 
-func (t Test) fail(format string, v ...any) Test {
+func (t Test) Encoder() bool { return t.Type() == TypeEncoder }
+func (t Test) Invalid() bool { return t.Type() == TypeInvalid }
+
+func (t Test) fail(msg string) Test {
+	t.Failure = msg
+	return t
+}
+
+func (t Test) failf(format string, v ...any) Test {
 	t.Failure = fmt.Sprintf(format, v...)
 	return t
 }
 func (t Test) bug(format string, v ...any) Test {
-	return t.fail("BUG IN TEST CASE: "+format, v...)
+	return t.failf("BUG IN TEST CASE: "+format, v...)
 }
 
 func (t Test) Failed() bool { return t.Failure != "" }

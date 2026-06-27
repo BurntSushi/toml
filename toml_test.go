@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
+
 	"strings"
 	"testing"
 
@@ -217,7 +219,7 @@ var metaTests = map[string]string{
 		j."ʞ".l:  Hash
 		x.1.2:    Hash
 	`,
-	"table/no-eol": `
+	"table/no-eol-01": `
 		table: Hash
 	`,
 	"table/sub-empty": `
@@ -296,83 +298,83 @@ func TestToml(t *testing.T) {
 		}
 	}
 
-	run := func(t *testing.T, enc bool) {
-		r := tomltest.Runner{
-			Version:  "1.1.0",
-			Files:    tomltest.EmbeddedTests(),
-			Encoder:  enc,
-			Parser:   parser{},
-			RunTests: runTests,
-			SkipTests: []string{
-				// Will be fixed in Go 1.23: https://github.com/BurntSushi/toml/issues/407
-				"invalid/datetime/offset-overflow-hour",
-				"invalid/datetime/offset-overflow-minute",
-
-				// These tests are fine, just doesn't deal well with empty output.
-				"valid/comment/noeol",
-				"valid/comment/nonascii",
-				"valid/empty-crlf",
-				"valid/empty-lf",
-				"valid/empty-nothing",
-				"valid/empty-space",
-				"valid/empty-tab",
-
-				// TODO: fix this; we allow appending to tables, but shouldn't.
-				"invalid/array/extend-defined-aot",
-				"invalid/inline-table/duplicate-key-03",
-				"invalid/table/duplicate-key-04",
-				"invalid/table/duplicate-key-05",
-				"invalid/inline-table/overwrite-02",
-				"invalid/inline-table/overwrite-07",
-				"invalid/inline-table/overwrite-08",
-				"invalid/spec-1.0.0/inline-table-2-0",
-				"invalid/spec-1.0.0/table-9-1",
-				"invalid/spec-1.1.0/common-46-1",
-				"invalid/spec-1.1.0/common-49-0",
-				"invalid/table/append-to-array-with-dotted-keys",
-				"invalid/table/append-with-dotted-keys-01",
-				"invalid/table/append-with-dotted-keys-02",
-				"invalid/table/append-with-dotted-keys-03",
-				"invalid/table/append-with-dotted-keys-05",
-				"invalid/table/duplicate-key-dotted-table-01",
-				"invalid/table/duplicate-key-dotted-table-02",
-				"invalid/table/redefine-02",
-				"invalid/table/redefine-03",
-			},
+	fixedInGo123 := ""
+	_, minor, ok := strings.Cut(runtime.Version(), ".")
+	if ok {
+		minor, _, _ = strings.Cut(minor, ".")
+		if minor < "23" {
+			fixedInGo123 = "invalid/datetime/offset-overflow-hour"
 		}
-
-		tests, err := r.Run()
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		for _, test := range tests.Tests {
-			t.Run(test.Path, func(t *testing.T) {
-				if test.Failed() {
-					t.Fatalf("\nError:\n%s\n\nInput:\n%s\nOutput:\n%s\nWant:\n%s\n",
-						test.Failure, test.Input, test.Output, test.Want)
-					return
-				}
-
-				// Test error message.
-				if test.Type() == tomltest.TypeInvalid {
-					testError(t, test, shouldExistInvalid)
-				}
-				// Test metadata
-				if !enc && test.Type() == tomltest.TypeValid {
-					delete(shouldExistValid, test.Path)
-					testMeta(t, test)
-				}
-			})
-		}
-
-		t.Logf("  valid: passed %d; failed %d", tests.PassedValid, tests.FailedValid)
-		t.Logf("invalid: passed %d; failed %d", tests.PassedInvalid, tests.FailedInvalid)
-		t.Logf("skipped: %d", tests.Skipped)
 	}
 
-	t.Run("decode", func(t *testing.T) { run(t, false) })
-	t.Run("encode", func(t *testing.T) { run(t, true) })
+	r := tomltest.Runner{
+		Version:       "1.1.0",
+		Files:         tomltest.TestCases(),
+		SkipMustError: true,
+		Decoder:       testDecoder{},
+		Encoder:       testEncoder{},
+		RunTests:      runTests,
+		SkipTests: []string{
+			fixedInGo123,
+
+			// Go accepts e.g. 12:60, which becomes 13:00, but rejects :61.
+			// TODO: might be bug in Go? It was changed before but I'm not sure
+			// if accepting :60 was intentional.
+			// Ref: https://github.com/BurntSushi/toml/issues/407
+			"invalid/datetime/offset-overflow-minute",
+
+			// TODO: fix this; we allow appending to tables, but shouldn't.
+			"invalid/array/extend-defined-aot",
+			"invalid/inline-table/duplicate-key-03",
+			"invalid/inline-table/overwrite-02",
+			"invalid/inline-table/overwrite-08",
+			"invalid/spec-1.0.0/inline-table-2-0",
+			"invalid/spec-1.0.0/table-9-1",
+			"invalid/spec-1.1.0/common-46-1",
+			"invalid/spec-1.1.0/common-49-0",
+			"invalid/table/append-to-array-with-dotted-keys",
+			"invalid/table/append-with-dotted-keys-01",
+			"invalid/table/append-with-dotted-keys-02",
+			"invalid/table/append-with-dotted-keys-03",
+			"invalid/table/append-with-dotted-keys-05",
+			"invalid/table/append-with-dotted-keys-08",
+			"invalid/table/duplicate-key-04",
+			"invalid/table/duplicate-key-05",
+			"invalid/table/duplicate-key-dotted-table-01",
+			"invalid/table/duplicate-key-dotted-table-02",
+			"invalid/table/redefine-02",
+			"invalid/table/redefine-03",
+		},
+	}
+
+	tests, err := r.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, test := range tests.Tests {
+		t.Run(test.Path, func(t *testing.T) {
+			if test.Failed() {
+				t.Fatalf("\nError:\n%s\n\nInput:\n%s\nOutput:\n%s\nWant:\n%s\n",
+					test.Failure, test.Input, test.Output, test.Want)
+				return
+			}
+
+			// Test error message.
+			if test.Type() == tomltest.TypeInvalid {
+				testError(t, test, shouldExistInvalid)
+			}
+			// Test metadata
+			if test.Type() == tomltest.TypeValid {
+				delete(shouldExistValid, test.Path)
+				testMeta(t, test)
+			}
+		})
+	}
+
+	t.Logf("  valid: passed %d; failed %d", tests.PassedValid, tests.FailedValid)
+	t.Logf("invalid: passed %d; failed %d", tests.PassedInvalid, tests.FailedInvalid)
+	t.Logf("skipped: %d", tests.Skipped)
 
 	if len(shouldExistValid) > 0 {
 		var s []string
@@ -447,9 +449,39 @@ func testError(t *testing.T, test tomltest.Test, shouldExist map[string]struct{}
 	}
 }
 
-type parser struct{}
+type testDecoder struct{}
 
-func (p parser) Encode(ctx context.Context, input string) (output string, outputIsError bool, retErr error) {
+func (p testDecoder) Cmd() []string { return nil }
+
+func (p testDecoder) Run(ctx context.Context, input string) (pid int, output string, outputIsError bool, retErr error) {
+	defer func() {
+		if r := recover(); r != nil {
+			switch rr := r.(type) {
+			case error:
+				retErr = rr
+			default:
+				retErr = fmt.Errorf("%s", rr)
+			}
+		}
+	}()
+
+	var d any
+	if _, err := toml.Decode(input, &d); err != nil {
+		return 0, err.Error(), true, retErr
+	}
+
+	j, err := json.MarshalIndent(tag.Add("", d), "", "  ")
+	if err != nil {
+		return 0, "", false, err
+	}
+	return 0, string(j), false, retErr
+}
+
+type testEncoder struct{}
+
+func (p testEncoder) Cmd() []string { return nil }
+
+func (p testEncoder) Run(ctx context.Context, input string) (pid int, output string, outputIsError bool, retErr error) {
 	defer func() {
 		if r := recover(); r != nil {
 			switch rr := r.(type) {
@@ -464,43 +496,23 @@ func (p parser) Encode(ctx context.Context, input string) (output string, output
 	var tmp any
 	err := json.Unmarshal([]byte(input), &tmp)
 	if err != nil {
-		return "", false, err
+		return 0, "", false, err
 	}
 
 	rm, err := tag.Remove(tmp)
 	if err != nil {
-		return err.Error(), true, retErr
+		return 0, err.Error(), true, retErr
 	}
 
 	buf := new(bytes.Buffer)
 	err = toml.NewEncoder(buf).Encode(rm)
 	if err != nil {
-		return err.Error(), true, retErr
+		return 0, err.Error(), true, retErr
 	}
 
-	return buf.String(), false, retErr
-}
-
-func (p parser) Decode(ctx context.Context, input string) (output string, outputIsError bool, retErr error) {
-	defer func() {
-		if r := recover(); r != nil {
-			switch rr := r.(type) {
-			case error:
-				retErr = rr
-			default:
-				retErr = fmt.Errorf("%s", rr)
-			}
-		}
-	}()
-
-	var d any
-	if _, err := toml.Decode(input, &d); err != nil {
-		return err.Error(), true, retErr
+	s := buf.String()
+	if s == "" {
+		s = "\n"
 	}
-
-	j, err := json.MarshalIndent(tag.Add("", d), "", "  ")
-	if err != nil {
-		return "", false, err
-	}
-	return string(j), false, retErr
+	return 0, s, false, retErr
 }

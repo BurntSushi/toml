@@ -36,3 +36,8 @@ rawmulti-del  = '''null\x7f'''
 bare-null         = "some value" \x00
 bare-formfeed     = \x0c
 bare-vertical-tab = \x0b
+
+linetab-number-01 = 1\x0b
+linetab-number-02 = 1.5\x0b
+linetab-number-03 = 0xff\x0b
+linetab-number-04 = +inf\x0b

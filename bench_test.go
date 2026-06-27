@@ -16,9 +16,9 @@ import (
 
 func BenchmarkDecode(b *testing.B) {
 	files := make(map[string][]string)
-	fs.WalkDir(tomltest.EmbeddedTests(), ".", func(path string, d fs.DirEntry, err error) error {
+	fs.WalkDir(tomltest.TestCases(), ".", func(path string, d fs.DirEntry, err error) error {
 		if strings.HasPrefix(path, "valid/") && strings.HasSuffix(path, ".toml") {
-			d, _ := fs.ReadFile(tomltest.EmbeddedTests(), path)
+			d, _ := fs.ReadFile(tomltest.TestCases(), path)
 			g := filepath.Dir(path[6:])
 			if g == "." {
 				g = "top"
@@ -68,9 +68,9 @@ func BenchmarkDecode(b *testing.B) {
 
 func BenchmarkEncode(b *testing.B) {
 	files := make(map[string][]map[string]any)
-	fs.WalkDir(tomltest.EmbeddedTests(), ".", func(path string, d fs.DirEntry, err error) error {
+	fs.WalkDir(tomltest.TestCases(), ".", func(path string, d fs.DirEntry, err error) error {
 		if strings.HasPrefix(path, "valid/") && strings.HasSuffix(path, ".toml") {
-			d, _ := fs.ReadFile(tomltest.EmbeddedTests(), path)
+			d, _ := fs.ReadFile(tomltest.TestCases(), path)
 			g := filepath.Dir(path[6:])
 			if g == "." {
 				g = "top"

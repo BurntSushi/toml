@@ -1,1 +1,2 @@
-bom-not-at-start ÿý
+# Contains UTF-8 BOM between = and 1
+a=ï»¿1

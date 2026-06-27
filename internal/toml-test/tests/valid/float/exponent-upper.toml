@@ -1,0 +1,10 @@
+# Both upper- and lower-case "e" is valid, so repeat the exponent.toml test with
+# upper-case.
+exp        = 3E2
+pos-exp    = 3E+2
+neg-exp    = 3E-2
+zero-exp   = 3E0
+frac       = 3.1E2
+neg        = -1E-1
+zero       = 0E2
+zero-plus = +0E2
