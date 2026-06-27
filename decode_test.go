@@ -256,6 +256,23 @@ func TestDecodeErrors(t *testing.T) {
 	}
 }
 
+// An inline table inside an array marks its array key implicit, and an empty
+// key inside that table records its type against the parent key. Together that
+// made the implicit-redefinition check above reject the array as if it were a
+// scalar overwriting a table. It's a valid array of tables, not a redefinition.
+func TestDecodeImplicitArrayNotRedefined(t *testing.T) {
+	for _, in := range []string{
+		`l = [{"" = 0}]`,
+		`l = [{"" = 0}, 1]`,
+		`l = [{"" = {"" = 0}}, 1]`,
+	} {
+		var v any
+		if _, err := Decode(in, &v); err != nil {
+			t.Errorf("%q: unexpected error: %s", in, err)
+		}
+	}
+}
+
 func TestDecodeIgnoreFields(t *testing.T) {
 	const input = `
 Number = 123
