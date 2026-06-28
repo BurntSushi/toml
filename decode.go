@@ -120,12 +120,19 @@ const (
 type Decoder struct {
 	r       io.Reader
 	maxNest int
+	merge   bool
 }
 
 // NewDecoder creates a new Decoder.
 func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{r: r, maxNest: 128}
 }
+
+// Merge sets whether dec merges new data with old data in values it decodes to.
+// When true, dec will merge the existing struct fields and map values rather
+// than replacing them. Slices (lists) will still be replaced - implement
+// Unmarshaller on a custom slice type to merge slices.
+func (dec *Decoder) Merge(merge bool) { dec.merge = merge }
 
 // MaxTableNesting sets the maximum table nesting to prevent using an
 // inordinate amount of system resources on deeply nested tables.
@@ -183,6 +190,7 @@ func (dec *Decoder) Decode(v any) (MetaData, error) {
 		decoded: make(map[string]struct{}, len(p.ordered)),
 		context: nil,
 		data:    data,
+		merge:   dec.merge,
 	}
 	return md, md.unify(p.mapping, rv)
 }
@@ -347,6 +355,22 @@ func (md *MetaData) unifyStruct(mapping any, rv reflect.Value) error {
 	return nil
 }
 
+func (md *MetaData) mapVal(m reflect.Value, key string) reflect.Value {
+	if !md.merge {
+		return reflect.Indirect(reflect.New(m.Type().Elem()))
+	}
+	v := m.MapIndex(reflect.ValueOf(key))
+	if v.Kind() == reflect.Interface {
+		v = v.Elem()
+	}
+	if !v.IsValid() {
+		return reflect.Indirect(reflect.New(m.Type().Elem()))
+	}
+	setter := reflect.New(v.Type()).Elem()
+	setter.Set(v)
+	return setter
+}
+
 func (md *MetaData) unifyMap(mapping any, rv reflect.Value) error {
 	keyType := rv.Type().Key().Kind()
 	if keyType != reflect.String && keyType != reflect.Interface {
@@ -356,7 +380,7 @@ func (md *MetaData) unifyMap(mapping any, rv reflect.Value) error {
 
 	tmap, ok := mapping.(map[string]any)
 	if !ok {
-		if tmap == nil {
+		if mapping == nil {
 			return nil
 		}
 		return md.badtype("map", mapping)
@@ -368,7 +392,7 @@ func (md *MetaData) unifyMap(mapping any, rv reflect.Value) error {
 		md.decoded[md.context.add(k).String()] = struct{}{}
 		md.context = append(md.context, k)
 
-		rvval := reflect.Indirect(reflect.New(rv.Type().Elem()))
+		rvval := md.mapVal(rv, k)
 
 		err := md.unify(v, indirect(rvval))
 		if err != nil {

@@ -1272,3 +1272,104 @@ func TestMaxTableNesting(t *testing.T) {
 		})
 	}
 }
+
+type sliceMergerElem struct {
+	ID  string `toml:"id"`
+	Val any    `toml:"value"`
+}
+type sliceMerger []sliceMergerElem
+
+func (m *sliceMerger) UnmarshalTOML(data any) error {
+	ds := data.([]map[string]any)
+	for _, dm := range ds {
+		merged := false
+		for j, ov := range *m {
+			if ov.ID != dm["id"] {
+				continue
+			}
+			merged = true
+			(*m)[j].Val = dm["value"]
+			break
+		}
+		if !merged {
+			*m = append(*m, sliceMergerElem{ID: dm["id"].(string), Val: dm["value"]})
+		}
+	}
+	return nil
+}
+
+func TestMerge(t *testing.T) {
+	type pos struct {
+		Lat float64 `toml:"lat"`
+		Lng float64 `toml:"lng"`
+	}
+	m := map[string]any{
+		"places": map[string]pos{
+			"Minneapolis": {44.916951, -93.027389},
+			"Fantasia":    {723.11217, -4223.937721},
+		},
+		"things": sliceMerger{
+			{ID: "boat", Val: "my boat"},
+			{ID: "minis", Val: []string{"malifaux", "warmahordes"}},
+		},
+	}
+	r := bytes.NewReader([]byte(`
+[places.Seattle]
+  lat = 47.587909
+  lng = -122.300158
+[places.Fantasia]
+  lng = -420
+[[things]]
+  id = "tools"
+  value = ["hammer", "screwdriver"]
+[[things]]
+  id = "minis"
+  value = "kingdom death"
+`))
+	dec := NewDecoder(r)
+	dec.Merge(true)
+	_, err := dec.Decode(&m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	places, ok := m["places"].(map[string]pos)
+	if !ok {
+		t.Fatalf("places was expected to stay map[string]pos but was replaced with %T", m["places"])
+	}
+	minne := places["Minneapolis"]
+	expectedMinne := pos{44.916951, -93.027389}
+	if minne != expectedMinne {
+		t.Fatalf("Minneapolis position was not as expected\nhave: %v\nwant: %v", minne, expectedMinne)
+	}
+	seattle := places["Seattle"]
+	expectedSeattle := pos{47.587909, -122.300158}
+	if seattle != expectedSeattle {
+		t.Fatalf("Seattle position was not as expected\nhave: %v\nwant: %v", seattle, expectedSeattle)
+	}
+	fantasia := places["Fantasia"]
+	expectedFantasia := pos{723.11217, -420}
+	if fantasia != expectedFantasia {
+		t.Fatalf("Fantasia longitude was not overwritten properly\nhave: %v\nwant: %v", fantasia, expectedFantasia)
+	}
+
+	things := m["things"].(sliceMerger)
+	expectedThings := 3
+	if len(things) != expectedThings {
+		t.Fatalf("things is an unexpected length\nhave: %d\nwant: %d", len(things), expectedThings)
+	}
+	boat := things[0]
+	expectedBoat := "my boat"
+	if boat.Val != expectedBoat {
+		t.Fatalf("boat value was removed/replaced\nhave: %v\nwant: %v", boat.Val, expectedBoat)
+	}
+	minis := things[1]
+	expectedMinis := "kingdom death"
+	if !reflect.DeepEqual(minis.Val, expectedMinis) {
+		t.Fatalf("minis value was not overwritten\nhave: %v\nwant: %v", minis.Val, expectedMinis)
+	}
+	tools := things[2]
+	expectedTools := []any{"hammer", "screwdriver"}
+	if !reflect.DeepEqual(tools.Val, expectedTools) {
+		t.Fatalf("tools value was not added correctly\nhave: %v\nwant: %v", tools.Val, expectedTools)
+	}
+}
