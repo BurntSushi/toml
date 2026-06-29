@@ -1143,6 +1143,42 @@ func TestMetaKeys(t *testing.T) {
 	}
 }
 
+func TestDecodeEmptyKey(t *testing.T) {
+	// A key whose name is the empty string ("" = ...) is valid TOML. It used to
+	// clobber the type recorded for the table or array that contained it,
+	// because setType treated an empty key as "apply the type to the current
+	// context" instead of "the key named "".
+	//
+	// As a result an inline table with an empty key nested inside more than one
+	// array level lost an array level when decoded, and MetaData.Type reported
+	// the wrong type for the containing table.
+
+	t.Run("nested array value", func(t *testing.T) {
+		var have map[string]any
+		_, err := Decode(`x = [[{"" = 1}]]`, &have)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := map[string]any{"x": []any{[]any{map[string]any{"": int64(1)}}}}
+		if !reflect.DeepEqual(have, want) {
+			t.Errorf("\nhave: %#v\nwant: %#v", have, want)
+		}
+	})
+
+	t.Run("metadata type", func(t *testing.T) {
+		meta, err := Decode("[a]\n\"\" = 1", &map[string]any{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if h := meta.Type("a"); h != "Hash" {
+			t.Errorf(`Type("a") = %q, want "Hash"`, h)
+		}
+		if h := meta.Type("a", ""); h != "Integer" {
+			t.Errorf(`Type("a", "") = %q, want "Integer"`, h)
+		}
+	})
+}
+
 func TestDecodeParallel(t *testing.T) {
 	doc, err := os.ReadFile("testdata/Cargo.toml")
 	if err != nil {

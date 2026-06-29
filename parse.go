@@ -168,7 +168,7 @@ func (p *parser) topLevel(item item) {
 		p.assertEqual(itemTableEnd, name.typ)
 
 		p.addContext(key, false)
-		p.setType("", tomlHash, item.pos)
+		p.setContextType(tomlHash, item.pos)
 		p.ordered = append(p.ordered, key)
 	case itemArrayTableStart: // [[ .. ]]
 		name := p.nextPos()
@@ -180,7 +180,7 @@ func (p *parser) topLevel(item item) {
 		p.assertEqual(itemArrayTableEnd, name.typ)
 
 		p.addContext(key, true)
-		p.setType("", tomlArrayHash, item.pos)
+		p.setContextType(tomlArrayHash, item.pos)
 		p.ordered = append(p.ordered, key)
 	case itemKeyStart: // key = ..
 		outerContext := p.context
@@ -665,24 +665,23 @@ func (p *parser) setValue(key string, value any) {
 	hash[key] = value
 }
 
-// setType sets the type of a particular value at a given key. It should be
-// called immediately AFTER setValue.
+// setType sets the type of the value at `key` under the current context. It
+// should be called immediately AFTER setValue.
 //
-// Note that if `key` is empty, then the type given will be applied to the
-// current context (which is either a table or an array of tables).
+// `key` may be the empty string, which is a valid TOML key ("" = 1); it's
+// recorded as a key under the current context like any other.
 func (p *parser) setType(key string, typ tomlType, pos Position) {
 	keyContext := make(Key, 0, len(p.context)+1)
 	keyContext = append(keyContext, p.context...)
-	if len(key) > 0 { // allow type setting for hashes
-		keyContext = append(keyContext, key)
-	}
-	// Special case to make empty keys ("" = 1) work.
-	// Without it it will set "" rather than `""`.
-	// TODO: why is this needed? And why is this only needed here?
-	if len(keyContext) == 0 {
-		keyContext = Key{""}
-	}
+	keyContext = append(keyContext, key)
 	p.keyInfo[keyContext.String()] = keyInfo{tomlType: typ, pos: pos}
+}
+
+// setContextType sets the type of the current context itself, used for [table]
+// and [[array of tables]] headers where the context is the value (rather than a
+// key under it).
+func (p *parser) setContextType(typ tomlType, pos Position) {
+	p.keyInfo[p.context.String()] = keyInfo{tomlType: typ, pos: pos}
 }
 
 // Implicit keys need to be created when tables are implied in "a.b.c.d = 1" and
