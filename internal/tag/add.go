@@ -27,12 +27,6 @@ func Add(key string, tomlData any) any {
 
 	// An array: we don't need to add any tags, just recurse for every table
 	// entry.
-	case []map[string]any:
-		typed := make([]map[string]any, len(orig))
-		for i, v := range orig {
-			typed[i] = Add("", v).(map[string]any)
-		}
-		return typed
 	case []any:
 		typed := make([]any, len(orig))
 		for i, v := range orig {
