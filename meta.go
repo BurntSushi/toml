@@ -95,8 +95,20 @@ type Key []string
 
 func (k Key) String() string {
 	// This is called quite often, so it's a bit funky to make it faster.
+	size := 0
+	if len(k) > 0 {
+		size = len(k) - 1
+	}
+	for _, kk := range k {
+		if kk == "" {
+			size += 2
+		} else {
+			size += len(kk)
+		}
+	}
+
 	var b strings.Builder
-	b.Grow(len(k) * 25)
+	b.Grow(size)
 outer:
 	for i, kk := range k {
 		if i > 0 {
@@ -104,33 +116,37 @@ outer:
 		}
 		if kk == "" {
 			b.WriteString(`""`)
-		} else {
-			for _, r := range kk {
-				// "Inline" isBareKeyChar
-				if !((r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '-') {
-					b.WriteByte('"')
-					b.WriteString(dblQuotedReplacer.Replace(kk))
-					b.WriteByte('"')
-					continue outer
-				}
-			}
-			b.WriteString(kk)
+			continue
 		}
+		for j := 0; j < len(kk); j++ {
+			c := kk[j]
+			// "Inline" isBareKeyChar. Bare TOML keys are ASCII-only, so a
+			// byte scan is enough here and avoids decoding runes.
+			if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-') {
+				b.WriteByte('"')
+				b.WriteString(dblQuotedReplacer.Replace(kk))
+				b.WriteByte('"')
+				continue outer
+			}
+		}
+		b.WriteString(kk)
 	}
 	return b.String()
 }
 
 func (k Key) maybeQuoted(i int) string {
-	if k[i] == "" {
+	kk := k[i]
+	if kk == "" {
 		return `""`
 	}
-	for _, r := range k[i] {
-		if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+	for j := 0; j < len(kk); j++ {
+		c := kk[j]
+		if (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-' {
 			continue
 		}
-		return `"` + dblQuotedReplacer.Replace(k[i]) + `"`
+		return `"` + dblQuotedReplacer.Replace(kk) + `"`
 	}
-	return k[i]
+	return kk
 }
 
 // Like append(), but only increase the cap by 1.
