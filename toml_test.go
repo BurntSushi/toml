@@ -93,6 +93,19 @@ var metaTests = map[string]string{
 	"key/empty-01": `
 		"": String
 	`,
+	// Note this is not correct for arr-tbl-2 as it's missing one level of
+	// Array, but array indexing in general is pretty broken for this, so 🤷
+	"key/empty-05": `
+		tbl-1:         Hash
+		tbl-1."":      Integer
+		tbl-2:         Hash
+		tbl-2."":      Hash
+		tbl-2.""."":   Integer
+		arr-tbl-1:     Array
+		arr-tbl-1."":  Integer
+		arr-tbl-2:     Array
+		arr-tbl-2."":  Integer
+	`,
 	"key/quoted-dots": `
 		plain:                          Integer
 		"with.dot":                     Integer
@@ -102,7 +115,7 @@ var metaTests = map[string]string{
 		table.withdot:                  Hash
 		table.withdot.plain:            Integer
 		table.withdot."key.with.dots":  Integer
-		table.withdot."escaped.dot":  Integer
+		table.withdot."escaped.dot":    Integer
 	`,
 	// TODO: doesn't deal correctly with the double spaces; probably an error in
 	// the test rather than code

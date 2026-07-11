@@ -28,9 +28,10 @@ var versions = map[string]versionSpec{
 			"invalid/spec-1.1.0/*",
 			"valid/string/escape-esc",                               // \e
 			"valid/string/hex-escape", "invalid/string/bad-hex-esc", // \x..
-			"valid/datetime/no-seconds", // Times without seconds
-			"valid/inline-table/newline",
+			"valid/datetime/no-seconds",  // Times without seconds
+			"valid/inline-table/newline", // Newlines in inline tables.
 			"valid/inline-table/newline-comment",
+			"valid/key/empty-05",
 			"invalid/control/multi-cr", "invalid/control/rawmulti-cr", // See #174
 		},
 	},
