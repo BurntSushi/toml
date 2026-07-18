@@ -124,6 +124,9 @@ func (pe ParseError) ErrorWithPosition() string {
 		fmt.Fprintf(b, "toml: error: %s\n\nAt line %d, column %d-%d:\n\n",
 			pe.Message, pe.Position.Line, pe.Position.Col, pe.Position.Col+pe.Position.Len-1)
 	}
+	if pe.Position.Line < 1 { // No line information; can't show a source snippet.
+		return b.String()
+	}
 	if pe.Position.Line > 2 {
 		fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line-2, expandTab(lines[pe.Position.Line-3]))
 	}

@@ -301,6 +301,30 @@ func TestParseError(t *testing.T) {
 	}
 }
 
+func TestErrorWithPositionNoLine(t *testing.T) {
+	// Some errors are reported without a line number (Position.Line == 0),
+	// such as an incomplete escape at the very end of the input. Rendering
+	// the position used to index lines[-1] and panic.
+	for _, in := range []string{`a = "\`, "b = \"\\x", `c = "`} {
+		var x any
+		_, err := toml.Decode(in, &x)
+		if err == nil {
+			t.Fatalf("%q: err is nil", in)
+		}
+
+		var pErr toml.ParseError
+		if !errors.As(err, &pErr) {
+			t.Fatalf("%q: err is not a ParseError: %#v", in, err)
+		}
+
+		got := pErr.ErrorWithPosition()
+		if !strings.Contains(got, pErr.Message) {
+			t.Errorf("%q: ErrorWithPosition() = %q, want it to contain %q", in, got, pErr.Message)
+		}
+		pErr.ErrorWithUsage()
+	}
+}
+
 var errInvalidValue = errors.New("invalid value")
 
 type Enum1 uint8
