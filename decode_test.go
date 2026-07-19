@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"os/exec"
 	"reflect"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -1270,5 +1272,83 @@ func TestMaxTableNesting(t *testing.T) {
 				t.Fatalf("wrong error\nhave: %q\nwant: %q", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+// nestedArrayDoc builds "a = [[[…1…]]]" with the given nesting depth.
+func nestedArrayDoc(depth int) string {
+	return "a = " + strings.Repeat("[", depth) + "1" + strings.Repeat("]", depth)
+}
+
+func TestMaxArrayNesting(t *testing.T) {
+	// Mirror TestMaxTableNesting: default limit 128, configurable via
+	// MaxTableNesting, and <=0 disables. Regression for #497 (deeply nested
+	// arrays used to overflow the Go stack with an unrecoverable abort).
+	tests := []struct {
+		name    string
+		doc     string
+		maxNest int // -99 means leave the decoder default
+		wantErr string
+	}{
+		{"default-at-limit", nestedArrayDoc(128), -99, ""},
+		{"default-over-limit", nestedArrayDoc(129), -99, "toml: line 1: too many nested arrays: can have up to 128 nested arrays"},
+		{"disabled-deep", nestedArrayDoc(300), 0, ""},
+		{"custom-at-limit", nestedArrayDoc(5), 5, ""},
+		{"custom-over-limit", nestedArrayDoc(6), 5, "toml: line 1: too many nested arrays: can have up to 5 nested arrays"},
+		// Well above the default limit but shallow enough that the pre-fix
+		// code would still parse successfully; proves the limit fires with a
+		// controlled ParseError rather than only under pathological depth.
+		{"well-over-default", nestedArrayDoc(200), -99, "toml: line 1: too many nested arrays: can have up to 128 nested arrays"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := NewDecoder(strings.NewReader(tt.doc))
+			if tt.maxNest != -99 {
+				d.MaxTableNesting(tt.maxNest)
+			}
+
+			var m map[string]any
+			_, err := d.Decode(&m)
+			if !errorContains(err, tt.wantErr) {
+				t.Fatalf("wrong error\nhave: %q\nwant: %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestIssue497NoStackOverflow is the crash shape from
+// https://github.com/BurntSushi/toml/issues/497: deeply nested arrays used to
+// abort the process with "fatal error: stack overflow".
+//
+// The lowered stack limit is process-wide (see debug.SetMaxStack), so the probe
+// runs in a child process. The child restores the previous limit with defer
+// (using t.Fatal / return, not os.Exit, so deferred restores actually run).
+// Isolation keeps the parent test binary's stack ceiling unchanged even if the
+// child aborts, and avoids polluting later tests under -shuffle.
+func TestIssue497NoStackOverflow(t *testing.T) {
+	const childEnv = "TOML_ISSUE_497_CHILD"
+
+	if os.Getenv(childEnv) == "1" {
+		// Restore whatever stack limit was in effect when this process started.
+		// Must not use os.Exit here: Exit skips deferred functions.
+		defer debug.SetMaxStack(debug.SetMaxStack(4 << 20)) // 4 MiB
+
+		var v any
+		_, err := Decode(nestedArrayDoc(50_000), &v)
+		if err == nil {
+			t.Fatal("expected error for deeply nested arrays, got nil")
+		}
+		if !errorContains(err, "too many nested arrays") {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		return
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=^TestIssue497NoStackOverflow$", "-test.count=1", "-test.v=false")
+	cmd.Env = append(os.Environ(), childEnv+"=1")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("child process failed: %v\n%s", err, out)
 	}
 }

@@ -14,6 +14,7 @@ import (
 type parser struct {
 	lx         *lexer
 	maxNest    int
+	arrayDepth int      // Current nested array value depth (see valueArray).
 	context    Key      // Full key for the current hash in scope.
 	currentKey string   // Base key name for everything except hashes.
 	pos        Position // Current position in the TOML file.
@@ -397,6 +398,21 @@ func missingLeadingZero(d, l string) bool {
 }
 
 func (p *parser) valueArray(it item) (any, tomlType) {
+	// Bound recursive nesting of array values (e.g. a = [[[[1]]]]). Without
+	// this, sufficiently deep nesting overflows the Go stack with an
+	// unrecoverable runtime abort (#497). Reuse maxNest so one knob covers
+	// both table and array nesting; <=0 disables the limit.
+	if p.maxNest > 0 && p.arrayDepth >= p.maxNest {
+		// Don't use panicItemf: LastKey can be very long and is not useful here.
+		panic(ParseError{
+			Message:  fmt.Sprintf("too many nested arrays: can have up to %d nested arrays", p.maxNest),
+			Position: it.pos.withCol(p.lx.input),
+			Line:     it.pos.Line,
+		})
+	}
+	p.arrayDepth++
+	defer func() { p.arrayDepth-- }()
+
 	p.setType(p.currentKey, tomlArray, it.pos)
 
 	var (

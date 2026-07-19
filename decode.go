@@ -127,8 +127,9 @@ func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{r: r, maxNest: 128}
 }
 
-// MaxTableNesting sets the maximum table nesting to prevent using an
-// inordinate amount of system resources on deeply nested tables.
+// MaxTableNesting sets the maximum nesting depth for tables and array values to
+// prevent using an inordinate amount of system resources on deeply nested data
+// (and to avoid unrecoverable stack overflows from recursive array parsing).
 //
 // The default is 128. Set to <=0 to disable the limit.
 func (dec *Decoder) MaxTableNesting(l int) { dec.maxNest = l }
