@@ -446,3 +446,26 @@ At line 2, column 11-13:
 		t.Errorf("\nwant:\n%s\nhave:\n%s", want, have)
 	}
 }
+
+
+func TestErrorWithPositionSingleLineEOF(t *testing.T) {
+	// Incomplete escape at EOF on a single line used to panic in ErrorWithPosition
+	// because the lexer underflowed Position.Line to 0.
+	var v any
+	_, err := toml.Decode(`a = "\`, &v)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var pe toml.ParseError
+	if !errors.As(err, &pe) {
+		t.Fatalf("want ParseError, got %T: %v", err, err)
+	}
+	// Must not panic.
+	out := pe.ErrorWithPosition()
+	if out == "" {
+		t.Fatal("empty ErrorWithPosition")
+	}
+	if pe.Position.Line < 1 {
+		t.Fatalf("Position.Line = %d, want >= 1", pe.Position.Line)
+	}
+}

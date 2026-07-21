@@ -252,9 +252,15 @@ func (lx *lexer) error(err error) stateFn {
 // This is so that unexpected EOF or NL errors don't show on a new blank line.
 func (lx *lexer) errorPrevLine(err error) stateFn {
 	pos := lx.getPos()
-	pos.Line--
+	// On single-line EOF, Line is already 1; do not underflow to 0 (breaks ErrorWithPosition).
+	if pos.Line > 1 {
+		pos.Line--
+	}
 	pos.Len = 1
 	pos.Start = lx.pos - 1
+	if pos.Start < 0 {
+		pos.Start = 0
+	}
 	lx.items <- item{typ: itemError, pos: pos, err: err}
 	return nil
 }
