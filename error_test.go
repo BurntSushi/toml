@@ -446,3 +446,25 @@ At line 2, column 11-13:
 		t.Errorf("\nwant:\n%s\nhave:\n%s", want, have)
 	}
 }
+
+
+func TestParseErrorLineZero(t *testing.T) {
+	// Unfinished escape at EOF used to report Line 0 and panic in
+	// ErrorWithPosition (#498).
+	var v any
+	_, err := toml.Decode(`a = "\`, &v)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var pe toml.ParseError
+	if !errors.As(err, &pe) {
+		t.Fatalf("not a ParseError: %#v", err)
+	}
+	// Must not panic.
+	_ = pe.ErrorWithPosition()
+	_ = pe.ErrorWithUsage()
+	// Short form still works.
+	if pe.Error() == "" {
+		t.Fatal("empty Error()")
+	}
+}
