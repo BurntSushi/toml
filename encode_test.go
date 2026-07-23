@@ -1427,3 +1427,13 @@ k1 = "a"
 		t.Fatalf("\nhave: %s\nwant: %s", h, w)
 	}
 }
+
+func TestEncodeNilWriter(t *testing.T) {
+	err := NewEncoder(nil).Encode(map[string]int{"a": 1})
+	if err == nil {
+		t.Fatal("expected error for nil writer")
+	}
+	if !strings.Contains(err.Error(), "nil writer") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

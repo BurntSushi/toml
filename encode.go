@@ -134,7 +134,11 @@ type Encoder struct {
 
 // NewEncoder create a new Encoder.
 func NewEncoder(w io.Writer) *Encoder {
-	return &Encoder{w: bufio.NewWriter(w), Indent: "  "}
+	e := &Encoder{Indent: "  "}
+	if w != nil {
+		e.w = bufio.NewWriter(w)
+	}
+	return e
 }
 
 // Encode writes a TOML representation of the Go value to the [Encoder]'s writer.
@@ -142,6 +146,9 @@ func NewEncoder(w io.Writer) *Encoder {
 // An error is returned if the value given cannot be encoded to a valid TOML
 // document.
 func (enc *Encoder) Encode(v any) error {
+	if enc == nil || enc.w == nil {
+		return errors.New("toml: Encoder has nil writer")
+	}
 	rv := eindirect(reflect.ValueOf(v))
 	err := enc.safeEncode(Key([]string{}), rv)
 	if err != nil {
