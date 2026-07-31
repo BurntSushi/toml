@@ -1,2 +1,4 @@
 /toml.test
 /toml-test
+target/
+*.exe

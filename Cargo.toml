@@ -1,0 +1,35 @@
+[package]
+name = "toml-rs-port"
+version = "0.1.0"
+edition = "2021"
+description = "Go → Rust port of BurntSushi/toml for Port Mortem hackathon"
+license = "MIT"
+
+[[bin]]
+name = "toml-test-decoder"
+path = "src/bin/toml_test_decoder.rs"
+
+[[bin]]
+name = "tomlv"
+path = "src/bin/tomlv.rs"
+
+[[bin]]
+name = "toml-test-encoder"
+path = "src/bin/toml_test_encoder.rs"
+
+[dependencies]
+# Zero external dependencies for the core library.
+# The toml-test-decoder needs to output JSON:
+serde_json = { version = "1", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+# For property-based testing and fuzzing
+proptest = "1"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[features]
+default = []

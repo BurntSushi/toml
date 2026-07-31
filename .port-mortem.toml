@@ -1,0 +1,30 @@
+# Port Mortem Hackathon Configuration
+# Track E — Go → Rust — "The Discord canon"
+
+[track]
+letter = "E"
+name = "The Discord canon"
+source_language = "Go"
+target_language = "Rust"
+
+[source]
+url = "https://github.com/BurntSushi/toml"
+description = "Reflection-based TOML decoder/encoder (v1.0.0)"
+license = "MIT"
+stars = 4989
+author = "BurntSushi (ripgrep author)"
+loc = 4894
+
+[kickoff]
+commit_hash = "c6d720d83547bb8d7afb067ba9df8bad0323e2d1"
+date = "2026-07-31"
+test_corpus_hash = "1e515c8f92fa56d8eb847eba03d8124beb5fc666090aa13c9f8800c02a71e9c8"
+valid_tests = 266
+invalid_tests = 509
+total_conformance_tests = 775
+
+[bonus_targets]
+differential_fuzz_survivor = true   # +5
+zero_unsafe = true                   # +5
+bug_catcher = true                   # +3
+decision_log = true                  # +3
