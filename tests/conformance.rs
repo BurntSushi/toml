@@ -32,7 +32,7 @@ fn test_valid_toml_files() {
 
         let toml_content = fs::read_to_string(&path).expect("failed to read toml file");
         let expected_path = path.with_extension("json");
-        let expected_json = fs::read_to_string(&expected_json).unwrap_or_default();
+        let _expected_json = fs::read_to_string(&expected_path).unwrap_or_default();
 
         match parse(&toml_content) {
             Ok(_value) => {

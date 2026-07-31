@@ -59,7 +59,6 @@ pub fn lex(input: &str) -> Result<Vec<TokenWithPos>, ParseError> {
         match c {
             // Whitespace (space, tab)
             ' ' | '\t' => {
-                let start = pos;
                 while pos < chars.len() && (chars[pos] == ' ' || chars[pos] == '\t') {
                     pos += 1;
                     col += 1;
