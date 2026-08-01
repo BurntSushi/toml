@@ -32,7 +32,7 @@ fn classify_datetime(s: &str) -> (&'static str, String) {
     if (s.contains('T') || s.contains(' ') || s.contains('t')) && s.contains(':') {
         return ("datetime-local", normalize_dt(s));
     }
-    if s.contains(':') && !s.contains('-') { return ("time-local", s.to_string()); }
+    if s.contains(':') && !s.contains('-') { return ("time-local", normalize_dt(s)); }
     if s.contains('-') && !s.contains(':') { return ("date-local", s.to_string()); }
     ("datetime", s.to_string())
 }
@@ -88,11 +88,45 @@ fn pad_frac(s: &str) -> String {
 fn format_float(f: &f64) -> String {
     if f.is_nan() { "nan".to_string() }
     else if f.is_infinite() { if *f > 0.0 { "inf".to_string() } else { "-inf".to_string() } }
-    else if *f == 0.0 {
-        if f.is_sign_negative() { "-0".to_string() } else { "0".to_string() }
+    else if *f == 0.0 { if f.is_sign_negative() { "-0".to_string() } else { "0".to_string() } }
+    else {
+        let abs = f.abs();
+        // Use scientific notation for very large or very small numbers
+        // toml-test expects: 5e+22, 1e+06, 6.626e-34, 3.0e14
+        if abs >= 1e16 || (abs > 0.0 && abs < 1e-3) {
+            // Scientific notation: match Go's strconv.FormatFloat(f, 'e', -1, 64)
+            // Format as Xe+YY or Xe-YY with at least one decimal digit in mantissa
+            let s = format!("{:e}", f);
+            // Rust format: "5e22" -> need "5e+22", "6.626e-34" -> ok
+            // Also "1e6" -> "1e+06" (pad exponent to 2 digits)
+            normalize_scientific(&s)
+        } else if f.fract() == 0.0 {
+            // Integer-valued float: "300" not "300.0"
+            format!("{}", *f as i64)
+        } else {
+            format!("{}", f)
+        }
     }
-    else if f.fract() == 0.0 && f.abs() < 1e16 { format!("{}", *f as i64) }
-    else { format!("{}", f) }
+}
+
+/// Normalize Rust's scientific notation to match toml-test expected format.
+/// Rust: "5e22" -> "5e+22", "1e6" -> "1e+06", "6.626e-34" -> "6.626e-34"
+fn normalize_scientific(s: &str) -> String {
+    if let Some(e_pos) = s.find('e') {
+        let mantissa = &s[..e_pos];
+        let exp = &s[e_pos+1..];
+        // Ensure mantissa has at least one decimal digit
+        let mantissa = if mantissa.contains('.') {
+            mantissa.to_string()
+        } else {
+            format!("{}.0", mantissa)
+        };
+        // Parse and format exponent with sign and 2-digit padding
+        let exp_val: i32 = exp.parse().unwrap_or(0);
+        format!("{}e{:+03}", mantissa, exp_val)
+    } else {
+        s.to_string()
+    }
 }
 
 fn value_to_json(value: &Value) -> JsonValue {

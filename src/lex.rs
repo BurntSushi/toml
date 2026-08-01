@@ -91,32 +91,35 @@ pub fn lex(input: &str) -> Result<Vec<TokenWithPos>, ParseError> {
 /// After '{' or ',' inside braces, we expect a KEY.
 fn is_value_position(tokens: &[TokenWithPos]) -> bool {
     let mut brace_depth = 0i32;
+    let mut bracket_depth = 0i32;
     let mut last_significant = &Token::Eof as &Token;
     for t in tokens.iter() {
         match &t.token {
             Token::Whitespace | Token::Comment(_) | Token::Newline => continue,
             Token::LeftBrace => {
                 brace_depth += 1;
-                // After '{', we expect a KEY (for inline table), not a value
                 last_significant = &Token::RightBrace;
             }
             Token::RightBrace => { brace_depth -= 1; last_significant = &t.token; }
-            Token::Equals => { last_significant = &t.token; }
-            Token::Comma => {
-                if brace_depth > 0 {
-                    last_significant = &Token::RightBrace;
-                } else {
-                    last_significant = &t.token;
-                }
-            }
             Token::LeftBracket => {
-                // '[' after '=' or ',' or '[' = array value context (value position)
-                // '[' after newline or at document start = table header (key position)
+                bracket_depth += 1;
                 let is_array = matches!(last_significant, Token::Equals | Token::Comma | Token::LeftBracket);
                 if is_array {
                     last_significant = &t.token;
                 } else {
-                    last_significant = &Token::RightBrace; // key position for table header
+                    last_significant = &Token::RightBrace;
+                }
+            }
+            Token::RightBracket => { bracket_depth -= 1; last_significant = &t.token; }
+            Token::Equals => { last_significant = &t.token; }
+            Token::Comma => {
+                // If inside brackets (array), comma is always value separator
+                if bracket_depth > 0 {
+                    last_significant = &t.token;
+                } else if brace_depth > 0 {
+                    last_significant = &Token::RightBrace;
+                } else {
+                    last_significant = &t.token;
                 }
             }
             other => { last_significant = other; }

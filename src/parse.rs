@@ -110,7 +110,11 @@ impl Parser {
                 "inf" | "+inf" => Ok(Value::Float(f64::INFINITY)),
                 "-inf" => Ok(Value::Float(f64::NEG_INFINITY)),
                 "nan" | "+nan" | "-nan" => Ok(Value::Float(f64::NAN)),
-                _ => Ok(Value::String(s)),
+                _ => {
+                    // In value position, a bare key is only valid if it's a
+                    // recognized keyword. Anything else is an error.
+                    Err(ParseError::InvalidValue{line:l,col:c,message:format!("invalid value: {}", s)})
+                }
             },
             Token::LeftBracket => self.parse_array(),
             Token::LeftBrace => self.parse_inline_table(),

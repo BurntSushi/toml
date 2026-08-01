@@ -35,7 +35,7 @@ fn classify_dt(s: &str) -> (&'static str, String) {
     if (s.contains('T') || s.contains(' ') || s.contains('t')) && s.contains(':') {
         return ("datetime-local", normalize_dt(s));
     }
-    if s.contains(':') && !s.contains('-') { return ("time-local", s.to_string()); }
+    if s.contains(':') && !s.contains('-') { return ("time-local", normalize_dt(s)); }
     if s.contains('-') && !s.contains(':') { return ("date-local", s.to_string()); }
     ("datetime", s.to_string())
 }
@@ -83,8 +83,27 @@ fn format_float(f: &f64) -> String {
     if f.is_nan() { "nan".to_string() }
     else if f.is_infinite() { if *f > 0.0 { "inf".to_string() } else { "-inf".to_string() } }
     else if *f == 0.0 { if f.is_sign_negative() { "-0".to_string() } else { "0".to_string() } }
-    else if f.fract() == 0.0 && f.abs() < 1e16 { format!("{}", *f as i64) }
-    else { format!("{}", f) }
+    else {
+        let abs = f.abs();
+        if abs >= 1e16 || (abs > 0.0 && abs < 1e-3) {
+            let s = format!("{:e}", f);
+            normalize_scientific(&s)
+        } else if f.fract() == 0.0 {
+            format!("{}", *f as i64)
+        } else {
+            format!("{}", f)
+        }
+    }
+}
+
+fn normalize_scientific(s: &str) -> String {
+    if let Some(e_pos) = s.find('e') {
+        let mantissa = &s[..e_pos];
+        let exp = &s[e_pos+1..];
+        let mantissa = if mantissa.contains('.') { mantissa.to_string() } else { format!("{}.0", mantissa) };
+        let exp_val: i32 = exp.parse().unwrap_or(0);
+        format!("{}e{:+03}", mantissa, exp_val)
+    } else { s.to_string() }
 }
 
 fn is_dt(s: &str) -> bool {
