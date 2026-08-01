@@ -80,30 +80,34 @@ fn pad_frac(s: &str) -> String {
 }
 
 fn format_float(f: &f64) -> String {
-    if f.is_nan() { "nan".to_string() }
-    else if f.is_infinite() { if *f > 0.0 { "inf".to_string() } else { "-inf".to_string() } }
-    else if *f == 0.0 { if f.is_sign_negative() { "-0".to_string() } else { "0".to_string() } }
-    else {
-        let abs = f.abs();
-        if abs >= 1e16 || (abs > 0.0 && abs < 1e-3) {
-            let s = format!("{:e}", f);
-            normalize_scientific(&s)
-        } else if f.fract() == 0.0 {
-            format!("{}", *f as i64)
-        } else {
-            format!("{}", f)
-        }
+    if f.is_nan() { return "nan".to_string(); }
+    if f.is_infinite() { return if *f > 0.0 { "inf".to_string() } else { "-inf".to_string() }; }
+    if *f == 0.0 { return if f.is_sign_negative() { "-0".to_string() } else { "0".to_string() }; }
+    let abs = f.abs();
+    let exp10 = abs.log10().floor() as i32;
+    if exp10 < -4 || exp10 >= 21 {
+        let sci = format!("{:e}", f);
+        return go_sci_format(&sci);
     }
+    if f.fract() == 0.0 && abs < 1e16 {
+        return format!("{}", *f as i64);
+    }
+    format!("{}", f)
 }
 
-fn normalize_scientific(s: &str) -> String {
-    if let Some(e_pos) = s.find('e') {
-        let mantissa = &s[..e_pos];
-        let exp = &s[e_pos+1..];
-        let mantissa = if mantissa.contains('.') { mantissa.to_string() } else { format!("{}.0", mantissa) };
-        let exp_val: i32 = exp.parse().unwrap_or(0);
-        format!("{}e{:+03}", mantissa, exp_val)
-    } else { s.to_string() }
+fn go_sci_format(rust_sci: &str) -> String {
+    if let Some(e_pos) = rust_sci.find('e') {
+        let mantissa = &rust_sci[..e_pos];
+        let exp_str = &rust_sci[e_pos+1..];
+        let exp: i32 = exp_str.parse().unwrap_or(0);
+        if exp >= 0 {
+            format!("{}e+{:02}", mantissa, exp)
+        } else {
+            format!("{}e-{:02}", mantissa, exp.abs())
+        }
+    } else {
+        rust_sci.to_string()
+    }
 }
 
 fn is_dt(s: &str) -> bool {

@@ -250,6 +250,7 @@ fn lex_string(chars:&[char],start:usize,line:usize,col:usize)->Result<(Token,usi
             match chars[pos]{
                 'n'=>r.push('\n'),'t'=>r.push('\t'),'r'=>r.push('\r'),
                 '"'=>r.push('"'),'\\'=>r.push('\\'),'b'=>r.push('\u{0008}'),'f'=>r.push('\u{000C}'),
+                'e'=>r.push('\u{001B}'),
                 'u'=>{if pos+4>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}let h:String=chars[pos+1..pos+5].iter().collect();let c=u32::from_str_radix(&h,16).map_err(|_|ParseError::InvalidEscape{line,col})?;if let Some(ch)=char::from_u32(c){r.push(ch);}pos+=4;}
                 'U'=>{if pos+8>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}let h:String=chars[pos+1..pos+9].iter().collect();let c=u32::from_str_radix(&h,16).map_err(|_|ParseError::InvalidEscape{line,col})?;if let Some(ch)=char::from_u32(c){r.push(ch);}pos+=8;}
                 _=>return Err(ParseError::InvalidEscape{line,col}),
@@ -281,13 +282,25 @@ fn lex_multi(chars:&[char],start:usize,line:usize,col:usize,quote:char,esc:bool)
     if pos<chars.len()&&chars[pos]=='\r'{pos+=1; if pos<chars.len()&&chars[pos]=='\n'{pos+=1;} nl+=1;}
     else if pos<chars.len()&&chars[pos]=='\n'{pos+=1; nl+=1;}
     while pos<chars.len() {
-        if is_triple(chars,pos,quote){let nc=if nl>0{col+3}else{col+(pos-start)+3};return Ok((Token::String(r),pos+3,nl,nc));}
+        // Check for closing triple quote, but not if there are 4+ quotes in a row
+        // (4 quotes = escaped quote + closing, 5 quotes = 2 escaped + closing)
+        if is_triple(chars,pos,quote){
+            // Count consecutive quotes before this position to handle escaped quotes
+            let mut extra = 0;
+            let mut qpos = pos;
+            while qpos + 3 < chars.len() && chars[qpos+3] == quote { extra += 1; qpos += 1; }
+            // If there are extra quotes, they belong to the string content
+            for _ in 0..extra { r.push(quote); }
+            let nc=if nl>0{col+3}else{col+(pos-start)+3+extra};
+            return Ok((Token::String(r),qpos+3,nl,nc));
+        }
         let c=chars[pos];
         if esc&&c=='\\'{
             if pos+1<chars.len()&&(chars[pos+1]=='\n'||chars[pos+1]=='\r'){pos+=1; while pos<chars.len()&&(chars[pos]==' '||chars[pos]=='\t'||chars[pos]=='\n'||chars[pos]=='\r'){if chars[pos]=='\n'{nl+=1;}pos+=1;} continue;}
             pos+=1; if pos>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}
             match chars[pos]{
                 'n'=>r.push('\n'),'t'=>r.push('\t'),'r'=>r.push('\r'),'"'=>r.push('"'),'\''=>r.push('\''),'\\'=>r.push('\\'),'b'=>r.push('\u{0008}'),'f'=>r.push('\u{000C}'),
+                'e'=>r.push('\u{001B}'),
                 'u'=>{if pos+4>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}let h:String=chars[pos+1..pos+5].iter().collect();let cd=u32::from_str_radix(&h,16).map_err(|_|ParseError::InvalidEscape{line,col})?;if let Some(ch)=char::from_u32(cd){r.push(ch);}pos+=4;}
                 'U'=>{if pos+8>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}let h:String=chars[pos+1..pos+9].iter().collect();let cd=u32::from_str_radix(&h,16).map_err(|_|ParseError::InvalidEscape{line,col})?;if let Some(ch)=char::from_u32(cd){r.push(ch);}pos+=8;}
                 _=>return Err(ParseError::InvalidEscape{line,col}),

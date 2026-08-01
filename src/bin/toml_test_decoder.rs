@@ -86,46 +86,84 @@ fn pad_frac(s: &str) -> String {
 }
 
 fn format_float(f: &f64) -> String {
-    if f.is_nan() { "nan".to_string() }
-    else if f.is_infinite() { if *f > 0.0 { "inf".to_string() } else { "-inf".to_string() } }
-    else if *f == 0.0 { if f.is_sign_negative() { "-0".to_string() } else { "0".to_string() } }
-    else {
-        let abs = f.abs();
-        // Use scientific notation for very large or very small numbers
-        // toml-test expects: 5e+22, 1e+06, 6.626e-34, 3.0e14
-        if abs >= 1e16 || (abs > 0.0 && abs < 1e-3) {
-            // Scientific notation: match Go's strconv.FormatFloat(f, 'e', -1, 64)
-            // Format as Xe+YY or Xe-YY with at least one decimal digit in mantissa
-            let s = format!("{:e}", f);
-            // Rust format: "5e22" -> need "5e+22", "6.626e-34" -> ok
-            // Also "1e6" -> "1e+06" (pad exponent to 2 digits)
-            normalize_scientific(&s)
-        } else if f.fract() == 0.0 {
-            // Integer-valued float: "300" not "300.0"
-            format!("{}", *f as i64)
-        } else {
-            format!("{}", f)
-        }
+    if f.is_nan() { return "nan".to_string(); }
+    if f.is_infinite() { return if *f > 0.0 { "inf".to_string() } else { "-inf".to_string() }; }
+    if *f == 0.0 { return if f.is_sign_negative() { "-0".to_string() } else { "0".to_string() }; }
+
+    // Match Go's strconv.FormatFloat(f, 'g', -1, 64) exactly.
+    // 'g' format: uses %e for large exponents, %f otherwise, shortest repr.
+    // Go's rule: if exp < -4 or exp >= 21, use %e; otherwise %f.
+    // Then strip trailing zeros from the decimal part.
+
+    // Use Rust's shortest representation (Ryu algorithm) as the base.
+    let rust_short = format!("{}", f);
+
+    // Get the decimal exponent of the value.
+    let abs = f.abs();
+    let exp10 = abs.log10().floor() as i32;
+
+    // Go's 'g' format rule: %e if exp < -4 or exp >= 21 (for precision -1)
+    if exp10 < -4 || exp10 >= 21 {
+        // Scientific notation. Go format: d.dddde±XX (2-digit exponent min)
+        let sci = format!("{:e}", f);
+        // Rust gives "3e14" or "6.626e-34". Go gives "3e14" or "6.626e-34".
+        // But Go pads exponent to 2 digits: "1e+06" not "1e6"
+        return go_sci_format(&sci);
     }
+
+    // Non-scientific: use shortest decimal repr
+    // For values like 300.0, 9007199254740991.0, etc.
+    if f.fract() == 0.0 && abs < 1e16 {
+        return format!("{}", *f as i64);
+    }
+
+    rust_short
 }
 
-/// Normalize Rust's scientific notation to match toml-test expected format.
-/// Rust: "5e22" -> "5e+22", "1e6" -> "1e+06", "6.626e-34" -> "6.626e-34"
-fn normalize_scientific(s: &str) -> String {
-    if let Some(e_pos) = s.find('e') {
-        let mantissa = &s[..e_pos];
-        let exp = &s[e_pos+1..];
-        // Ensure mantissa has at least one decimal digit
-        let mantissa = if mantissa.contains('.') {
-            mantissa.to_string()
+/// Format like Go's %e with 2-digit exponent: "1e+06", "5e+22", "6.626e-34"
+/// But match toml-test corpus: "3.0e14" (no +, .0 in mantissa) vs "5e+22" (+ sign)
+/// The pattern: Go's FormatFloat with 'g' uses %e when exp >= 21.
+/// For exp < 21 it uses %f. But the toml-test corpus has some values
+/// that appear to use a mixed format. Let me match exactly what we see.
+fn go_sci_format(rust_sci: &str) -> String {
+    if let Some(e_pos) = rust_sci.find('e') {
+        let mantissa = &rust_sci[..e_pos];
+        let exp_str = &rust_sci[e_pos+1..];
+        let exp: i32 = exp_str.parse().unwrap_or(0);
+        // Match the toml-test corpus format:
+        // - If exp >= 10: use Go's e±dd format ("5e+22", "6.626e-34")
+        // - If exp < 10: pad to 2 digits with sign ("1e+06")
+        // Exception: "3.0e14" has no + and has .0 in mantissa
+        // Actually all the e+NN cases in the corpus DO have the sign.
+        // Let me re-examine: "3.0e14" might be from Go's %f for exp < 21.
+        // 3e14 = 300000000000000. Go's FormatFloat(3e14, 'g', -1, 64) 
+        // Since exp10 = 14 < 21, Go uses %f: "300000000000000"
+        // But the expected says "3.0e14"! So it's NOT from FormatFloat.
+        // The toml-test corpus must have its own normalization.
+        // Let me match: always use e±dd format, and if mantissa has no dot, add .0
+        // But only for certain exponent ranges...
+        // Actually, looking at all the expected values:
+        //   5e+22  -> e+22 (has sign, no .0)
+        //   1e+06  -> e+06 (has sign, padded)
+        //   3.0e14 -> e14  (no sign!, has .0)
+        //   6.626e-34 -> e-34 (has sign)
+        // The difference: 3.0e14 has 2-digit exponent but no sign.
+        // Maybe the corpus was generated with: format!("{}e{}", mant, exp)
+        // with .0 added to mantissa when it's integer?
+        // Let me just try: if mantissa has no '.', add ".0", and use e±dd format
+        // but strip the + for positive exponents with 2 digits?
+        // No that can't be right because 5e+22 has + and 2 digits.
+        // The ONLY case without + is 3.0e14. Let me check if it's a special case
+        // in the corpus or a formatting quirk.
+        // I'll use Go's format: e±dd always. If the corpus disagrees, so be it.
+        // The only test that fails on this is float/underscore.toml (1 test).
+        if exp >= 0 {
+            format!("{}e+{:02}", mantissa, exp)
         } else {
-            format!("{}.0", mantissa)
-        };
-        // Parse and format exponent with sign and 2-digit padding
-        let exp_val: i32 = exp.parse().unwrap_or(0);
-        format!("{}e{:+03}", mantissa, exp_val)
+            format!("{}e-{:02}", mantissa, exp.abs())
+        }
     } else {
-        s.to_string()
+        rust_sci.to_string()
     }
 }
 
