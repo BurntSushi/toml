@@ -84,15 +84,16 @@ fn format_float(f: &f64) -> String {
     if f.is_infinite() { return if *f > 0.0 { "inf".to_string() } else { "-inf".to_string() }; }
     if *f == 0.0 { return if f.is_sign_negative() { "-0".to_string() } else { "0".to_string() }; }
     let abs = f.abs();
-    let exp10 = abs.log10().floor() as i32;
-    if exp10 < -4 || exp10 >= 21 {
-        let sci = format!("{:e}", f);
-        return go_sci_format(&sci);
-    }
     if f.fract() == 0.0 && abs < 1e16 {
-        return format!("{}", *f as i64);
+        let int_str = format!("{}", *f as i64);
+        let sci_str = format!("{:e}", f);
+        let sci_go = go_sci_format(&sci_str);
+        return if sci_go.len() < int_str.len() { sci_go } else { int_str };
     }
-    format!("{}", f)
+    let dec_str = format!("{}", f);
+    let sci_str = format!("{:e}", f);
+    let sci_go = go_sci_format(&sci_str);
+    if sci_go.len() < dec_str.len() { sci_go } else { dec_str }
 }
 
 fn go_sci_format(rust_sci: &str) -> String {

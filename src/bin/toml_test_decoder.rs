@@ -91,33 +91,23 @@ fn format_float(f: &f64) -> String {
     if *f == 0.0 { return if f.is_sign_negative() { "-0".to_string() } else { "0".to_string() }; }
 
     // Match Go's strconv.FormatFloat(f, 'g', -1, 64) exactly.
-    // 'g' format: uses %e for large exponents, %f otherwise, shortest repr.
-    // Go's rule: if exp < -4 or exp >= 21, use %e; otherwise %f.
-    // Then strip trailing zeros from the decimal part.
-
-    // Use Rust's shortest representation (Ryu algorithm) as the base.
-    let rust_short = format!("{}", f);
-
-    // Get the decimal exponent of the value.
+    // Go uses whichever is shorter: decimal or scientific.
     let abs = f.abs();
-    let exp10 = abs.log10().floor() as i32;
 
-    // Go's 'g' format rule: %e if exp < -4 or exp >= 21 (for precision -1)
-    if exp10 < -4 || exp10 >= 21 {
-        // Scientific notation. Go format: d.dddde±XX (2-digit exponent min)
-        let sci = format!("{:e}", f);
-        // Rust gives "3e14" or "6.626e-34". Go gives "3e14" or "6.626e-34".
-        // But Go pads exponent to 2 digits: "1e+06" not "1e6"
-        return go_sci_format(&sci);
-    }
-
-    // Non-scientific: use shortest decimal repr
-    // For values like 300.0, 9007199254740991.0, etc.
+    // For integer-valued floats that fit in i64
     if f.fract() == 0.0 && abs < 1e16 {
-        return format!("{}", *f as i64);
+        let int_str = format!("{}", *f as i64);
+        let sci_str = format!("{:e}", f);
+        let sci_go = go_sci_format(&sci_str);
+        // Go uses whichever is shorter
+        return if sci_go.len() < int_str.len() { sci_go } else { int_str };
     }
 
-    rust_short
+    // For non-integer values
+    let dec_str = format!("{}", f);
+    let sci_str = format!("{:e}", f);
+    let sci_go = go_sci_format(&sci_str);
+    if sci_go.len() < dec_str.len() { sci_go } else { dec_str }
 }
 
 /// Format like Go's %e with 2-digit exponent: "1e+06", "5e+22", "6.626e-34"

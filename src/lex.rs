@@ -251,6 +251,7 @@ fn lex_string(chars:&[char],start:usize,line:usize,col:usize)->Result<(Token,usi
                 'n'=>r.push('\n'),'t'=>r.push('\t'),'r'=>r.push('\r'),
                 '"'=>r.push('"'),'\\'=>r.push('\\'),'b'=>r.push('\u{0008}'),'f'=>r.push('\u{000C}'),
                 'e'=>r.push('\u{001B}'),
+                'x'=>{if pos+2>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}let h:String=chars[pos+1..pos+3].iter().collect();let c=u32::from_str_radix(&h,16).map_err(|_|ParseError::InvalidEscape{line,col})?;if let Some(ch)=char::from_u32(c){r.push(ch);}pos+=2;}
                 'u'=>{if pos+4>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}let h:String=chars[pos+1..pos+5].iter().collect();let c=u32::from_str_radix(&h,16).map_err(|_|ParseError::InvalidEscape{line,col})?;if let Some(ch)=char::from_u32(c){r.push(ch);}pos+=4;}
                 'U'=>{if pos+8>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}let h:String=chars[pos+1..pos+9].iter().collect();let c=u32::from_str_radix(&h,16).map_err(|_|ParseError::InvalidEscape{line,col})?;if let Some(ch)=char::from_u32(c){r.push(ch);}pos+=8;}
                 _=>return Err(ParseError::InvalidEscape{line,col}),
@@ -296,11 +297,21 @@ fn lex_multi(chars:&[char],start:usize,line:usize,col:usize,quote:char,esc:bool)
         }
         let c=chars[pos];
         if esc&&c=='\\'{
-            if pos+1<chars.len()&&(chars[pos+1]=='\n'||chars[pos+1]=='\r'){pos+=1; while pos<chars.len()&&(chars[pos]==' '||chars[pos]=='\t'||chars[pos]=='\n'||chars[pos]=='\r'){if chars[pos]=='\n'{nl+=1;}pos+=1;} continue;}
+            // Line continuation: \ followed by whitespace (space, tab, newline)
+            // Skip all whitespace including newlines until next non-whitespace
+            if pos+1<chars.len()&&(chars[pos+1]==' '||chars[pos+1]=='\t'||chars[pos+1]=='\n'||chars[pos+1]=='\r'){
+                pos+=1;
+                while pos<chars.len()&&(chars[pos]==' '||chars[pos]=='\t'||chars[pos]=='\n'||chars[pos]=='\r'){
+                    if chars[pos]=='\n'{nl+=1;}
+                    pos+=1;
+                }
+                continue;
+            }
             pos+=1; if pos>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}
             match chars[pos]{
                 'n'=>r.push('\n'),'t'=>r.push('\t'),'r'=>r.push('\r'),'"'=>r.push('"'),'\''=>r.push('\''),'\\'=>r.push('\\'),'b'=>r.push('\u{0008}'),'f'=>r.push('\u{000C}'),
                 'e'=>r.push('\u{001B}'),
+                'x'=>{if pos+2>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}let h:String=chars[pos+1..pos+3].iter().collect();let cd=u32::from_str_radix(&h,16).map_err(|_|ParseError::InvalidEscape{line,col})?;if let Some(ch)=char::from_u32(cd){r.push(ch);}pos+=2;}
                 'u'=>{if pos+4>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}let h:String=chars[pos+1..pos+5].iter().collect();let cd=u32::from_str_radix(&h,16).map_err(|_|ParseError::InvalidEscape{line,col})?;if let Some(ch)=char::from_u32(cd){r.push(ch);}pos+=4;}
                 'U'=>{if pos+8>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}let h:String=chars[pos+1..pos+9].iter().collect();let cd=u32::from_str_radix(&h,16).map_err(|_|ParseError::InvalidEscape{line,col})?;if let Some(ch)=char::from_u32(cd){r.push(ch);}pos+=8;}
                 _=>return Err(ParseError::InvalidEscape{line,col}),
