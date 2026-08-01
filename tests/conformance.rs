@@ -1,12 +1,93 @@
 //! Conformance test runner — runs all 775 toml-test cases.
+//!
+//! Comparison follows the reference runner in `internal/toml-test/json.go`
+//! rather than comparing JSON as text:
+//!
+//!   * floats are compared numerically (`cmpFloats`), so `3e+14` and `3.0e14`
+//!     are the same value;
+//!   * datetimes are compared as instants (`cmpAsDatetimes`), so `.6` and
+//!     `.600` are the same value, as are `-00:00` and `Z`;
+//!   * booleans are compared case-insensitively;
+//!   * everything else is compared as a string.
+//!
+//! Type tags must always match exactly.
 
+mod common;
+
+use common::{compare, value_to_json};
+use serde_json::Value as JsonValue;
 use std::fs;
 use std::path::{Path, PathBuf};
 use toml_rs_port::parse;
-use serde_json::{Value as JsonValue, json};
 
 fn test_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("internal").join("toml-test").join("tests")
+}
+
+/// The corpus holds the TOML 1.0.0 and 1.1.0 suites side by side, and they
+/// contradict each other: `valid/inline-table/newline.toml` requires accepting
+/// a trailing comma, `invalid/inline-table/trailing-comma.toml` requires
+/// rejecting it. The reference runner resolves this with a per-version
+/// exclusion list (`internal/toml-test/version.go`); scoring against the raw
+/// union of all 775 files is not a passable target for any implementation.
+///
+/// This port targets TOML 1.1.0, the same version the Go original tracks.
+/// Override with `TOML_VERSION=1.0.0 cargo test --release`.
+fn toml_version() -> String {
+    std::env::var("TOML_VERSION").unwrap_or_else(|_| "1.1.0".to_string())
+}
+
+/// Mirrors `versions["1.1.0"].exclude` in internal/toml-test/version.go.
+const EXCLUDE_1_1_0: &[&str] = &[
+    "valid/spec-1.0.0/*",
+    "invalid/spec-1.0.0/*",
+    "invalid/datetime/no-secs",
+    "invalid/local-time/no-secs",
+    "invalid/local-datetime/no-secs",
+    "invalid/string/basic-byte-escapes",
+    "invalid/inline-table/trailing-comma",
+    "invalid/inline-table/linebreak-01",
+    "invalid/inline-table/linebreak-02",
+    "invalid/inline-table/linebreak-03",
+    "invalid/inline-table/linebreak-04",
+];
+
+/// Mirrors `versions["1.0.0"].exclude`.
+const EXCLUDE_1_0_0: &[&str] = &[
+    "valid/spec-1.1.0/*",
+    "invalid/spec-1.1.0/*",
+    "valid/string/escape-esc",
+    "valid/string/hex-escape",
+    "invalid/string/bad-hex-esc",
+    "valid/datetime/no-seconds",
+    "valid/inline-table/newline",
+    "valid/inline-table/newline-comment",
+    "invalid/control/multi-cr",
+    "invalid/control/rawmulti-cr",
+];
+
+fn excluded_for(version: &str) -> &'static [&'static str] {
+    match version {
+        "1.0.0" => EXCLUDE_1_0_0,
+        _ => EXCLUDE_1_1_0,
+    }
+}
+
+/// Test name relative to the corpus root, without the `.toml` extension —
+/// the form the exclusion patterns are written in.
+fn test_name(path: &Path) -> String {
+    path.strip_prefix(test_dir())
+        .unwrap_or(path)
+        .with_extension("")
+        .to_string_lossy()
+        .replace('\\', "/")
+}
+
+fn is_excluded(name: &str, version: &str) -> bool {
+    excluded_for(version).iter().any(|pat| match pat.strip_suffix("/*") {
+        Some(dir) => name.starts_with(dir) && name[dir.len()..].starts_with('/'),
+        None => name == *pat,
+    })
 }
 
 fn find_toml_files(dir: &Path) -> Vec<PathBuf> {
@@ -18,193 +99,121 @@ fn find_toml_files(dir: &Path) -> Vec<PathBuf> {
             else if path.extension().map_or(false, |e| e == "toml") { files.push(path); }
         }
     }
+    files.sort();
     files
 }
 
-fn classify_dt(s: &str) -> (&'static str, String) {
-    let s = s.trim();
-    if s.ends_with('Z') || s.ends_with('z') { return ("datetime", normalize_dt(s)); }
-    if s.len() > 6 {
-        let tail = &s[s.len()-6..];
-        if (tail.starts_with('+') || tail.starts_with('-'))
-            && tail[1..3].chars().all(|c| c.is_ascii_digit())
-            && tail.chars().nth(3) == Some(':')
-            && tail[4..6].chars().all(|c| c.is_ascii_digit())
-        { return ("datetime", normalize_dt(s)); }
-    }
-    if (s.contains('T') || s.contains(' ') || s.contains('t')) && s.contains(':') {
-        return ("datetime-local", normalize_dt_no_pad(s));
-    }
-    if s.contains(':') && !s.contains('-') { return ("time-local", normalize_dt_no_pad(s)); }
-    if s.contains('-') && !s.contains(':') { return ("date-local", s.to_string()); }
-    ("datetime", s.to_string())
-}
+// ----- the tests -----------------------------------------------------------
 
-fn normalize_dt(s: &str) -> String {
-    let s = s.trim();
-    let s = if s.contains(' ') {
-        let parts: Vec<&str> = s.splitn(2, ' ').collect();
-        if parts.len() == 2 && parts[0].len() == 10 { format!("{}T{}", parts[0], parts[1]) }
-        else { s.to_string() }
-    } else { s.to_string() };
-    let s = if s.len() > 11 && s.as_bytes()[10] == b't' { format!("{}T{}", &s[..10], &s[11..]) }
-    else { s };
-    let s = if s.ends_with('z') { format!("{}Z", &s[..s.len()-1]) } else { s };
-    let s = pad_seconds(&s);
-    pad_frac(&s)
-}
-
-fn normalize_dt_no_pad(s: &str) -> String {
-    let s = s.trim();
-    let s = if s.contains(' ') {
-        let parts: Vec<&str> = s.splitn(2, ' ').collect();
-        if parts.len() == 2 && parts[0].len() == 10 { format!("{}T{}", parts[0], parts[1]) }
-        else { s.to_string() }
-    } else { s.to_string() };
-    let s = if s.len() > 11 && s.as_bytes()[10] == b't' { format!("{}T{}", &s[..10], &s[11..]) }
-    else { s };
-    let s = if s.ends_with('z') { format!("{}Z", &s[..s.len()-1]) } else { s };
-    pad_seconds(&s)
-}
-
-fn pad_seconds(s: &str) -> String {
-    let time_start = if let Some(p) = s.find('T').or_else(|| s.find('t')) { p + 1 } else { 0 };
-    let rest = &s[time_start..];
-    let time_end = rest.find(|c: char| c == 'Z' || c == '+' || c == '-').unwrap_or(rest.len());
-    let time_str = &rest[..time_end];
-    let suffix = &rest[time_end..];
-    let colon_count = time_str.matches(':').count();
-    if colon_count == 1 && !time_str.contains('.') {
-        return format!("{}{}:00{}", &s[..time_start + time_end], "", suffix);
-    }
-    s.to_string()
-}
-
-fn pad_frac(s: &str) -> String {
-    // Pad fractional seconds to 3 digits ONLY for Z-timezone datetimes.
-    let dot_pos = match s.rfind('.') { Some(p) => p, None => return s.to_string() };
-    let time_part = &s[..dot_pos];
-    if !time_part.contains(':') { return s.to_string(); }
-    let after_dot = &s[dot_pos+1..];
-    let end_idx = after_dot.find(|c: char| c == 'Z' || c == '+' || c == '-').unwrap_or(after_dot.len());
-    let frac = &after_dot[..end_idx];
-    let suffix = &after_dot[end_idx..];
-    if suffix != "Z" { return s.to_string(); }
-    if frac.len() >= 3 { return s.to_string(); }
-    format!("{}.{}{}", &s[..dot_pos], format!("{:0<3}", frac), suffix)
-}
-
-fn format_float(f: &f64, _orig: &str) -> String {
-    if f.is_nan() { return "nan".to_string(); }
-    if f.is_infinite() { return if *f > 0.0 { "inf".to_string() } else { "-inf".to_string() }; }
-    if *f == 0.0 { return if f.is_sign_negative() { "-0".to_string() } else { "0".to_string() }; }
-    let abs = f.abs();
-    if f.fract() == 0.0 && abs < 1e16 {
-        let int_str = format!("{}", *f as i64);
-        let sci_str = format!("{:e}", f);
-        let sci_go = go_sci_format(&sci_str);
-        return if sci_go.len() < int_str.len() { sci_go } else { int_str };
-    }
-    let dec_str = format!("{}", f);
-    let sci_str = format!("{:e}", f);
-    let sci_go = go_sci_format(&sci_str);
-    if sci_go.len() < dec_str.len() { sci_go } else { dec_str }
-}
-
-fn go_sci_format(rust_sci: &str) -> String {
-    if let Some(e_pos) = rust_sci.find('e') {
-        let mantissa = &rust_sci[..e_pos];
-        let exp_str = &rust_sci[e_pos+1..];
-        let exp: i32 = exp_str.parse().unwrap_or(0);
-        if exp >= 0 {
-            format!("{}e+{:02}", mantissa, exp)
-        } else {
-            format!("{}e-{:02}", mantissa, exp.abs())
-        }
-    } else {
-        rust_sci.to_string()
-    }
-}
-
-fn is_dt(s: &str) -> bool {
-    let ch: Vec<char> = s.chars().collect();
-    if ch.len() >= 8 && ch[0].is_ascii_digit() && ch[1].is_ascii_digit()
-        && ch[2].is_ascii_digit() && ch[3].is_ascii_digit() && ch[4] == '-'
-        && ch[5].is_ascii_digit() && ch[6].is_ascii_digit() && ch[7] == '-'
-    {
-        if ch.len() == 10 { return true; }
-        let next = ch[10];
-        if next == 'T' || next == 't' || next == ' ' { return true; }
-        if next == '+' || next == '-' { return true; }
-        return false;
-    }
-    if ch.len() >= 5 && ch[0].is_ascii_digit() && ch[1].is_ascii_digit() && ch[2] == ':'
-        && ch[3].is_ascii_digit() && ch[4].is_ascii_digit()
-    { return true; }
-    false
-}
-
-fn value_to_json(value: &toml_rs_port::Value) -> JsonValue {
-    match value {
-        toml_rs_port::Value::String(s) => {
-            if is_dt(s) { let (t, v) = classify_dt(s); json!({"type": t, "value": v}) }
-            else { json!({"type": "string", "value": s}) }
-        }
-        toml_rs_port::Value::Integer(n) => json!({"type": "integer", "value": n.to_string()}),
-        toml_rs_port::Value::Float(f, orig) => json!({"type": "float", "value": format_float(f, orig)}),
-        toml_rs_port::Value::Boolean(b) => json!({"type": "bool", "value": b.to_string()}),
-        toml_rs_port::Value::Datetime(_) => json!({"type": "datetime", "value": "TODO"}),
-        toml_rs_port::Value::Array(arr) => JsonValue::Array(arr.iter().map(value_to_json).collect()),
-        toml_rs_port::Value::Table(table) => {
-            let mut map = serde_json::Map::new();
-            for (k, v) in table.iter() { map.insert(k.clone(), value_to_json(v)); }
-            JsonValue::Object(map)
-        }
-    }
-}
-
-fn compare_json(actual: &str, expected: &str) -> bool {
-    let a: JsonValue = match serde_json::from_str(actual) { Ok(v) => v, Err(_) => return false };
-    let e: JsonValue = match serde_json::from_str(expected) { Ok(v) => v, Err(_) => return false };
-    a == e
+/// Read a test file as UTF-8. `Err` means the bytes are not valid UTF-8 —
+/// which, for an invalid-TOML test, is itself the expected rejection.
+fn read_utf8(path: &Path) -> Result<String, ()> {
+    String::from_utf8(fs::read(path).map_err(|_| ())?).map_err(|_| ())
 }
 
 #[test]
 fn test_valid_toml_files() {
     let toml_files = find_toml_files(&test_dir().join("valid"));
-    let mut passed = 0; let mut failed = 0; let mut failures: Vec<String> = Vec::new();
+    let version = toml_version();
+    let mut passed = 0;
+    let mut skipped = 0;
+    let mut failures: Vec<String> = Vec::new();
     for path in &toml_files {
-        let toml_content = match fs::read_to_string(path) { Ok(s) => s, Err(e) => { failed+=1; failures.push(format!("READ: {} — {}", path.display(), e)); continue; } };
-        let expected_json = fs::read_to_string(&path.with_extension("json")).unwrap_or_default();
+        let name = test_name(path);
+        if is_excluded(&name, &version) { skipped += 1; continue; }
+        let Ok(toml_content) = read_utf8(path) else {
+            failures.push(format!("READ: {}", name));
+            continue;
+        };
+        let expected: JsonValue = match fs::read_to_string(path.with_extension("json"))
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+        {
+            Some(j) => j,
+            None => { failures.push(format!("NO EXPECTED JSON: {}", name)); continue; }
+        };
         match parse(&toml_content) {
-            Ok(value) => {
-                let actual_json = serde_json::to_string(&value_to_json(&value)).unwrap_or_default();
-                if compare_json(&actual_json, &expected_json) { passed += 1; }
-                else { failed += 1; failures.push(format!("MISMATCH: {}\n  Exp: {}\n  Got: {}", path.display(), &expected_json[..expected_json.len().min(200)], &actual_json[..actual_json.len().min(200)])); }
-            }
-            Err(e) => { failed += 1; failures.push(format!("PARSE: {} — {}", path.display(), e)); }
+            Ok(value) => match compare(&expected, &value_to_json(&value)) {
+                Ok(()) => passed += 1,
+                Err(e) => failures.push(format!("MISMATCH: {} — {}", name, e)),
+            },
+            Err(e) => failures.push(format!("PARSE: {} — {}", name, e)),
         }
     }
-    println!("\n=== Valid: {} passed, {} failed (of {} total) ===", passed, failed, passed + failed);
-    if !failures.is_empty() { for f in failures.iter().take(15) { println!("  {}", f); } if failures.len()>15 { println!("  ... +{} more", failures.len()-15); } }
-    assert!(failed == 0, "{} valid tests failed", failed);
+    println!(
+        "\n=== Valid (TOML {}): {} passed, {} failed, {} not in this version (of {} files) ===",
+        version, passed, failures.len(), skipped, toml_files.len()
+    );
+    for f in failures.iter().take(20) { println!("  {}", f); }
+    if failures.len() > 20 { println!("  ... +{} more", failures.len() - 20); }
+    assert!(failures.is_empty(), "{} valid tests failed", failures.len());
+}
+
+/// Encoder conformance: every valid document must survive
+/// parse → encode → parse and still match its expected JSON.
+#[test]
+fn test_encoder_round_trip() {
+    let version = toml_version();
+    let toml_files = find_toml_files(&test_dir().join("valid"));
+    let mut passed = 0;
+    let mut skipped = 0;
+    let mut failures: Vec<String> = Vec::new();
+    for path in &toml_files {
+        let name = test_name(path);
+        if is_excluded(&name, &version) { skipped += 1; continue; }
+        let Ok(toml_content) = read_utf8(path) else { continue };
+        let expected: JsonValue = match fs::read_to_string(path.with_extension("json"))
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+        {
+            Some(j) => j,
+            None => continue,
+        };
+        let Ok(value) = parse(&toml_content) else { continue };
+        let encoded = match toml_rs_port::encode(&value) {
+            Ok(s) => s,
+            Err(e) => { failures.push(format!("ENCODE: {} — {}", name, e)); continue; }
+        };
+        match parse(&encoded) {
+            Ok(reparsed) => match compare(&expected, &value_to_json(&reparsed)) {
+                Ok(()) => passed += 1,
+                Err(e) => failures.push(format!("ROUND TRIP: {} — {}", name, e)),
+            },
+            Err(e) => failures.push(format!("REPARSE: {} — {}\n--- emitted ---\n{}", name, e, encoded)),
+        }
+    }
+    println!(
+        "\n=== Encoder round trip (TOML {}): {} passed, {} failed, {} not in this version ===",
+        version, passed, failures.len(), skipped
+    );
+    for f in failures.iter().take(20) { println!("  {}", f); }
+    if failures.len() > 20 { println!("  ... +{} more", failures.len() - 20); }
+    assert!(failures.is_empty(), "{} encoder round trips failed", failures.len());
 }
 
 #[test]
 fn test_invalid_toml_files() {
     let toml_files = find_toml_files(&test_dir().join("invalid"));
-    let mut passed = 0; let mut failed = 0; let mut failures: Vec<String> = Vec::new();
+    let version = toml_version();
+    let mut passed = 0;
+    let mut skipped = 0;
+    let mut failures: Vec<String> = Vec::new();
     for path in &toml_files {
-        let toml_content = match fs::read_to_string(path) { Ok(s) => s, Err(_) => continue };
+        let name = test_name(path);
+        if is_excluded(&name, &version) { skipped += 1; continue; }
+        // Non-UTF-8 input is invalid TOML, so failing to decode it counts as
+        // a correct rejection rather than a skipped test.
+        let Ok(toml_content) = read_utf8(path) else { passed += 1; continue; };
         match parse(&toml_content) {
-            Ok(_) => {
-                if path.to_string_lossy().contains("spec-1.1.0") { passed += 1; }
-                else { failed += 1; failures.push(format!("SHOULD ERROR: {}", path.display())); }
-            }
-            Err(_) => { passed += 1; }
+            Ok(_) => failures.push(format!("SHOULD ERROR: {}", name)),
+            Err(_) => passed += 1,
         }
     }
-    println!("\n=== Invalid: {} passed, {} failed (of {} total) ===", passed, failed, passed + failed);
-    if !failures.is_empty() { for f in failures.iter().take(15) { println!("  {}", f); } if failures.len()>15 { println!("  ... +{} more", failures.len()-15); } }
-    assert!(failed == 0, "{} invalid tests should have errored", failed);
+    println!(
+        "\n=== Invalid (TOML {}): {} passed, {} failed, {} not in this version (of {} files) ===",
+        version, passed, failures.len(), skipped, toml_files.len()
+    );
+    for f in failures.iter().take(20) { println!("  {}", f); }
+    if failures.len() > 20 { println!("  ... +{} more", failures.len() - 20); }
+    assert!(failures.is_empty(), "{} invalid tests should have errored", failures.len());
 }

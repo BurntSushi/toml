@@ -1,4 +1,4 @@
-.PHONY: all build test fuzz bench check-unsafe smoke docker clean help
+.PHONY: all build test test-1.0 fuzz bench check-unsafe smoke docker clean help
 
 ## Help
 help: ## Show this help
@@ -16,14 +16,16 @@ build: ## Build release binaries
 	@ls -la target/release/toml-test-decoder* target/release/tomlv* 2>/dev/null || true
 
 ## Test
-test: ## Run all conformance tests
-	cargo test --release
+test: ## Run conformance + encoder round trip (TOML 1.1.0)
+	cargo test --release -- --nocapture
+
+test-1.0: ## Score against the TOML 1.0.0 test selection
+	TOML_VERSION=1.0.0 cargo test --release -- --nocapture
 
 ## Fuzz
-fuzz: ## Run differential fuzzer (60s+)
-	@echo "Running differential fuzzer..."
-	@cargo test --release --test fuzz -- --ignored --nocapture || \
-		echo "Fuzz harness not yet configured. See fuzz/harness.rs"
+fuzz: ## Run differential fuzzer against the Go original (60s; set FUZZ_SECONDS/FUZZ_SEED)
+	@echo "Running differential fuzzer (needs a Go toolchain)..."
+	cargo test --release --test fuzz -- --ignored --nocapture
 
 ## Bench
 bench: ## Run benchmarks

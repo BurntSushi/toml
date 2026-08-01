@@ -17,6 +17,12 @@ path = "src/bin/tomlv.rs"
 name = "toml-test-encoder"
 path = "src/bin/toml_test_encoder.rs"
 
+# The differential fuzzer lives outside tests/ so it is opt-in; without this
+# entry `cargo test --test fuzz` silently finds nothing.
+[[test]]
+name = "fuzz"
+path = "fuzz/harness.rs"
+
 [dependencies]
 # Zero external dependencies for the core library.
 # The toml-test-decoder needs to output JSON:

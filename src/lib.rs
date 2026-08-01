@@ -6,12 +6,14 @@
 //! The `toml-test-decoder` binary implements the toml-test wire protocol
 //! (TOML via stdin → JSON via stdout) for conformance testing.
 
-pub mod lex;
-pub mod parse;
+pub mod datetime;
 pub mod decode;
 pub mod encode;
 pub mod error;
+pub mod lex;
 pub mod meta;
+pub mod number;
+pub mod parse;
 pub mod types;
 
 /// A TOML value — the root type returned by parsing.
@@ -76,6 +78,36 @@ pub enum TimeOffset {
 
 use std::collections::BTreeMap;
 
+impl Value {
+    /// The toml-test type tag for this value, or `None` for the composite
+    /// kinds (array and table) which carry no tag of their own.
+    ///
+    /// Type tagging lives here rather than in the test harness so that a
+    /// quoted string that merely *looks* like a datetime stays a string.
+    pub fn type_tag(&self) -> Option<&'static str> {
+        match self {
+            Value::String(_) => Some("string"),
+            Value::Integer(_) => Some("integer"),
+            Value::Float(..) => Some("float"),
+            Value::Boolean(_) => Some("bool"),
+            Value::Datetime(dt) => Some(dt.type_tag()),
+            Value::Array(_) | Value::Table(_) => None,
+        }
+    }
+
+    /// The toml-test `value` field: every scalar is rendered as a string.
+    pub fn value_string(&self) -> Option<String> {
+        match self {
+            Value::String(s) => Some(s.clone()),
+            Value::Integer(n) => Some(n.to_string()),
+            Value::Float(f, _) => Some(number::format_float(*f)),
+            Value::Boolean(b) => Some(b.to_string()),
+            Value::Datetime(dt) => Some(dt.to_string()),
+            Value::Array(_) | Value::Table(_) => None,
+        }
+    }
+}
+
 /// Parse a TOML string into a `Value` tree.
 ///
 /// This is the primary entry point, equivalent to `toml.Decode()` in Go.
@@ -89,4 +121,46 @@ pub fn parse(input: &str) -> Result<Value, error::ParseError> {
 /// Equivalent to `toml.Encode()` in Go.
 pub fn encode(value: &Value) -> Result<String, error::EncodeError> {
     encode::encode(value)
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A quoted string that happens to look like a datetime is a string.
+    ///
+    /// Regression test: an earlier revision stored datetimes as `Value::String`
+    /// and let the test harness recover the type by inspecting the text, so
+    /// `a = "1979-05-27"` was reported as a `date-local`. The conformance
+    /// corpus does not cover this, so it passed.
+    #[test]
+    fn quoted_strings_that_look_like_datetimes_stay_strings() {
+        let doc = r#"
+            a = "1979-05-27T07:32:00Z"
+            b = "12:34:56"
+            c = "1979-05-27"
+            d = 1979-05-27
+        "#;
+        let Value::Table(t) = parse(doc).expect("should parse") else { panic!("not a table") };
+        assert_eq!(t["a"].type_tag(), Some("string"));
+        assert_eq!(t["b"].type_tag(), Some("string"));
+        assert_eq!(t["c"].type_tag(), Some("string"));
+        // The bare literal really is a date.
+        assert_eq!(t["d"].type_tag(), Some("date-local"));
+        assert_eq!(t["c"].value_string().unwrap(), "1979-05-27");
+    }
+
+    #[test]
+    fn round_trips_through_the_encoder() {
+        let doc = "\
+title = \"x\"\n\
+[a]\n\
+b = 1\n\
+[[a.c]]\n\
+d = 2.5\n\
+[[a.c]]\n\
+d = 1979-05-27T07:32:00Z\n";
+        let parsed = parse(doc).expect("should parse");
+        let encoded = encode(&parsed).expect("should encode");
+        assert_eq!(parse(&encoded).expect("should re-parse"), parsed);
+    }
 }

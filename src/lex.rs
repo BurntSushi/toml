@@ -4,6 +4,7 @@
 //! that include dots; in key position it produces bare key tokens.
 
 use crate::error::ParseError;
+use crate::number::{parse_number, Number};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
@@ -11,6 +12,9 @@ pub enum Token {
     LeftBracket, RightBracket, LeftBrace, RightBrace,
     Comma, Dot, Equals,
     String(String),
+    /// A `"""…"""` or `'''…'''` string. Tracked separately from `String`
+    /// because multi-line strings are values only — never keys.
+    MultilineString(String),
     BareKey(String),
     Integer(i64),
     Float(f64, String),
@@ -28,6 +32,18 @@ pub struct TokenWithPos {
     pub end: usize,
 }
 
+/// Control characters are banned everywhere except as an explicit tab or
+/// newline: U+0000–U+0008, U+000A–U+001F (context permitting), and U+007F.
+fn is_banned_control(c: char) -> bool {
+    let n = c as u32;
+    (n < 0x20 && c != '\t' && c != '\n' && c != '\r') || n == 0x7F
+}
+
+/// Bare keys are ASCII letters, digits, underscore, and dash — nothing else.
+fn is_bare_key_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '_' || c == '-'
+}
+
 /// Lex a TOML string into a vector of tokens with positions.
 pub fn lex(input: &str) -> Result<Vec<TokenWithPos>, ParseError> {
     let input = input.strip_prefix('\u{FEFF}').unwrap_or(input);
@@ -43,10 +59,22 @@ pub fn lex(input: &str) -> Result<Vec<TokenWithPos>, ParseError> {
         match c {
             ' ' | '\t' => { while pos < chars.len() && (chars[pos]==' '||chars[pos]=='\t') { pos+=1; col+=1; } }
             '\n' => { tokens.push(TokenWithPos{token:Token::Newline,line,col,start:pos,end:pos+1}); pos+=1; line+=1; col=1; }
-            '\r' => { pos+=1; if pos<chars.len()&&chars[pos]=='\n'{pos+=1;} tokens.push(TokenWithPos{token:Token::Newline,line,col,start:pos-2,end:pos}); line+=1; col=1; }
+            '\r' => {
+                // A carriage return is only legal as part of a CRLF pair.
+                if pos + 1 >= chars.len() || chars[pos+1] != '\n' {
+                    return Err(ParseError::UnexpectedChar { line, col, char: '\r' });
+                }
+                tokens.push(TokenWithPos{token:Token::Newline,line,col,start:pos,end:pos+2});
+                pos += 2; line += 1; col = 1;
+            }
             '#' => {
-                let s=pos; pos+=1; let mut c2=String::new();
-                while pos<chars.len()&&chars[pos]!='\n'&&chars[pos]!='\r' { c2.push(chars[pos]); pos+=1; col+=1; }
+                let s=pos; pos+=1; col+=1; let mut c2=String::new();
+                while pos<chars.len()&&chars[pos]!='\n'&&chars[pos]!='\r' {
+                    if is_banned_control(chars[pos]) {
+                        return Err(ParseError::UnexpectedChar { line, col, char: chars[pos] });
+                    }
+                    c2.push(chars[pos]); pos+=1; col+=1;
+                }
                 tokens.push(TokenWithPos{token:Token::Comment(c2.trim().to_string()),line,col,start:s,end:pos});
             }
             '[' => { tokens.push(TokenWithPos{token:Token::LeftBracket,line,col,start:pos,end:pos+1}); pos+=1; col+=1; }
@@ -58,11 +86,7 @@ pub fn lex(input: &str) -> Result<Vec<TokenWithPos>, ParseError> {
             '"' => { let(t,np,nl,nc)=lex_string(&chars,pos,line,col)?; tokens.push(TokenWithPos{token:t,line,col,start:pos,end:np}); line+=nl; col=nc; pos=np; }
             '\'' => { let(t,np,nl,nc)=lex_literal(&chars,pos,line,col)?; tokens.push(TokenWithPos{token:t,line,col,start:pos,end:np}); line+=nl; col=nc; pos=np; }
             '.' => { tokens.push(TokenWithPos{token:Token::Dot,line,col,start:pos,end:pos+1}); pos+=1; col+=1; }
-            // Control characters are invalid in TOML
-            c if (c as u32) < 0x20 && c != '\t' => {
-                return Err(ParseError::UnexpectedChar { line, col, char: c });
-            }
-            c if (c as u32) == 0x7F => {
+            c if is_banned_control(c) => {
                 return Err(ParseError::UnexpectedChar { line, col, char: c });
             }
             _ => {
@@ -128,25 +152,35 @@ fn is_value_position(tokens: &[TokenWithPos]) -> bool {
     matches!(last_significant, Token::Equals | Token::Comma | Token::LeftBracket)
 }
 
-/// Lex a key token — breaks on dots (they're separate tokens for dotted keys)
+/// Lex a bare key — breaks on dots (they're separate tokens for dotted keys).
 fn lex_key_token(chars: &[char], start: usize, line: usize, col: usize) -> Result<(Token, usize), ParseError> {
     let mut pos = start;
     let mut buf = String::new();
-    while pos < chars.len() {
-        let c = chars[pos];
-        if c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == ',' || c == ']'
-            || c == '}' || c == '#' || c == '=' || c == '.'
-        {
-            break;
-        }
-        buf.push(c);
+    while pos < chars.len() && is_bare_key_char(chars[pos]) {
+        buf.push(chars[pos]);
         pos += 1;
     }
     if buf.is_empty() {
-        return Err(ParseError::UnexpectedChar { line, col, char: chars[start] });
+        return Err(ParseError::InvalidKey {
+            line, col,
+            message: "bare keys may only contain A-Z a-z 0-9 _ -",
+            got: chars[start].to_string(),
+        });
     }
-    // Keys are always BareKey (even if they look like dates or numbers)
+    // A bare key ends at a delimiter; anything else here is a stray character
+    // that would silently become part of the key (`bare!key`, `μ`, `\u00c0`).
+    if pos < chars.len() && !is_key_delimiter(chars[pos]) {
+        return Err(ParseError::InvalidKey {
+            line, col,
+            message: "bare keys may only contain A-Z a-z 0-9 _ -",
+            got: chars[pos].to_string(),
+        });
+    }
     Ok((Token::BareKey(buf), pos))
+}
+
+fn is_key_delimiter(c: char) -> bool {
+    matches!(c, ' ' | '\t' | '\n' | '\r' | ',' | ']' | '}' | '#' | '=' | '.')
 }
 
 /// Lex a value token — includes dots and exponents for floats/datetimes.
@@ -200,117 +234,40 @@ fn lex_value_token(chars: &[char], start: usize, line: usize, col: usize) -> Res
         }
     }
 
-    classify_value(&buf, pos)
+    classify_value(&buf, pos, line, col)
 }
 
-fn classify_value(buf: &str, pos: usize) -> Result<(Token, usize), ParseError> {
+fn classify_value(buf: &str, pos: usize, line: usize, col: usize) -> Result<(Token, usize), ParseError> {
     if buf == "true" { return Ok((Token::Boolean(true), pos)); }
     if buf == "false" { return Ok((Token::Boolean(false), pos)); }
     if buf == "inf" || buf == "+inf" { return Ok((Token::Float(f64::INFINITY, buf.to_string()), pos)); }
     if buf == "-inf" { return Ok((Token::Float(f64::NEG_INFINITY, buf.to_string()), pos)); }
-    if buf == "nan" || buf == "+nan" || buf == "-nan" { return Ok((Token::Float(f64::NAN, buf.to_string()), pos)); }
+    if buf == "nan" || buf == "+nan" { return Ok((Token::Float(f64::NAN, buf.to_string()), pos)); }
+    if buf == "-nan" { return Ok((Token::Float(-f64::NAN, buf.to_string()), pos)); }
 
-    // Validate number format strictly
+    // Datetimes are number-shaped too, so they get first refusal; the parser
+    // validates the grammar once it knows this is a value and not a key.
+    if looks_like_dt(buf) { return Ok((Token::Datetime(buf.to_string()), pos)); }
+
     if is_number_start(buf) {
-        validate_number(buf)?;
+        return match parse_number(buf, line, col)? {
+            Number::Integer(n) => Ok((Token::Integer(n), pos)),
+            Number::Float(f) => Ok((Token::Float(f, buf.to_string()), pos)),
+        };
     }
 
-    if let Ok(n) = parse_int(buf) { return Ok((Token::Integer(n), pos)); }
-    let cleaned: String = buf.chars().filter(|c| *c != '_').collect();
-    if let Ok(f) = cleaned.parse::<f64>() { return Ok((Token::Float(f, buf.to_string()), pos)); }
-    if looks_like_dt(buf) { return Ok((Token::Datetime(buf.to_string()), pos)); }
     Ok((Token::BareKey(buf.to_string()), pos))
 }
 
 fn is_number_start(buf: &str) -> bool {
     let b = buf.as_bytes();
     if b.is_empty() { return false; }
-    // Don't validate datetimes as numbers
-    if looks_like_dt(buf) { return false; }
     b[0].is_ascii_digit() || (b.len() > 1 && (b[0] == b'+' || b[0] == b'-') && b[1].is_ascii_digit())
 }
 
-fn validate_number(buf: &str) -> Result<(), ParseError> {
-    let b = buf.as_bytes();
-    if b.is_empty() { return Ok(()); }
-
-    // Reject capital Inf/NaN (must be lowercase)
-    if buf == "Inf" || buf == "NaN" || buf == "INF" || buf == "NAN" {
-        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"lowercase inf/nan",got:buf.to_string()});
-    }
-
-    // Reject leading underscores
-    if buf.starts_with('_') {
-        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"no leading underscore",got:buf.to_string()});
-    }
-
-    // Reject trailing underscores
-    if buf.ends_with('_') {
-        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"no trailing underscore",got:buf.to_string()});
-    }
-
-    // Reject double underscores
-    if buf.contains("__") {
-        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"no double underscore",got:buf.to_string()});
-    }
-
-    // Reject leading zeros (03.14, 01, 00) but allow 0.xxx, 0e..., 0x, 0o, 0b, and plain 0
-    let digits: String = buf.chars().filter(|c| *c != '_').collect();
-    let digits = digits.trim_start_matches(|c| c == '+' || c == '-');
-    if digits.len() > 1 && digits.starts_with('0') {
-        let second = digits.chars().nth(1).unwrap_or(' ');
-        // Allow: 0.xxx, 0e..., 0E..., 0x, 0o, 0b
-        if second != '.' && second != 'e' && second != 'E' && second != 'x' && second != 'o' && second != 'b' {
-            return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"no leading zeros",got:buf.to_string()});
-        }
-    }
-
-    // Reject leading dot (-.12345, +.12345, .12345)
-    if digits.starts_with('.') {
-        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"digits before dot",got:buf.to_string()});
-    }
-
-    // Reject trailing dot (1., 1.e2)
-    if digits.ends_with('.') {
-        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"digits after dot",got:buf.to_string()});
-    }
-
-    // Reject underscore adjacent to dot (1._2, 1_.2)
-    if buf.contains("._") || buf.contains("_.") {
-        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"no underscore adjacent to dot",got:buf.to_string()});
-    }
-
-    // Reject underscore adjacent to e/E (1e_23, 1_e2, 1.2_e2)
-    if buf.contains("e_") || buf.contains("E_") || buf.contains("_e") || buf.contains("_E") {
-        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"no underscore adjacent to exponent",got:buf.to_string()});
-    }
-
-    // Reject 0x-1 (invalid hex)
-    if buf.starts_with("0x-") || buf.starts_with("0x+") {
-        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"no sign in hex",got:buf.to_string()});
-    }
-
-    // Reject underscore after base prefix (0x_1, 0b_1, 0o_1)
-    if buf.starts_with("0x_") || buf.starts_with("0b_") || buf.starts_with("0o_") {
-        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"no underscore after prefix",got:buf.to_string()});
-    }
-
-    // Reject underscore in inf/nan (in_f, na_n)
-    if buf.contains('_') && (buf.starts_with("in") || buf.starts_with("na")) {
-        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"no underscore in inf/nan",got:buf.to_string()});
-    }
-
-    Ok(())
-}
-
-fn parse_int(s: &str) -> Result<i64, ()> {
-    let c: String = s.chars().filter(|c| *c != '_').collect();
-    if c.starts_with("0x") { i64::from_str_radix(&c[2..], 16).map_err(|_| ()) }
-    else if c.starts_with("0o") { i64::from_str_radix(&c[2..], 8).map_err(|_| ()) }
-    else if c.starts_with("0b") { i64::from_str_radix(&c[2..], 2).map_err(|_| ()) }
-    else { c.parse::<i64>().map_err(|_| ()) }
-}
-
+/// Cheap shape test: a leading `YYYY-` or `HH:` means "treat as datetime and
+/// let the grammar decide". Deliberately loose so that `1987-7-05` reaches the
+/// datetime validator and gets a real error instead of falling through.
 fn looks_like_dt(s: &str) -> bool {
     let ch: Vec<char> = s.chars().collect();
     if ch.len() >= 8 && ch[0].is_ascii_digit() && ch[1].is_ascii_digit()
@@ -323,27 +280,37 @@ fn looks_like_dt(s: &str) -> bool {
 
 fn is_triple(chars:&[char],pos:usize,q:char)->bool{ pos+2<chars.len()&&chars[pos]==q&&chars[pos+1]==q&&chars[pos+2]==q }
 
+/// Decode `\uXXXX` / `\UXXXXXXXX`, rejecting surrogates and out-of-range
+/// codepoints rather than silently dropping them.
+fn unicode_escape(chars:&[char],pos:usize,width:usize,line:usize,col:usize)->Result<(char,usize),ParseError>{
+    if pos+width>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}
+    let h:String=chars[pos+1..pos+1+width].iter().collect();
+    let cp=u32::from_str_radix(&h,16).map_err(|_|ParseError::InvalidEscape{line,col})?;
+    let ch=char::from_u32(cp).ok_or(ParseError::InvalidEscape{line,col})?;
+    Ok((ch,pos+width))
+}
+
 fn lex_string(chars:&[char],start:usize,line:usize,col:usize)->Result<(Token,usize,usize,usize),ParseError>{
     if is_triple(chars,start,'"'){return lex_multi(chars,start,line,col,'"',true);}
     let mut pos=start+1; let mut r=String::new();
     while pos<chars.len() {
         let c=chars[pos];
         if c=='"'{return Ok((Token::String(r),pos+1,0,col+(pos-start)+1));}
-        if c=='\n'{return Err(ParseError::UnterminatedString{line,col});}
+        if c=='\n'||c=='\r'{return Err(ParseError::UnterminatedString{line,col});}
         if c=='\\'{
             pos+=1; if pos>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}
             match chars[pos]{
                 'n'=>r.push('\n'),'t'=>r.push('\t'),'r'=>r.push('\r'),
                 '"'=>r.push('"'),'\\'=>r.push('\\'),'b'=>r.push('\u{0008}'),'f'=>r.push('\u{000C}'),
                 'e'=>r.push('\u{001B}'),
-                'x'=>{if pos+2>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}let h:String=chars[pos+1..pos+3].iter().collect();let c=u32::from_str_radix(&h,16).map_err(|_|ParseError::InvalidEscape{line,col})?;if let Some(ch)=char::from_u32(c){r.push(ch);}pos+=2;}
-                'u'=>{if pos+4>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}let h:String=chars[pos+1..pos+5].iter().collect();let c=u32::from_str_radix(&h,16).map_err(|_|ParseError::InvalidEscape{line,col})?;if let Some(ch)=char::from_u32(c){r.push(ch);}pos+=4;}
-                'U'=>{if pos+8>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}let h:String=chars[pos+1..pos+9].iter().collect();let c=u32::from_str_radix(&h,16).map_err(|_|ParseError::InvalidEscape{line,col})?;if let Some(ch)=char::from_u32(c){r.push(ch);}pos+=8;}
+                'x'=>{if pos+2>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}let h:String=chars[pos+1..pos+3].iter().collect();let c=u32::from_str_radix(&h,16).map_err(|_|ParseError::InvalidEscape{line,col})?;let ch=char::from_u32(c).ok_or(ParseError::InvalidEscape{line,col})?;r.push(ch);pos+=2;}
+                'u'=>{let(ch,np)=unicode_escape(chars,pos,4,line,col)?;r.push(ch);pos=np;}
+                'U'=>{let(ch,np)=unicode_escape(chars,pos,8,line,col)?;r.push(ch);pos=np;}
                 _=>return Err(ParseError::InvalidEscape{line,col}),
             }
             pos+=1;
         } else {
-            if c!='\t'&&(c as u32)<0x20{return Err(ParseError::UnexpectedChar{line,col,char:c});}
+            if is_banned_control(c){return Err(ParseError::UnexpectedChar{line,col,char:c});}
             r.push(c); pos+=1;
         }
     }
@@ -356,8 +323,8 @@ fn lex_literal(chars:&[char],start:usize,line:usize,col:usize)->Result<(Token,us
     while pos<chars.len() {
         let c=chars[pos];
         if c=='\''{return Ok((Token::String(r),pos+1,0,col+(pos-start)+1));}
-        if c=='\n'{return Err(ParseError::UnterminatedString{line,col});}
-        if c!='\t'&&(c as u32)<0x20{return Err(ParseError::UnexpectedChar{line,col,char:c});}
+        if c=='\n'||c=='\r'{return Err(ParseError::UnterminatedString{line,col});}
+        if is_banned_control(c){return Err(ParseError::UnexpectedChar{line,col,char:c});}
         r.push(c); pos+=1;
     }
     Err(ParseError::UnterminatedString{line,col})
@@ -365,47 +332,73 @@ fn lex_literal(chars:&[char],start:usize,line:usize,col:usize)->Result<(Token,us
 
 fn lex_multi(chars:&[char],start:usize,line:usize,col:usize,quote:char,esc:bool)->Result<(Token,usize,usize,usize),ParseError>{
     let mut pos=start+3; let mut r=String::new(); let mut nl=0;
-    if pos<chars.len()&&chars[pos]=='\r'{pos+=1; if pos<chars.len()&&chars[pos]=='\n'{pos+=1;} nl+=1;}
+    // A newline immediately after the opening delimiter is trimmed.
+    if pos<chars.len()&&chars[pos]=='\r'&&pos+1<chars.len()&&chars[pos+1]=='\n'{pos+=2; nl+=1;}
     else if pos<chars.len()&&chars[pos]=='\n'{pos+=1; nl+=1;}
     while pos<chars.len() {
-        // Check for closing triple quote, but not if there are 4+ quotes in a row
-        // (4 quotes = escaped quote + closing, 5 quotes = 2 escaped + closing)
-        if is_triple(chars,pos,quote){
-            // Count consecutive quotes before this position to handle escaped quotes
-            let mut extra = 0;
-            let mut qpos = pos;
-            while qpos + 3 < chars.len() && chars[qpos+3] == quote { extra += 1; qpos += 1; }
-            // If there are extra quotes, they belong to the string content
-            for _ in 0..extra { r.push(quote); }
-            let nc=if nl>0{col+3}else{col+(pos-start)+3+extra};
-            return Ok((Token::String(r),qpos+3,nl,nc));
-        }
         let c=chars[pos];
+
+        if c==quote{
+            // Up to two quotes may appear as content directly before the
+            // closing delimiter; a run of six or more can't be parsed.
+            let mut n=0; while pos+n<chars.len()&&chars[pos+n]==quote{n+=1;}
+            if n>=3 {
+                if n>5 {
+                    return Err(ParseError::UnexpectedChar{line,col,char:quote});
+                }
+                for _ in 0..(n-3) { r.push(quote); }
+                let nc=if nl>0{col+3}else{col+(pos-start)+n};
+                return Ok((Token::MultilineString(r),pos+n,nl,nc));
+            }
+            for _ in 0..n { r.push(quote); }
+            pos+=n;
+            continue;
+        }
+
         if esc&&c=='\\'{
-            // Line continuation: \ followed by whitespace (space, tab, newline)
-            // Skip all whitespace including newlines until next non-whitespace
-            if pos+1<chars.len()&&(chars[pos+1]==' '||chars[pos+1]=='\t'||chars[pos+1]=='\n'||chars[pos+1]=='\r'){
-                pos+=1;
+            // Line continuation: a trailing `\` swallows the newline and all
+            // leading whitespace on the next line. Whitespace between the `\`
+            // and the newline is allowed; anything else is not.
+            let mut peek=pos+1;
+            while peek<chars.len()&&(chars[peek]==' '||chars[peek]=='\t'){peek+=1;}
+            let at_newline = peek<chars.len()&&(chars[peek]=='\n'||chars[peek]=='\r');
+            if at_newline {
+                pos=peek;
                 while pos<chars.len()&&(chars[pos]==' '||chars[pos]=='\t'||chars[pos]=='\n'||chars[pos]=='\r'){
                     if chars[pos]=='\n'{nl+=1;}
                     pos+=1;
                 }
                 continue;
             }
+            if peek>pos+1 {
+                // `\` followed by whitespace that does not end the line.
+                return Err(ParseError::InvalidEscape{line,col});
+            }
+
             pos+=1; if pos>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}
             match chars[pos]{
                 'n'=>r.push('\n'),'t'=>r.push('\t'),'r'=>r.push('\r'),'"'=>r.push('"'),'\''=>r.push('\''),'\\'=>r.push('\\'),'b'=>r.push('\u{0008}'),'f'=>r.push('\u{000C}'),
                 'e'=>r.push('\u{001B}'),
-                'x'=>{if pos+2>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}let h:String=chars[pos+1..pos+3].iter().collect();let cd=u32::from_str_radix(&h,16).map_err(|_|ParseError::InvalidEscape{line,col})?;if let Some(ch)=char::from_u32(cd){r.push(ch);}pos+=2;}
-                'u'=>{if pos+4>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}let h:String=chars[pos+1..pos+5].iter().collect();let cd=u32::from_str_radix(&h,16).map_err(|_|ParseError::InvalidEscape{line,col})?;if let Some(ch)=char::from_u32(cd){r.push(ch);}pos+=4;}
-                'U'=>{if pos+8>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}let h:String=chars[pos+1..pos+9].iter().collect();let cd=u32::from_str_radix(&h,16).map_err(|_|ParseError::InvalidEscape{line,col})?;if let Some(ch)=char::from_u32(cd){r.push(ch);}pos+=8;}
+                'x'=>{if pos+2>=chars.len(){return Err(ParseError::UnexpectedEof{line,col});}let h:String=chars[pos+1..pos+3].iter().collect();let cd=u32::from_str_radix(&h,16).map_err(|_|ParseError::InvalidEscape{line,col})?;let ch=char::from_u32(cd).ok_or(ParseError::InvalidEscape{line,col})?;r.push(ch);pos+=2;}
+                'u'=>{let(ch,np)=unicode_escape(chars,pos,4,line,col)?;r.push(ch);pos=np;}
+                'U'=>{let(ch,np)=unicode_escape(chars,pos,8,line,col)?;r.push(ch);pos=np;}
                 _=>return Err(ParseError::InvalidEscape{line,col}),
             }
             pos+=1;
-        } else {
-            if c=='\n'{nl+=1;}
-            r.push(c); pos+=1;
+            continue;
         }
+
+        if c=='\r' {
+            // Bare CR is illegal even inside a multi-line string.
+            if pos+1>=chars.len()||chars[pos+1]!='\n'{
+                return Err(ParseError::UnexpectedChar{line,col,char:'\r'});
+            }
+            r.push('\r'); r.push('\n'); pos+=2; nl+=1;
+            continue;
+        }
+        if c=='\n'{nl+=1; r.push(c); pos+=1; continue;}
+        if is_banned_control(c){return Err(ParseError::UnexpectedChar{line,col,char:c});}
+        r.push(c); pos+=1;
     }
     Err(ParseError::UnterminatedString{line,col})
 }

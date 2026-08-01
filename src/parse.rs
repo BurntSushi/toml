@@ -1,35 +1,76 @@
 //! Parser — ported from parse.go (846 LOC)
 //! Consumes tokens from the lexer and produces a `Value` tree.
 
-use crate::lex::{Token, TokenWithPos};
+use crate::datetime::parse_datetime;
 use crate::error::ParseError;
+use crate::lex::{Token, TokenWithPos};
 use crate::Value;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 pub fn parse(tokens: Vec<TokenWithPos>) -> Result<Value, ParseError> {
     let mut p = Parser::new(tokens);
     p.parse_document()
 }
 
+/// How a given path came to exist.
+///
+/// The Go original tracks only `implicit`/explicit on table nodes, which is why
+/// it accepts things like `a.b.c = 1` followed by `a.b = 2`. Distinguishing the
+/// six ways a path can be created makes every "already defined" rule in the
+/// spec expressible as a single lookup.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Kind {
+    /// Defined by a `[table]` header.
+    Header,
+    /// Brought into being as the parent of a `[a.b]` header.
+    Implicit,
+    /// Defined by a `[[array]]` header.
+    Aot,
+    /// A super-table created by a dotted key in a key/value pair.
+    Dotted,
+    /// An inline table value: `{ … }`. Sealed — nothing may extend it.
+    Inline,
+    /// A super-table created by a dotted key *inside* an inline table.
+    InlineDotted,
+    /// Any other value: scalar, array, array of inline tables.
+    Value,
+}
+
+const SEP: char = '\u{1}';
+const IDX: char = '\u{2}';
+
 struct Parser {
     tokens: Vec<TokenWithPos>,
     pos: usize,
-    last_table: Option<Vec<String>>,
+    /// Canonical path → how it was defined. Array-of-table elements get an
+    /// index baked into the canonical path so siblings don't collide.
+    meta: HashMap<String, Kind>,
+    /// Canonical path of an array of tables → index of its current element.
+    aot_index: HashMap<String, usize>,
 }
 
 impl Parser {
     fn new(t: Vec<TokenWithPos>) -> Self {
-        Parser{tokens:t, pos:0, last_table: None}
+        Parser { tokens: t, pos: 0, meta: HashMap::new(), aot_index: HashMap::new() }
     }
     fn cur(&self) -> &Token { &self.tokens[self.pos].token }
     fn curpos(&self) -> (usize,usize) { (self.tokens[self.pos].line, self.tokens[self.pos].col) }
+    fn cur_start(&self) -> usize { self.tokens[self.pos].start }
+    fn prev_end(&self) -> usize { if self.pos == 0 { 0 } else { self.tokens[self.pos-1].end } }
     fn adv(&mut self) -> Token { let t=self.tokens[self.pos].token.clone(); if self.pos<self.tokens.len()-1 {self.pos+=1;} t }
     fn skipws(&mut self) { while self.pos<self.tokens.len(){match self.cur(){Token::Whitespace|Token::Comment(_)=>{self.adv();}_=>{break;}}} }
     fn skipnl(&mut self) { while self.pos<self.tokens.len(){match self.cur(){Token::Whitespace|Token::Comment(_)|Token::Newline=>{self.adv();}_=>{break;}}} }
 
+    fn dup(&self, key: &str) -> ParseError {
+        let (line, col) = self.curpos();
+        ParseError::DuplicateKey { line, col, key: key.to_string() }
+    }
+
     fn parse_document(&mut self) -> Result<Value, ParseError> {
         let mut root = BTreeMap::new();
-        let mut cur_tbl: Vec<String> = Vec::new();
+        // Canonical prefix and key path of the table currently being filled.
+        let mut cur_canon = String::new();
+        let mut cur_path: Vec<String> = Vec::new();
         self.skipnl();
         while !matches!(self.cur(), Token::Eof) {
             self.skipnl();
@@ -37,22 +78,23 @@ impl Parser {
             match self.cur() {
                 Token::LeftBracket => {
                     let (path, is_arr) = self.parse_table_header()?;
-                    if is_arr {
-                        insert_aot(&mut root, &path)?;
+                    cur_canon = if is_arr {
+                        self.resolve_aot_header(&mut root, &path)?
                     } else {
-                        // Only reject if the EXACT same table header appears twice in a row
-                        if self.last_table.as_ref() == Some(&path) {
-                            return Err(ParseError::DuplicateKey{line:0,col:0,key:path.join(".")});
-                        }
-                        ensure_tbl(&mut root, &path)?;
-                    }
-                    self.last_table = Some(path.clone());
-                    cur_tbl = path;
+                        self.resolve_header(&mut root, &path)?
+                    };
+                    cur_path = path;
                 }
                 _ => {
-                    let (kp, val) = self.parse_kv()?;
-                    let tgt = nav_tbl(&mut root, &cur_tbl)?;
-                    insert_dotted(tgt, &kp, val)?;
+                    let (kp, val) = self.parse_kv(&cur_canon)?;
+                    let tgt = navigate(&mut root, &cur_path)?;
+                    self.insert_kv(tgt, &cur_canon, &kp, val, false)?;
+                    // A key/value pair owns the rest of its line.
+                    self.skipws();
+                    match self.cur() {
+                        Token::Newline | Token::Eof | Token::Comment(_) => {}
+                        _ => return Err(self.err_expected("newline after key/value pair")),
+                    }
                 }
             }
             self.skipnl();
@@ -60,9 +102,99 @@ impl Parser {
         Ok(Value::Table(root))
     }
 
+    // ----- table headers -------------------------------------------------
+
+    /// Walk `path`, registering intermediate tables, and return the canonical
+    /// prefix for the table body that follows.
+    fn resolve_header(&mut self, root: &mut BTreeMap<String, Value>, path: &[String]) -> Result<String, ParseError> {
+        let mut canon = String::new();
+        for (i, seg) in path.iter().enumerate() {
+            let last = i == path.len() - 1;
+            canon.push(SEP);
+            canon.push_str(seg);
+            match self.meta.get(&canon).copied() {
+                Some(Kind::Aot) => {
+                    let idx = *self.aot_index.get(&canon).unwrap_or(&0);
+                    if last {
+                        // `[a]` cannot reopen an array of tables.
+                        return Err(self.dup(seg));
+                    }
+                    canon.push(IDX);
+                    canon.push_str(&idx.to_string());
+                }
+                Some(Kind::Header) if last => return Err(self.dup(seg)),
+                Some(Kind::Header) | Some(Kind::Implicit) => {
+                    if last { self.meta.insert(canon.clone(), Kind::Header); }
+                }
+                // A table created by a dotted key may gain deeper sub-tables
+                // (`[fruit.apple.texture]`) but may not be redefined by its
+                // own header (`[fruit.apple]`).
+                Some(Kind::Dotted) if !last => {}
+                Some(_) => return Err(self.dup(seg)),
+                None => {
+                    self.meta.insert(canon.clone(), if last { Kind::Header } else { Kind::Implicit });
+                }
+            }
+        }
+        let _ = navigate(root, path)?;
+        Ok(canon)
+    }
+
+    /// Same, for `[[array]]`: the final segment appends a fresh element.
+    fn resolve_aot_header(&mut self, root: &mut BTreeMap<String, Value>, path: &[String]) -> Result<String, ParseError> {
+        let mut canon = String::new();
+        for (i, seg) in path.iter().enumerate() {
+            let last = i == path.len() - 1;
+            canon.push(SEP);
+            canon.push_str(seg);
+            if !last {
+                match self.meta.get(&canon).copied() {
+                    Some(Kind::Aot) => {
+                        let idx = *self.aot_index.get(&canon).unwrap_or(&0);
+                        canon.push(IDX);
+                        canon.push_str(&idx.to_string());
+                    }
+                    Some(Kind::Header) | Some(Kind::Implicit) | Some(Kind::Dotted) => {}
+                    Some(_) => return Err(self.dup(seg)),
+                    None => { self.meta.insert(canon.clone(), Kind::Implicit); }
+                }
+                continue;
+            }
+            match self.meta.get(&canon).copied() {
+                Some(Kind::Aot) => {
+                    let idx = self.aot_index.entry(canon.clone()).or_insert(0);
+                    *idx += 1;
+                    let idx = *idx;
+                    canon.push(IDX);
+                    canon.push_str(&idx.to_string());
+                }
+                Some(_) => return Err(self.dup(seg)),
+                None => {
+                    self.meta.insert(canon.clone(), Kind::Aot);
+                    self.aot_index.insert(canon.clone(), 0);
+                    canon.push(IDX);
+                    canon.push('0');
+                }
+            }
+        }
+
+        // Append the element to the value tree.
+        let parent = navigate(root, &path[..path.len()-1])?;
+        let key = &path[path.len()-1];
+        let entry = parent.entry(key.clone()).or_insert_with(|| Value::Array(Vec::new()));
+        match entry {
+            Value::Array(a) => a.push(Value::Table(BTreeMap::new())),
+            _ => return Err(self.dup(key)),
+        }
+        Ok(canon)
+    }
+
     fn parse_table_header(&mut self) -> Result<(Vec<String>, bool), ParseError> {
+        let open_end = self.tokens[self.pos].end;
         self.adv(); // [
-        let is_arr = matches!(self.cur(), Token::LeftBracket);
+        // `[[` only means "array of tables" when the brackets are adjacent;
+        // `[ [table]]` is a malformed header, not an AOT.
+        let is_arr = matches!(self.cur(), Token::LeftBracket) && self.cur_start() == open_end;
         if is_arr { self.adv(); }
         let mut path = Vec::new();
         self.skipws();
@@ -72,9 +204,19 @@ impl Parser {
             if matches!(self.cur(), Token::Dot) { self.adv(); self.skipws(); } else { break; }
         }
         self.skipws();
-        if is_arr { if !matches!(self.cur(), Token::RightBracket) { return Err(self.err_expected("]")); } self.adv(); }
-        if !matches!(self.cur(), Token::RightBracket) { return Err(self.err_expected("]")); }
-        self.adv();
+        if is_arr {
+            if !matches!(self.cur(), Token::RightBracket) { return Err(self.err_expected("]")); }
+            let first_end = self.tokens[self.pos].end;
+            self.adv();
+            if !matches!(self.cur(), Token::RightBracket) || self.cur_start() != first_end {
+                return Err(self.err_expected("]] with no space between brackets"));
+            }
+            self.adv();
+        } else {
+            if !matches!(self.cur(), Token::RightBracket) { return Err(self.err_expected("]")); }
+            self.adv();
+        }
+        let _ = self.prev_end();
         self.skipws();
         match self.cur() {
             Token::Newline | Token::Eof | Token::Comment(_) => {}
@@ -83,20 +225,23 @@ impl Parser {
         Ok((path, is_arr))
     }
 
+    // ----- keys and values -----------------------------------------------
+
     fn parse_key(&mut self) -> Result<String, ParseError> {
         let (l, c) = self.curpos();
         match self.adv() {
             Token::BareKey(s) => Ok(s),
             Token::String(s) => Ok(s),
-            Token::Integer(n) => Ok(n.to_string()),
-            Token::Float(f, _) => Ok(format_float_key(f)),
-            Token::Boolean(b) => Ok(b.to_string()),
-            Token::Datetime(s) => Ok(s),
+            Token::MultilineString(_) => Err(ParseError::InvalidKey {
+                line: l, col: c,
+                message: "multi-line strings are not valid keys",
+                got: "\"\"\"".to_string(),
+            }),
             other => Err(ParseError::UnexpectedToken{line:l,col:c,expected:"key",got:format!("{:?}",other)}),
         }
     }
 
-    fn parse_kv(&mut self) -> Result<(Vec<String>, Value), ParseError> {
+    fn parse_kv(&mut self, base: &str) -> Result<(Vec<String>, Value), ParseError> {
         let mut kp = Vec::new();
         self.skipws();
         loop {
@@ -108,46 +253,43 @@ impl Parser {
         if !matches!(self.cur(), Token::Equals) { return Err(self.err_expected("=")); }
         self.adv();
         self.skipws();
-        let v = self.parse_value()?;
+        let canon = canon_join(base, &kp);
+        let v = self.parse_value(&canon)?;
         Ok((kp, v))
     }
 
-    fn parse_value(&mut self) -> Result<Value, ParseError> {
+    /// `base` is the canonical path this value will be stored at — inline
+    /// tables need it so their own members can be registered.
+    fn parse_value(&mut self, base: &str) -> Result<Value, ParseError> {
         let (l, c) = self.curpos();
         match self.adv() {
-            Token::String(s) => Ok(Value::String(s)),
+            Token::String(s) | Token::MultilineString(s) => Ok(Value::String(s)),
             Token::Integer(n) => Ok(Value::Integer(n)),
             Token::Float(f, orig) => Ok(Value::Float(f, orig)),
             Token::Boolean(b) => Ok(Value::Boolean(b)),
-            Token::Datetime(s) => {
-                // Validate datetime components
-                validate_datetime(&s, l, c)?;
-                Ok(Value::String(s))
-            }
-            Token::BareKey(s) => match s.as_str() {
-                "inf" | "+inf" => Ok(Value::Float(f64::INFINITY, s)),
-                "-inf" => Ok(Value::Float(f64::NEG_INFINITY, s)),
-                "nan" | "+nan" | "-nan" => Ok(Value::Float(f64::NAN, s)),
-                _ => {
-                    // In value position, a bare key is only valid if it's a
-                    // recognized keyword. Anything else is an error.
-                    Err(ParseError::InvalidValue{line:l,col:c,message:format!("invalid value: {}", s)})
-                }
-            },
-            Token::LeftBracket => self.parse_array(),
-            Token::LeftBrace => self.parse_inline_table(),
+            Token::Datetime(s) => Ok(Value::Datetime(parse_datetime(&s, l, c)?)),
+            Token::BareKey(s) => Err(ParseError::InvalidValue {
+                line: l, col: c,
+                message: format!("invalid value: {}", s),
+            }),
+            Token::LeftBracket => self.parse_array(base),
+            Token::LeftBrace => self.parse_inline_table(base),
             other => Err(ParseError::UnexpectedToken{line:l,col:c,expected:"value",got:format!("{:?}",other)}),
         }
     }
 
-    fn parse_array(&mut self) -> Result<Value, ParseError> {
+    fn parse_array(&mut self, base: &str) -> Result<Value, ParseError> {
         let mut arr = Vec::new();
         self.skipnl();
         if matches!(self.cur(), Token::RightBracket) { self.adv(); return Ok(Value::Array(arr)); }
         loop {
             self.skipnl();
             if matches!(self.cur(), Token::RightBracket) { self.adv(); return Ok(Value::Array(arr)); }
-            arr.push(self.parse_value()?);
+            // Each element gets its own canonical slot so that two inline
+            // tables in one array can't be mistaken for each other.
+            let elem_base = format!("{}{}#{}", base, IDX, arr.len());
+            let v = self.parse_value(&elem_base)?;
+            arr.push(v);
             self.skipnl();
             match self.cur() {
                 Token::Comma => { self.adv(); self.skipnl(); }
@@ -157,13 +299,13 @@ impl Parser {
         }
     }
 
-    fn parse_inline_table(&mut self) -> Result<Value, ParseError> {
+    fn parse_inline_table(&mut self, base: &str) -> Result<Value, ParseError> {
         let mut tbl = BTreeMap::new();
-        self.skipnl(); // Allow newlines for TOML 1.1
+        // Newlines and a trailing comma are permitted as of TOML 1.1.
+        self.skipnl();
         if matches!(self.cur(), Token::RightBrace) { self.adv(); return Ok(Value::Table(tbl)); }
         loop {
             self.skipnl();
-            self.skipws();
             let mut kp = Vec::new();
             loop {
                 kp.push(self.parse_key()?);
@@ -172,20 +314,14 @@ impl Parser {
             }
             if !matches!(self.cur(), Token::Equals) { return Err(self.err_expected("=")); }
             self.adv(); self.skipws();
-            let v = self.parse_value()?;
-            // Check for duplicate key in inline table
-            if kp.len() == 1 && tbl.contains_key(&kp[0]) {
-                return Err(ParseError::DuplicateKey{line:0,col:0,key:kp[0].clone()});
-            }
-            let _ = insert_dotted(&mut tbl, &kp, v);
+            let canon = canon_join(base, &kp);
+            let v = self.parse_value(&canon)?;
+            self.insert_kv(&mut tbl, base, &kp, v, true)?;
             self.skipnl();
-            self.skipws();
             match self.cur() {
                 Token::Comma => {
                     self.adv();
-                    // Handle trailing comma: skip newlines/ws and check for }
                     self.skipnl();
-                    self.skipws();
                     if matches!(self.cur(), Token::RightBrace) {
                         self.adv();
                         return Ok(Value::Table(tbl));
@@ -197,145 +333,90 @@ impl Parser {
         }
     }
 
-    fn err_expected(&self, _exp: &str) -> ParseError {
+    // ----- insertion -----------------------------------------------------
+
+    /// Insert `val` at `path` inside `tbl`, registering every path it creates.
+    fn insert_kv(
+        &mut self,
+        tbl: &mut BTreeMap<String, Value>,
+        base: &str,
+        path: &[String],
+        val: Value,
+        inline: bool,
+    ) -> Result<(), ParseError> {
+        let super_kind = if inline { Kind::InlineDotted } else { Kind::Dotted };
+        let mut canon = base.to_string();
+        for seg in &path[..path.len()-1] {
+            canon.push(SEP);
+            canon.push_str(seg);
+            match self.meta.get(&canon).copied() {
+                None => { self.meta.insert(canon.clone(), super_kind); }
+                Some(k) if k == super_kind => {}
+                // Anything else here is an attempt to extend a table that is
+                // already closed: a value, an inline table, an AOT, or a
+                // table defined by its own `[header]`.
+                Some(_) => return Err(self.dup(seg)),
+            }
+        }
+        let leaf = &path[path.len()-1];
+        canon.push(SEP);
+        canon.push_str(leaf);
+        if self.meta.contains_key(&canon) {
+            return Err(self.dup(leaf));
+        }
+        self.meta.insert(canon, if matches!(val, Value::Table(_)) { Kind::Inline } else { Kind::Value });
+
+        let target = navigate_creating(tbl, &path[..path.len()-1])?;
+        target.insert(leaf.clone(), val);
+        Ok(())
+    }
+
+    fn err_expected(&self, exp: &'static str) -> ParseError {
         let (l, c) = self.curpos();
-        ParseError::ExpectedToken{line:l,col:c,expected:"placeholder",got:format!("{:?}", self.cur())}
+        ParseError::ExpectedToken{line:l,col:c,expected:exp,got:format!("{:?}", self.cur())}
     }
 }
 
-fn format_float_key(f: f64) -> String {
-    if f.is_nan() { "nan".to_string() }
-    else if f.is_infinite() { if f > 0.0 { "inf".to_string() } else { "-inf".to_string() } }
-    else { format!("{}", f) }
+fn canon_join(base: &str, path: &[String]) -> String {
+    let mut s = base.to_string();
+    for seg in path {
+        s.push(SEP);
+        s.push_str(seg);
+    }
+    s
 }
 
-fn nav_tbl<'a>(root: &'a mut BTreeMap<String, Value>, path: &[String]) -> Result<&'a mut BTreeMap<String, Value>, ParseError> {
+fn internal(what: &str) -> ParseError {
+    ParseError::InvalidValue { line: 0, col: 0, message: what.to_string() }
+}
+
+/// Walk an already-validated path, following arrays of tables to their last
+/// element. Only reached after `meta` has approved the path.
+fn navigate<'a>(root: &'a mut BTreeMap<String, Value>, path: &[String]) -> Result<&'a mut BTreeMap<String, Value>, ParseError> {
     let mut cur = root;
-    for (i, key) in path.iter().enumerate() {
-        let entry = cur.entry(key.clone()).or_insert(Value::Table(BTreeMap::new()));
-        match entry {
-            Value::Table(t) => { cur = t; }
-            Value::Array(a) => {
-                // If this is the last key in the path and the array has elements,
-                // navigate into the last element (for [[arr]] + [arr.subtab])
-                if i == path.len() - 1 {
-                    if let Some(Value::Table(t)) = a.last_mut() {
-                        cur = t;
-                    } else {
-                        return Err(ParseError::DuplicateKey{line:0,col:0,key:key.clone()});
-                    }
-                } else {
-                    // Navigate into the last element of the array
-                    if let Some(Value::Table(t)) = a.last_mut() {
-                        cur = t;
-                    } else {
-                        return Err(ParseError::DuplicateKey{line:0,col:0,key:key.clone()});
-                    }
-                }
-            }
-            _ => return Err(ParseError::DuplicateKey{line:0,col:0,key:key.clone()}),
-        }
+    for key in path {
+        let entry = cur.entry(key.clone()).or_insert_with(|| Value::Table(BTreeMap::new()));
+        cur = match entry {
+            Value::Table(t) => t,
+            Value::Array(a) => match a.last_mut() {
+                Some(Value::Table(t)) => t,
+                _ => return Err(internal("cannot descend into a non-table array")),
+            },
+            _ => return Err(internal("cannot descend into a non-table value")),
+        };
     }
     Ok(cur)
 }
 
-fn ensure_tbl(root: &mut BTreeMap<String, Value>, path: &[String]) -> Result<(), ParseError> {
-    let _ = nav_tbl(root, path)?; Ok(())
-}
-
-fn insert_aot(root: &mut BTreeMap<String, Value>, path: &[String]) -> Result<(), ParseError> {
-    if path.is_empty() { return Err(ParseError::InvalidValue{line:0,col:0,message:"empty path".into()}); }
-    let parent = nav_tbl(root, &path[..path.len()-1])?;
-    let key = &path[path.len()-1];
-    let entry = parent.entry(key.clone()).or_insert(Value::Array(Vec::new()));
-    match entry {
-        Value::Array(a) => { a.push(Value::Table(BTreeMap::new())); }
-        _ => return Err(ParseError::DuplicateKey{line:0,col:0,key:key.clone()}),
-    }
-    Ok(())
-}
-
-fn insert_dotted(tbl: &mut BTreeMap<String, Value>, path: &[String], val: Value) -> Result<(), ParseError> {
-    if path.len() == 1 {
-        if tbl.contains_key(&path[0]) {
-            return Err(ParseError::DuplicateKey{line:0,col:0,key:path[0].clone()});
-        }
-        tbl.insert(path[0].clone(), val);
-        Ok(())
-    }
-    else {
-        let key = &path[0]; let rem = &path[1..];
-        let entry = tbl.entry(key.clone()).or_insert(Value::Table(BTreeMap::new()));
-        if let Value::Table(t) = entry { insert_dotted(t, rem, val) }
-        else { Err(ParseError::DuplicateKey{line:0,col:0,key:key.clone()}) }
-    }
-}
-
-/// Validate datetime components (TOML spec ranges).
-fn validate_datetime(s: &str, line: usize, col: usize) -> Result<(), ParseError> {
-    let s = s.trim();
-    // Only validate date part if it looks like a date (YYYY-MM-DD)
-    if s.len() >= 10 && s[4..5] == *"-" && s[7..8] == *"-" {
-        let year: u32 = match s[0..4].parse() { Ok(y) => y, Err(_) => return Err(ParseError::UnexpectedToken{line,col,expected:"valid year",got:s[..4].into()}) };
-        let month: u32 = match s[5..7].parse() { Ok(m) => m, Err(_) => return Err(ParseError::UnexpectedToken{line,col,expected:"valid month",got:s[5..7].into()}) };
-        let day: u32 = match s[8..10].parse() { Ok(d) => d, Err(_) => return Err(ParseError::UnexpectedToken{line,col,expected:"valid day",got:s[8..10].into()}) };
-
-        if year == 0 { return Err(ParseError::UnexpectedToken{line,col,expected:"non-zero year",got:"0".into()}); }
-        if month == 0 || month > 12 { return Err(ParseError::UnexpectedToken{line,col,expected:"month 01-12",got:month.to_string()}); }
-        if day == 0 { return Err(ParseError::UnexpectedToken{line,col,expected:"day 01-31",got:"0".into()}); }
-        let max_day = match month {
-            1|3|5|7|8|10|12 => 31,
-            4|6|9|11 => 30,
-            2 => if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) { 29 } else { 28 },
-            _ => 31,
+/// Same, but for dotted-key super-tables, which are always plain tables.
+fn navigate_creating<'a>(tbl: &'a mut BTreeMap<String, Value>, path: &[String]) -> Result<&'a mut BTreeMap<String, Value>, ParseError> {
+    let mut cur = tbl;
+    for key in path {
+        let entry = cur.entry(key.clone()).or_insert_with(|| Value::Table(BTreeMap::new()));
+        cur = match entry {
+            Value::Table(t) => t,
+            _ => return Err(internal("cannot descend into a non-table value")),
         };
-        if day > max_day { return Err(ParseError::UnexpectedToken{line,col,expected:"valid day",got:day.to_string()}); }
     }
-
-    if let Some(tpos) = s.find('T').or_else(|| s.find('t')) {
-        let time_part = &s[tpos+1..];
-        let time_end = time_part.find(|c: char| c == 'Z' || c == '+' || c == '-').unwrap_or(time_part.len());
-        let time_str = &time_part[..time_end];
-
-        let parts: Vec<&str> = time_str.split(':').collect();
-        if parts.len() >= 2 {
-            if let Ok(hour) = parts[0].parse::<u32>() {
-                if hour > 23 { return Err(ParseError::UnexpectedToken{line,col,expected:"hour 00-23",got:hour.to_string()}); }
-            }
-            if let Ok(minute) = parts[1].parse::<u32>() {
-                if minute > 59 { return Err(ParseError::UnexpectedToken{line,col,expected:"minute 00-59",got:minute.to_string()}); }
-            }
-            if parts.len() >= 3 {
-                let sec_str = parts[2].split('.').next().unwrap_or(parts[2]);
-                if let Ok(second) = sec_str.parse::<u32>() {
-                    if second > 60 { return Err(ParseError::UnexpectedToken{line,col,expected:"second 00-60",got:second.to_string()}); }
-                }
-                if parts[2].ends_with('.') && parts[2][..parts[2].len()-1].chars().all(|c| c.is_ascii_digit()) {
-                    return Err(ParseError::UnexpectedToken{line,col,expected:"digits after dot",got:parts[2].into()});
-                }
-            }
-        }
-
-        if let Some(off_start) = time_part.find(|c: char| c == '+' || (c == '-' && !time_part[..time_part.find(c).unwrap_or(0)].contains('-'))) {
-            let offset = &time_part[off_start..];
-            if offset.len() != 6 || offset.chars().nth(3) != Some(':') {
-                return Err(ParseError::UnexpectedToken{line,col,expected:"offset +/-HH:MM",got:offset.into()});
-            }
-            if let Ok(off_hour) = offset[1..3].parse::<u32>() {
-                if off_hour > 24 { return Err(ParseError::UnexpectedToken{line,col,expected:"offset hour 00-24",got:off_hour.to_string()}); }
-            }
-            if let Ok(off_min) = offset[4..6].parse::<u32>() {
-                if off_min > 59 { return Err(ParseError::UnexpectedToken{line,col,expected:"offset minute 00-59",got:off_min.to_string()}); }
-            }
-        }
-    }
-
-    if s.len() > 10 && !s.contains('T') && !s.contains(' ') && !s.contains(':') {
-        let after_date = &s[10..];
-        if !after_date.is_empty() && after_date != "Z" && !after_date.starts_with('+') && !after_date.starts_with('-') {
-            return Err(ParseError::UnexpectedToken{line,col,expected:"valid date separator",got:after_date.into()});
-        }
-    }
-
-    Ok(())
+    Ok(cur)
 }

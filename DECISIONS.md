@@ -90,10 +90,84 @@
 **Rust:** `serde_json` crate.
 **Why:** Standard Rust JSON library. Same output format.
 
-## Known Limitations (3 test failures)
+## Decision 16: Go's permissive `time.Parse` layouts to an explicit datetime grammar
 
-1. **comment/tricky.toml** -- `ten = 10e2` expected `"1000.0"` but Go's FormatFloat gives `"1000"`.
-2. **float/underscore.toml** -- `3e14` expected `"3.0e14"` but Go's FormatFloat gives `"3e+14"`.
-3. **datetime/milliseconds.toml** -- `.6Z` expected `.600Z` but Go's `.999999999` format gives `.6Z`.
+**Go:** `time.Parse` with a table of layout strings, which accepts whatever the
+layout happens to match — `1987-7-05T17:45:00Z` slips through with a one-digit month.
+**Rust:** `src/datetime.rs` walks the RFC 3339 / TOML ABNF byte by byte.
+**Why:** Every rejection has a stated reason, and the accept set is exactly the
+spec's rather than an artefact of a format string.
 
-These are formatting normalization differences in the toml-test corpus itself, not parser bugs.
+## Decision 17: Go's `strconv` fallback to an explicit number grammar
+
+**Go:** Lex loosely, then hand the token to `strconv`, which accepts things TOML does
+not (`1.e2`, `_1.2`, `0x_1`).
+**Rust:** `src/number.rs` validates against the ABNF before conversion.
+**Why:** Same reason. Underscore placement, leading zeros, and the
+`frac`/`exp` structure are all grammar rules, so they belong in the grammar.
+
+One behaviour is deliberately preserved from Go: a float literal that
+*overflows* is an error, but one that *underflows* to zero is accepted. Rust's
+`str::parse::<f64>` returns `inf` on overflow rather than erroring, so the check
+is explicit.
+
+## Decision 18: Go's `implicit` flag to a six-way table provenance enum
+
+**Go:** Table nodes carry a single `implicit` boolean.
+**Rust:** `Kind` in `src/parse.rs` records *how* each path came to exist:
+`Header`, `Implicit`, `Aot`, `Dotted`, `Inline`, `InlineDotted`, `Value`, keyed by a
+canonical path with array-of-table indices baked in.
+**Why:** Every "already defined" rule in the spec becomes a single lookup. This is
+what a boolean cannot express, and it is the source of most of the 18 bugs listed
+below.
+
+## Decision 19: Type tagging belongs in the library, not the test harness
+
+**Go:** The decoder knows a `time.Time` from a `string`, so the distinction survives.
+**Rust:** `Value::Datetime(Datetime)` is a real variant, and `Value::type_tag()`
+lives in `src/lib.rs`.
+**Why:** An earlier revision of this port stored datetimes as `Value::String` and had
+the test harness re-derive the type by pattern-matching the text. That reported the
+*quoted string* `"1979-05-27"` as a `date-local`. The corpus does not happen to cover
+that case, so it passed. Type information must not be reconstructed downstream.
+
+## Bugs found in BurntSushi/toml
+
+The port rejects 18 documents that the original accepts and the corpus marks
+invalid. Verified by running `cmd/toml-test-decoder` (the original, built from
+this repository at the kickoff commit) over `internal/toml-test/tests/invalid`.
+
+Table state — a table created by a dotted key, or an array of tables, being
+reopened or extended in a way the spec forbids:
+
+- `table/append-with-dotted-keys-01`, `-02`, `-03`, `-05`, `-08`
+- `table/duplicate-key-04`, `-05`
+- `table/redefine-02`, `-03`
+- `array/extend-defined-aot`
+- `spec-1.0.0/table-9-1`, `spec-1.1.0/common-46-1`, `spec-1.1.0/common-49-0`
+
+Inline tables — duplicate and overwriting keys:
+
+- `inline-table/duplicate-key-03`, `inline-table/overwrite-02`, `-08`
+- `spec-1.0.0/inline-table-2-0`
+
+Datetime range checking:
+
+- `datetime/offset-overflow-minute`
+
+There is no input in the corpus that this port accepts and the original rejects.
+
+## A bug the differential fuzzer found in this port
+
+`3.14159265358e9793` was accepted and became `inf`, because Rust's
+`str::parse::<f64>` saturates on overflow where Go's `strconv.ParseFloat`
+returns a range error. Fixed in `src/number.rs`; see Decision 17.
+
+## Corpus note: 775 tests is not a scoreable total
+
+`internal/toml-test/version.go` defines per-version exclusion lists because the
+TOML 1.0.0 and 1.1.0 suites in this corpus contradict each other —
+`valid/inline-table/newline.toml` requires accepting a trailing comma in an
+inline table and `invalid/inline-table/trailing-comma.toml` requires rejecting
+it. No implementation can pass both. `tests/conformance.rs` mirrors those lists
+and defaults to TOML 1.1.0, matching the Go original's own behaviour.

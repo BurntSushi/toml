@@ -45,6 +45,24 @@ pub enum ParseError {
         col: usize,
         message: String,
     },
+    InvalidDatetime {
+        line: usize,
+        col: usize,
+        message: &'static str,
+        got: String,
+    },
+    InvalidNumber {
+        line: usize,
+        col: usize,
+        message: &'static str,
+        got: String,
+    },
+    InvalidKey {
+        line: usize,
+        col: usize,
+        message: &'static str,
+        got: String,
+    },
 }
 
 impl fmt::Display for ParseError {
@@ -73,6 +91,15 @@ impl fmt::Display for ParseError {
             }
             ParseError::InvalidValue { line, col, message } => {
                 write!(f, "toml: error: invalid value at line {}, column {}: {}", line, col, message)
+            }
+            ParseError::InvalidDatetime { line, col, message, got } => {
+                write!(f, "toml: error: invalid datetime {:?} at line {}, column {}: {}", got, line, col, message)
+            }
+            ParseError::InvalidNumber { line, col, message, got } => {
+                write!(f, "toml: error: invalid number {:?} at line {}, column {}: {}", got, line, col, message)
+            }
+            ParseError::InvalidKey { line, col, message, got } => {
+                write!(f, "toml: error: invalid key {:?} at line {}, column {}: {}", got, line, col, message)
             }
         }
     }
