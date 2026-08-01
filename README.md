@@ -61,9 +61,13 @@ invalid — mostly around table state: redefining a table created by a dotted ke
 extending an array of tables through a dotted key, and duplicate keys inside
 inline tables. Full list in [DECISIONS.md](DECISIONS.md).
 
-The differential fuzzer also found one bug in **this port**, since fixed: a float
-literal whose exponent overflowed (`3.14159265358e9793`) silently became `inf`
-instead of erroring.
+### Bugs the fuzzer found in this port
+
+Three, all since fixed, and none of them reachable from the conformance corpus —
+a float literal whose exponent overflowed silently became `inf`; a bare carriage
+return could start a line continuation inside a multi-line string; and an inline
+table nested inside an array had its keys lexed as values, which let an illegal
+bare key through. Details in [DECISIONS.md](DECISIONS.md).
 
 ## Build and Test
 

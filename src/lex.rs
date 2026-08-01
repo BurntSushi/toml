@@ -110,46 +110,38 @@ pub fn lex(input: &str) -> Result<Vec<TokenWithPos>, ParseError> {
     Ok(tokens)
 }
 
-/// Check if the previous significant token indicates we're in value position.
-/// After '=' or ',' (outside braces) or '[' we expect a value.
-/// After '{' or ',' inside braces, we expect a KEY.
+/// Whether the next token appears where a value is expected rather than a key.
+///
+/// What a comma means depends on the *innermost* container: inside an array it
+/// separates values, inside an inline table it separates key/value pairs. A
+/// depth counter can't tell those apart — `[{a = 1}, {b = 2}]` has both open at
+/// once — so the enclosing containers are tracked as a stack.
 fn is_value_position(tokens: &[TokenWithPos]) -> bool {
-    let mut brace_depth = 0i32;
-    let mut bracket_depth = 0i32;
-    let mut last_significant = &Token::Eof as &Token;
+    #[derive(Clone, Copy, PartialEq)]
+    enum Ctx { Array, InlineTable }
+
+    let mut stack: Vec<Ctx> = Vec::new();
+    let mut expect_value = false;
     for t in tokens.iter() {
         match &t.token {
-            Token::Whitespace | Token::Comment(_) | Token::Newline => continue,
-            Token::LeftBrace => {
-                brace_depth += 1;
-                last_significant = &Token::RightBrace;
-            }
-            Token::RightBrace => { brace_depth -= 1; last_significant = &t.token; }
+            Token::Whitespace | Token::Comment(_) | Token::Newline => {}
+            Token::Equals => expect_value = true,
+            Token::LeftBrace => { stack.push(Ctx::InlineTable); expect_value = false; }
+            Token::RightBrace => { stack.pop(); expect_value = false; }
             Token::LeftBracket => {
-                bracket_depth += 1;
-                let is_array = matches!(last_significant, Token::Equals | Token::Comma | Token::LeftBracket);
-                if is_array {
-                    last_significant = &t.token;
-                } else {
-                    last_significant = &Token::RightBrace;
-                }
+                // A `[` where a value is expected opens an array; anywhere else
+                // it opens a table header, whose contents are keys.
+                if expect_value { stack.push(Ctx::Array); } else { expect_value = false; }
             }
-            Token::RightBracket => { bracket_depth -= 1; last_significant = &t.token; }
-            Token::Equals => { last_significant = &t.token; }
-            Token::Comma => {
-                // If inside brackets (array), comma is always value separator
-                if bracket_depth > 0 {
-                    last_significant = &t.token;
-                } else if brace_depth > 0 {
-                    last_significant = &Token::RightBrace;
-                } else {
-                    last_significant = &t.token;
-                }
+            Token::RightBracket => {
+                if stack.last() == Some(&Ctx::Array) { stack.pop(); }
+                expect_value = false;
             }
-            other => { last_significant = other; }
+            Token::Comma => expect_value = stack.last() == Some(&Ctx::Array),
+            _ => expect_value = false,
         }
     }
-    matches!(last_significant, Token::Equals | Token::Comma | Token::LeftBracket)
+    expect_value
 }
 
 /// Lex a bare key — breaks on dots (they're separate tokens for dotted keys).
@@ -361,12 +353,27 @@ fn lex_multi(chars:&[char],start:usize,line:usize,col:usize,quote:char,esc:bool)
             // and the newline is allowed; anything else is not.
             let mut peek=pos+1;
             while peek<chars.len()&&(chars[peek]==' '||chars[peek]=='\t'){peek+=1;}
-            let at_newline = peek<chars.len()&&(chars[peek]=='\n'||chars[peek]=='\r');
+            // A bare CR does not end a line, so it does not start a
+            // continuation either.
+            let at_newline = match chars.get(peek) {
+                Some('\n') => true,
+                Some('\r') => chars.get(peek+1) == Some(&'\n'),
+                _ => false,
+            };
             if at_newline {
                 pos=peek;
-                while pos<chars.len()&&(chars[pos]==' '||chars[pos]=='\t'||chars[pos]=='\n'||chars[pos]=='\r'){
-                    if chars[pos]=='\n'{nl+=1;}
-                    pos+=1;
+                loop {
+                    match chars.get(pos) {
+                        Some(' ') | Some('\t') => pos+=1,
+                        Some('\n') => { nl+=1; pos+=1; }
+                        Some('\r') => {
+                            if chars.get(pos+1) != Some(&'\n') {
+                                return Err(ParseError::UnexpectedChar{line,col,char:'\r'});
+                            }
+                            nl+=1; pos+=2;
+                        }
+                        _ => break,
+                    }
                 }
                 continue;
             }
@@ -401,4 +408,51 @@ fn lex_multi(chars:&[char],start:usize,line:usize,col:usize,quote:char,esc:bool)
         r.push(c); pos+=1;
     }
     Err(ParseError::UnterminatedString{line,col})
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn err(src: &str) {
+        assert!(lex(src).is_err(), "{:?} should have been rejected", src);
+    }
+
+    /// Found by the differential fuzzer: an inline table nested in an array
+    /// leaves both containers open, so the meaning of a comma cannot be
+    /// decided from a bracket-depth counter.
+    #[test]
+    fn keys_in_an_inline_table_inside_an_array_are_lexed_as_keys() {
+        let toks = lex("a = [{b = 1}, {c = 2}]").expect("should lex");
+        let keys: Vec<&str> = toks.iter().filter_map(|t| match &t.token {
+            Token::BareKey(k) => Some(k.as_str()),
+            _ => None,
+        }).collect();
+        assert_eq!(keys, ["a", "b", "c"]);
+        // …so an illegal bare key is still caught in the second table.
+        err("a = [{b = 1}, {c+d = 2}]");
+    }
+
+    /// Also found by the fuzzer: a lone CR does not end a line, so it cannot
+    /// start a line continuation.
+    #[test]
+    fn bare_cr_does_not_start_a_line_continuation() {
+        err("a = \"\"\"\\\rT\"\"\"");
+        // The CRLF form is a genuine continuation.
+        assert!(lex("a = \"\"\"x\\\r\n  y\"\"\"").is_ok());
+    }
+
+    #[test]
+    fn rejects_control_characters_and_bare_cr() {
+        err("# comment\u{7f}\n");        // DEL in a comment
+        err("a = 1\rb = 2\n");           // bare CR
+        err("a = \"\"\"x\u{0}y\"\"\"");   // NUL in a multi-line string
+    }
+
+    #[test]
+    fn bounds_quote_runs_in_multiline_strings() {
+        // Two quotes of content before the delimiter is the limit.
+        assert!(lex("a = '''ok: ''''''").is_err());
+        assert!(lex("a = '''ok: '''''").is_ok());
+    }
 }

@@ -157,11 +157,25 @@ Datetime range checking:
 
 There is no input in the corpus that this port accepts and the original rejects.
 
-## A bug the differential fuzzer found in this port
+## Bugs the differential fuzzer found in this port
 
-`3.14159265358e9793` was accepted and became `inf`, because Rust's
-`str::parse::<f64>` saturates on overflow where Go's `strconv.ParseFloat`
-returns a range error. Fixed in `src/number.rs`; see Decision 17.
+Three, all cases where this port accepted input the original rejects, and none
+of them covered by the conformance corpus.
+
+1. **Float overflow became `inf`.** `3.14159265358e9793` was accepted, because
+   Rust's `str::parse::<f64>` saturates on overflow where Go's
+   `strconv.ParseFloat` returns a range error. Fixed in `src/number.rs`; see
+   Decision 17.
+2. **A bare CR could start a line continuation.** In `"""\<CR>T"""` the
+   backslash-newline handler treated a lone carriage return as a line ending
+   and swallowed it. A CR only ends a line as part of CRLF. Fixed in
+   `lex_multi`.
+3. **Keys were lexed as values inside an inline table nested in an array.**
+   `[{a = 1}, {b = 2}]` leaves an array and an inline table open at the same
+   time, and the lexer decided what a comma meant from a bracket-depth counter,
+   so after the second `{` it read `la+t_name` as a value token and accepted an
+   illegal bare key. `is_value_position` now tracks enclosing containers as a
+   stack and asks the innermost one.
 
 ## Corpus note: 775 tests is not a scoreable total
 
