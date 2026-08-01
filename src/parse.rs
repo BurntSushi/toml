@@ -1,7 +1,7 @@
 //! Parser — ported from parse.go (846 LOC)
 //! Consumes tokens from the lexer and produces a `Value` tree.
 
-use crate::lex::{Token, TokenWithPos, TokenWithPos as TWP};
+use crate::lex::{Token, TokenWithPos};
 use crate::error::ParseError;
 use crate::Value;
 use std::collections::BTreeMap;
@@ -61,7 +61,6 @@ impl Parser {
         if is_arr { if !matches!(self.cur(), Token::RightBracket) { return Err(self.err_expected("]")); } self.adv(); }
         if !matches!(self.cur(), Token::RightBracket) { return Err(self.err_expected("]")); }
         self.adv();
-        // After header: expect newline or EOF or comment
         self.skipws();
         match self.cur() {
             Token::Newline | Token::Eof | Token::Comment(_) => {}
@@ -76,8 +75,9 @@ impl Parser {
             Token::BareKey(s) => Ok(s),
             Token::String(s) => Ok(s),
             Token::Integer(n) => Ok(n.to_string()),
-            Token::Float(f) => Ok(f.to_string()),
+            Token::Float(f) => Ok(format_float_key(f)),
             Token::Boolean(b) => Ok(b.to_string()),
+            Token::Datetime(s) => Ok(s),
             other => Err(ParseError::UnexpectedToken{line:l,col:c,expected:"key",got:format!("{:?}",other)}),
         }
     }
@@ -100,103 +100,22 @@ impl Parser {
 
     fn parse_value(&mut self) -> Result<Value, ParseError> {
         let (l, c) = self.curpos();
-
-            // Check if the next token is a Dot — need to re-lex as combined value (float/datetime)
-            if self.pos + 1 < self.tokens.len() {
-                if matches!(self.tokens[self.pos+1].token, Token::Dot) {
-                    if self.pos + 2 < self.tokens.len() {
-                        match &self.tokens[self.pos+2].token {
-                            Token::Integer(_) | Token::Float(_) | Token::BareKey(_) => {
-                                return self.relex_value();
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-            }
-
-            match self.adv() {
-                Token::String(s) => Ok(Value::String(s)),
-                Token::Integer(n) => {
-                    // Check if next token (after whitespace) is a Datetime (date-time with space separator)
-                    // e.g., "1987-07-05 17:45:00Z" lexes as Datetime("1987-07-05") then Datetime("17:45:00Z")
-                    self.skipws();
-                    if matches!(self.cur(), Token::Datetime(_)) {
-                        // This was actually a datetime with space separator, but we already consumed it as Integer
-                        // We need to re-lex from the original position
-                        // Actually, we already consumed the Integer token. Let's combine.
-                        let dt_str = format!("{}", n); // but wait, 1987 would be Integer(1987), not Datetime
-                        // Actually the lexer would have lexed "1987-07-05" as Datetime because it starts with 4 digits + dash
-                        // So this branch shouldn't be hit. Let me handle the Datetime case below.
-                    }
-                    Ok(Value::Integer(n))
-                }
-                Token::Float(f) => Ok(Value::Float(f)),
-                Token::Boolean(b) => Ok(Value::Boolean(b)),
-                Token::Datetime(s) => {
-                    // A datetime value. Check if the next token (after whitespace) is also a Datetime
-                    // (space-separated date-time: "1987-07-05 17:45:00Z")
-                    let mut combined = s;
-                    // Save position to allow backtracking
-                    let saved_pos = self.pos;
-                    self.skipws();
-                    if matches!(self.cur(), Token::Datetime(_)) {
-                        // Space-separated datetime
-                        if let Token::Datetime(s2) = self.adv() {
-                            combined.push(' ');
-                            combined.push_str(&s2);
-                        }
-                    } else {
-                        // Not a continuation — restore position
-                        self.pos = saved_pos;
-                    }
-                    Ok(Value::String(combined))
-                }
-                Token::BareKey(s) => match s.as_str() {
-                    "inf" | "+inf" => Ok(Value::Float(f64::INFINITY)),
-                    "-inf" => Ok(Value::Float(f64::NEG_INFINITY)),
-                    "nan" | "+nan" | "-nan" => Ok(Value::Float(f64::NAN)),
-                    _ => Ok(Value::String(s)),
-                },
-                Token::LeftBracket => self.parse_array(),
-                Token::LeftBrace => self.parse_inline_table(),
-                other => Err(ParseError::UnexpectedToken{line:l,col:c,expected:"value",got:format!("{:?}",other)}),
+        match self.adv() {
+            Token::String(s) => Ok(Value::String(s)),
+            Token::Integer(n) => Ok(Value::Integer(n)),
+            Token::Float(f) => Ok(Value::Float(f)),
+            Token::Boolean(b) => Ok(Value::Boolean(b)),
+            Token::Datetime(s) => Ok(Value::String(s)),
+            Token::BareKey(s) => match s.as_str() {
+                "inf" | "+inf" => Ok(Value::Float(f64::INFINITY)),
+                "-inf" => Ok(Value::Float(f64::NEG_INFINITY)),
+                "nan" | "+nan" | "-nan" => Ok(Value::Float(f64::NAN)),
+                _ => Ok(Value::String(s)),
+            },
+            Token::LeftBracket => self.parse_array(),
+            Token::LeftBrace => self.parse_inline_table(),
+            other => Err(ParseError::UnexpectedToken{line:l,col:c,expected:"value",got:format!("{:?}",other)}),
         }
-    }
-
-    /// Re-lex a value by combining the current token, a dot, and the next token
-    /// into a single string, then re-classifying it.
-    fn relex_value(&mut self) -> Result<Value, ParseError> {
-        // Get the string representation of the current token
-        let mut combined = token_to_string(&self.tokens[self.pos].token);
-        let start_pos = self.pos;
-
-        // Consume current token
-        self.adv(); // current
-        self.adv(); // dot — add the dot to combined!
-        combined.push('.');
-
-        // Now get the next part
-        combined.push_str(&token_to_string(&self.cur()));
-        self.adv(); // next
-
-        // Keep consuming if there are more dots followed by values
-        while matches!(self.cur(), Token::Dot) {
-            combined.push('.');
-            self.adv();
-            combined.push_str(&token_to_string(&self.cur()));
-            self.adv();
-        }
-
-        // Classify the combined string
-        if let Ok(f) = combined.parse::<f64>() {
-            return Ok(Value::Float(f));
-        }
-        if let Ok(n) = parse_int_combined(&combined) {
-            return Ok(Value::Integer(n));
-        }
-        // It's a datetime or version string
-        Ok(Value::String(combined))
     }
 
     fn parse_array(&mut self) -> Result<Value, ParseError> {
@@ -218,9 +137,10 @@ impl Parser {
 
     fn parse_inline_table(&mut self) -> Result<Value, ParseError> {
         let mut tbl = BTreeMap::new();
-        self.skipws();
+        self.skipnl(); // Allow newlines for TOML 1.1
         if matches!(self.cur(), Token::RightBrace) { self.adv(); return Ok(Value::Table(tbl)); }
         loop {
+            self.skipnl();
             self.skipws();
             let mut kp = Vec::new();
             loop {
@@ -232,6 +152,7 @@ impl Parser {
             self.adv(); self.skipws();
             let v = self.parse_value()?;
             let _ = insert_dotted(&mut tbl, &kp, v);
+            self.skipnl();
             self.skipws();
             match self.cur() {
                 Token::Comma => { self.adv(); }
@@ -241,27 +162,16 @@ impl Parser {
         }
     }
 
-    fn err_expected(&self, exp: &str) -> ParseError {
+    fn err_expected(&self, _exp: &str) -> ParseError {
         let (l, c) = self.curpos();
         ParseError::ExpectedToken{line:l,col:c,expected:"placeholder",got:format!("{:?}", self.cur())}
     }
 }
 
-fn token_to_string(t: &Token) -> String {
-    match t {
-        Token::String(s) => s.clone(),
-        Token::BareKey(s) => s.clone(),
-        Token::Integer(n) => n.to_string(),
-        Token::Float(f) => f.to_string(),
-        Token::Boolean(b) => b.to_string(),
-        Token::Datetime(s) => s.clone(),
-        _ => String::new(),
-    }
-}
-
-fn parse_int_combined(s: &str) -> Result<i64, ()> {
-    let c: String = s.chars().filter(|c| *c != '_').collect();
-    c.parse::<i64>().map_err(|_| ())
+fn format_float_key(f: f64) -> String {
+    if f.is_nan() { "nan".to_string() }
+    else if f.is_infinite() { if f > 0.0 { "inf".to_string() } else { "-inf".to_string() } }
+    else { format!("{}", f) }
 }
 
 fn nav_tbl<'a>(root: &'a mut BTreeMap<String, Value>, path: &[String]) -> Result<&'a mut BTreeMap<String, Value>, ParseError> {
