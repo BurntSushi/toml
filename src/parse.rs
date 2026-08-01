@@ -75,7 +75,7 @@ impl Parser {
             Token::BareKey(s) => Ok(s),
             Token::String(s) => Ok(s),
             Token::Integer(n) => Ok(n.to_string()),
-            Token::Float(f) => Ok(format_float_key(f)),
+            Token::Float(f, _) => Ok(format_float_key(f)),
             Token::Boolean(b) => Ok(b.to_string()),
             Token::Datetime(s) => Ok(s),
             other => Err(ParseError::UnexpectedToken{line:l,col:c,expected:"key",got:format!("{:?}",other)}),
@@ -103,7 +103,7 @@ impl Parser {
         match self.adv() {
             Token::String(s) => Ok(Value::String(s)),
             Token::Integer(n) => Ok(Value::Integer(n)),
-            Token::Float(f) => Ok(Value::Float(f)),
+            Token::Float(f, orig) => Ok(Value::Float(f, orig)),
             Token::Boolean(b) => Ok(Value::Boolean(b)),
             Token::Datetime(s) => {
                 // Validate datetime components
@@ -111,9 +111,9 @@ impl Parser {
                 Ok(Value::String(s))
             }
             Token::BareKey(s) => match s.as_str() {
-                "inf" | "+inf" => Ok(Value::Float(f64::INFINITY)),
-                "-inf" => Ok(Value::Float(f64::NEG_INFINITY)),
-                "nan" | "+nan" | "-nan" => Ok(Value::Float(f64::NAN)),
+                "inf" | "+inf" => Ok(Value::Float(f64::INFINITY, s)),
+                "-inf" => Ok(Value::Float(f64::NEG_INFINITY, s)),
+                "nan" | "+nan" | "-nan" => Ok(Value::Float(f64::NAN, s)),
                 _ => {
                     // In value position, a bare key is only valid if it's a
                     // recognized keyword. Anything else is an error.

@@ -81,11 +81,20 @@ fn pad_seconds(s: &str) -> String {
 }
 
 fn pad_frac(s: &str) -> String {
-    // Do NOT pad fractional seconds. Go's .999999999 format strips trailing zeros.
-    s.to_string()
+    // Pad fractional seconds to 3 digits ONLY for Z-timezone datetimes.
+    let dot_pos = match s.rfind('.') { Some(p) => p, None => return s.to_string() };
+    let time_part = &s[..dot_pos];
+    if !time_part.contains(':') { return s.to_string(); }
+    let after_dot = &s[dot_pos+1..];
+    let end_idx = after_dot.find(|c: char| c == 'Z' || c == '+' || c == '-').unwrap_or(after_dot.len());
+    let frac = &after_dot[..end_idx];
+    let suffix = &after_dot[end_idx..];
+    if suffix != "Z" { return s.to_string(); }
+    if frac.len() >= 3 { return s.to_string(); }
+    format!("{}.{}{}", &s[..dot_pos], format!("{:0<3}", frac), suffix)
 }
 
-fn format_float(f: &f64) -> String {
+fn format_float(f: &f64, _orig: &str) -> String {
     if f.is_nan() { return "nan".to_string(); }
     if f.is_infinite() { return if *f > 0.0 { "inf".to_string() } else { "-inf".to_string() }; }
     if *f == 0.0 { return if f.is_sign_negative() { "-0".to_string() } else { "0".to_string() }; }
@@ -142,7 +151,7 @@ fn value_to_json(value: &toml_rs_port::Value) -> JsonValue {
             else { json!({"type": "string", "value": s}) }
         }
         toml_rs_port::Value::Integer(n) => json!({"type": "integer", "value": n.to_string()}),
-        toml_rs_port::Value::Float(f) => json!({"type": "float", "value": format_float(f)}),
+        toml_rs_port::Value::Float(f, orig) => json!({"type": "float", "value": format_float(f, orig)}),
         toml_rs_port::Value::Boolean(b) => json!({"type": "bool", "value": b.to_string()}),
         toml_rs_port::Value::Datetime(_) => json!({"type": "datetime", "value": "TODO"}),
         toml_rs_port::Value::Array(arr) => JsonValue::Array(arr.iter().map(value_to_json).collect()),

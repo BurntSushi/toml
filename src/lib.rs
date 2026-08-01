@@ -23,7 +23,7 @@ pub mod types;
 pub enum Value {
     String(String),
     Integer(i64),
-    Float(f64),
+    Float(f64, String),
     Boolean(bool),
     Datetime(Datetime),
     Array(Vec<Value>),

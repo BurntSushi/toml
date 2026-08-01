@@ -31,7 +31,7 @@ fn encode_value(value: &Value, out: &mut String, indent: usize) -> Result<(), En
             out.push('"');
         }
         Value::Integer(n) => out.push_str(&n.to_string()),
-        Value::Float(f) => out.push_str(&f.to_string()),
+        Value::Float(f, _) => out.push_str(&f.to_string()),
         Value::Boolean(b) => out.push_str(if *b { "true" } else { "false" }),
         Value::Array(arr) => {
             out.push('[');

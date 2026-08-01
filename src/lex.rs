@@ -13,7 +13,7 @@ pub enum Token {
     String(String),
     BareKey(String),
     Integer(i64),
-    Float(f64),
+    Float(f64, String),
     Boolean(bool),
     Datetime(String),
     Comment(String),
@@ -206,13 +206,13 @@ fn lex_value_token(chars: &[char], start: usize, line: usize, col: usize) -> Res
 fn classify_value(buf: &str, pos: usize) -> Result<(Token, usize), ParseError> {
     if buf == "true" { return Ok((Token::Boolean(true), pos)); }
     if buf == "false" { return Ok((Token::Boolean(false), pos)); }
-    if buf == "inf" || buf == "+inf" { return Ok((Token::Float(f64::INFINITY), pos)); }
-    if buf == "-inf" { return Ok((Token::Float(f64::NEG_INFINITY), pos)); }
-    if buf == "nan" || buf == "+nan" || buf == "-nan" { return Ok((Token::Float(f64::NAN), pos)); }
+    if buf == "inf" || buf == "+inf" { return Ok((Token::Float(f64::INFINITY, buf.to_string()), pos)); }
+    if buf == "-inf" { return Ok((Token::Float(f64::NEG_INFINITY, buf.to_string()), pos)); }
+    if buf == "nan" || buf == "+nan" || buf == "-nan" { return Ok((Token::Float(f64::NAN, buf.to_string()), pos)); }
     if let Ok(n) = parse_int(buf) { return Ok((Token::Integer(n), pos)); }
     // Try parsing as float — strip underscores first
     let cleaned: String = buf.chars().filter(|c| *c != '_').collect();
-    if let Ok(f) = cleaned.parse::<f64>() { return Ok((Token::Float(f), pos)); }
+    if let Ok(f) = cleaned.parse::<f64>() { return Ok((Token::Float(f, buf.to_string()), pos)); }
     if looks_like_dt(buf) { return Ok((Token::Datetime(buf.to_string()), pos)); }
     // Fallback: treat as bare key (shouldn't happen for valid TOML)
     Ok((Token::BareKey(buf.to_string()), pos))
