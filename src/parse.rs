@@ -1,345 +1,306 @@
 //! Parser — ported from parse.go (846 LOC)
-//!
 //! Consumes tokens from the lexer and produces a `Value` tree.
 
-use crate::lex::{Token, TokenWithPos};
+use crate::lex::{Token, TokenWithPos, TokenWithPos as TWP};
 use crate::error::ParseError;
 use crate::Value;
 use std::collections::BTreeMap;
 
-/// Parse a token stream into a TOML `Value` tree.
 pub fn parse(tokens: Vec<TokenWithPos>) -> Result<Value, ParseError> {
-    let mut parser = Parser::new(tokens);
-    parser.parse_document()
+    let mut p = Parser::new(tokens);
+    p.parse_document()
 }
 
-struct Parser {
-    tokens: Vec<TokenWithPos>,
-    pos: usize,
-}
+struct Parser { tokens: Vec<TokenWithPos>, pos: usize }
 
 impl Parser {
-    fn new(tokens: Vec<TokenWithPos>) -> Self {
-        Parser { tokens, pos: 0 }
-    }
-
-    fn current(&self) -> &Token {
-        &self.tokens[self.pos].token
-    }
-
-    fn current_pos(&self) -> (usize, usize) {
-        (self.tokens[self.pos].line, self.tokens[self.pos].col)
-    }
-
-    fn advance(&mut self) -> Token {
-        let tok = self.tokens[self.pos].token.clone();
-        if self.pos < self.tokens.len() - 1 {
-            self.pos += 1;
-        }
-        tok
-    }
-
-    fn skip_whitespace_and_comments(&mut self) {
-        while self.pos < self.tokens.len() {
-            match self.current() {
-                Token::Whitespace => { self.advance(); }
-                Token::Comment(_) => { self.advance(); }
-                _ => break,
-            }
-        }
-    }
-
-    fn skip_newlines_and_whitespace(&mut self) {
-        while self.pos < self.tokens.len() {
-            match self.current() {
-                Token::Whitespace => { self.advance(); }
-                Token::Newline => { self.advance(); }
-                Token::Comment(_) => { self.advance(); }
-                _ => break,
-            }
-        }
-    }
+    fn new(t: Vec<TokenWithPos>) -> Self { Parser{tokens:t, pos:0} }
+    fn cur(&self) -> &Token { &self.tokens[self.pos].token }
+    fn curpos(&self) -> (usize,usize) { (self.tokens[self.pos].line, self.tokens[self.pos].col) }
+    fn adv(&mut self) -> Token { let t=self.tokens[self.pos].token.clone(); if self.pos<self.tokens.len()-1 {self.pos+=1;} t }
+    fn skipws(&mut self) { while self.pos<self.tokens.len(){match self.cur(){Token::Whitespace|Token::Comment(_)=>{self.adv();}_=>{break;}}} }
+    fn skipnl(&mut self) { while self.pos<self.tokens.len(){match self.cur(){Token::Whitespace|Token::Comment(_)|Token::Newline=>{self.adv();}_=>{break;}}} }
 
     fn parse_document(&mut self) -> Result<Value, ParseError> {
         let mut root = BTreeMap::new();
-        let mut current_table: Vec<String> = Vec::new();
-
-        self.skip_newlines_and_whitespace();
-
-        while !matches!(self.current(), Token::Eof) {
-            self.skip_newlines_and_whitespace();
-            if matches!(self.current(), Token::Eof) {
-                break;
-            }
-
-            match self.current() {
+        let mut cur_tbl: Vec<String> = Vec::new();
+        self.skipnl();
+        while !matches!(self.cur(), Token::Eof) {
+            self.skipnl();
+            if matches!(self.cur(), Token::Eof) { break; }
+            match self.cur() {
                 Token::LeftBracket => {
-                    // Table header: [a.b.c] or [[a.b.c]] (array of tables)
-                    self.parse_table_header(&mut current_table)?;
-                    self.ensure_table_exists(&mut root, &current_table)?;
+                    let (path, is_arr) = self.parse_table_header()?;
+                    if is_arr { insert_aot(&mut root, &path)?; }
+                    else { ensure_tbl(&mut root, &path)?; }
+                    cur_tbl = path;
                 }
                 _ => {
-                    // Key-value pair
-                    self.parse_key_value(&mut root, &current_table)?;
+                    let (kp, val) = self.parse_kv()?;
+                    let tgt = nav_tbl(&mut root, &cur_tbl)?;
+                    insert_dotted(tgt, &kp, val)?;
                 }
             }
-
-            self.skip_newlines_and_whitespace();
+            self.skipnl();
         }
-
         Ok(Value::Table(root))
     }
 
-    fn parse_table_header(&mut self, current_table: &mut Vec<String>) -> Result<(), ParseError> {
-        self.advance(); // consume [
-
-        let is_array = matches!(self.current(), Token::LeftBracket);
-        if is_array {
-            self.advance(); // consume second [
-        }
-
+    fn parse_table_header(&mut self) -> Result<(Vec<String>, bool), ParseError> {
+        self.adv(); // [
+        let is_arr = matches!(self.cur(), Token::LeftBracket);
+        if is_arr { self.adv(); }
         let mut path = Vec::new();
-        self.skip_whitespace_and_comments();
-
+        self.skipws();
         loop {
-            let key = self.parse_key()?;
-            path.push(key);
-            self.skip_whitespace_and_comments();
-
-            if matches!(self.current(), Token::Dot) {
-                self.advance();
-                self.skip_whitespace_and_comments();
-            } else {
-                break;
-            }
+            path.push(self.parse_key()?);
+            self.skipws();
+            if matches!(self.cur(), Token::Dot) { self.adv(); self.skipws(); } else { break; }
         }
-
-        self.skip_whitespace_and_comments();
-
-        if is_array {
-            if !matches!(self.current(), Token::RightBracket) {
-                return Err(ParseError::ExpectedToken {
-                    line: self.current_pos().0,
-                    col: self.current_pos().1,
-                    expected: "]",
-                    got: format!("{:?}", self.current()),
-                });
-            }
-            self.advance(); // first ]
+        self.skipws();
+        if is_arr { if !matches!(self.cur(), Token::RightBracket) { return Err(self.err_expected("]")); } self.adv(); }
+        if !matches!(self.cur(), Token::RightBracket) { return Err(self.err_expected("]")); }
+        self.adv();
+        // After header: expect newline or EOF or comment
+        self.skipws();
+        match self.cur() {
+            Token::Newline | Token::Eof | Token::Comment(_) => {}
+            _ => { return Err(self.err_expected("newline")); }
         }
-
-        if !matches!(self.current(), Token::RightBracket) {
-            return Err(ParseError::ExpectedToken {
-                line: self.current_pos().0,
-                col: self.current_pos().1,
-                expected: "]",
-                got: format!("{:?}", self.current()),
-            });
-        }
-        self.advance(); // ]
-
-        *current_table = path;
-
-        // TODO: handle array of tables ([[...]])
-        if is_array {
-            // For now, just treat as a regular table
-        }
-
-        Ok(())
+        Ok((path, is_arr))
     }
 
     fn parse_key(&mut self) -> Result<String, ParseError> {
-        let (line, col) = self.current_pos();
-        match self.advance() {
+        let (l, c) = self.curpos();
+        match self.adv() {
             Token::BareKey(s) => Ok(s),
             Token::String(s) => Ok(s),
-            other => Err(ParseError::UnexpectedToken {
-                line, col,
-                expected: "key",
-                got: format!("{:?}", other),
-            }),
+            Token::Integer(n) => Ok(n.to_string()),
+            Token::Float(f) => Ok(f.to_string()),
+            Token::Boolean(b) => Ok(b.to_string()),
+            other => Err(ParseError::UnexpectedToken{line:l,col:c,expected:"key",got:format!("{:?}",other)}),
         }
     }
 
-    fn parse_key_value(&mut self, root: &mut BTreeMap<String, Value>, _current_table: &[String]) -> Result<(), ParseError> {
-        // Parse key path (may be dotted: a.b.c = value)
-        let mut key_path = Vec::new();
-        self.skip_whitespace_and_comments();
-
+    fn parse_kv(&mut self) -> Result<(Vec<String>, Value), ParseError> {
+        let mut kp = Vec::new();
+        self.skipws();
         loop {
-            let key = self.parse_key()?;
-            key_path.push(key);
-            self.skip_whitespace_and_comments();
-
-            if matches!(self.current(), Token::Dot) {
-                self.advance();
-                self.skip_whitespace_and_comments();
-            } else {
-                break;
-            }
+            kp.push(self.parse_key()?);
+            self.skipws();
+            if matches!(self.cur(), Token::Dot) { self.adv(); self.skipws(); } else { break; }
         }
-
-        // Expect =
-        self.skip_whitespace_and_comments();
-        if !matches!(self.current(), Token::Equals) {
-            return Err(ParseError::ExpectedToken {
-                line: self.current_pos().0,
-                col: self.current_pos().1,
-                expected: "=",
-                got: format!("{:?}", self.current()),
-            });
-        }
-        self.advance(); // =
-
-        // Parse value
-        self.skip_whitespace_and_comments();
-        let value = self.parse_value()?;
-
-        // Insert into root (handling dotted keys)
-        insert_dotted(root, &key_path, value);
-
-        Ok(())
+        self.skipws();
+        if !matches!(self.cur(), Token::Equals) { return Err(self.err_expected("=")); }
+        self.adv();
+        self.skipws();
+        let v = self.parse_value()?;
+        Ok((kp, v))
     }
 
     fn parse_value(&mut self) -> Result<Value, ParseError> {
-        let (line, col) = self.current_pos();
-        match self.advance() {
-            Token::String(s) => Ok(Value::String(s)),
-            Token::Integer(n) => Ok(Value::Integer(n)),
-            Token::Float(f) => Ok(Value::Float(f)),
-            Token::Boolean(b) => Ok(Value::Boolean(b)),
-            Token::Datetime(s) => {
-                // Parse datetime string into Datetime enum
-                // For now, store as string — will be properly parsed
-                Ok(Value::String(s))
-            },
-            Token::LeftBracket => self.parse_array(),
-            Token::LeftBrace => self.parse_inline_table(),
-            other => Err(ParseError::UnexpectedToken {
-                line, col,
-                expected: "value",
-                got: format!("{:?}", other),
-            }),
+        let (l, c) = self.curpos();
+
+            // Check if the next token is a Dot — need to re-lex as combined value (float/datetime)
+            if self.pos + 1 < self.tokens.len() {
+                if matches!(self.tokens[self.pos+1].token, Token::Dot) {
+                    if self.pos + 2 < self.tokens.len() {
+                        match &self.tokens[self.pos+2].token {
+                            Token::Integer(_) | Token::Float(_) | Token::BareKey(_) => {
+                                return self.relex_value();
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+
+            match self.adv() {
+                Token::String(s) => Ok(Value::String(s)),
+                Token::Integer(n) => {
+                    // Check if next token (after whitespace) is a Datetime (date-time with space separator)
+                    // e.g., "1987-07-05 17:45:00Z" lexes as Datetime("1987-07-05") then Datetime("17:45:00Z")
+                    self.skipws();
+                    if matches!(self.cur(), Token::Datetime(_)) {
+                        // This was actually a datetime with space separator, but we already consumed it as Integer
+                        // We need to re-lex from the original position
+                        // Actually, we already consumed the Integer token. Let's combine.
+                        let dt_str = format!("{}", n); // but wait, 1987 would be Integer(1987), not Datetime
+                        // Actually the lexer would have lexed "1987-07-05" as Datetime because it starts with 4 digits + dash
+                        // So this branch shouldn't be hit. Let me handle the Datetime case below.
+                    }
+                    Ok(Value::Integer(n))
+                }
+                Token::Float(f) => Ok(Value::Float(f)),
+                Token::Boolean(b) => Ok(Value::Boolean(b)),
+                Token::Datetime(s) => {
+                    // A datetime value. Check if the next token (after whitespace) is also a Datetime
+                    // (space-separated date-time: "1987-07-05 17:45:00Z")
+                    let mut combined = s;
+                    // Save position to allow backtracking
+                    let saved_pos = self.pos;
+                    self.skipws();
+                    if matches!(self.cur(), Token::Datetime(_)) {
+                        // Space-separated datetime
+                        if let Token::Datetime(s2) = self.adv() {
+                            combined.push(' ');
+                            combined.push_str(&s2);
+                        }
+                    } else {
+                        // Not a continuation — restore position
+                        self.pos = saved_pos;
+                    }
+                    Ok(Value::String(combined))
+                }
+                Token::BareKey(s) => match s.as_str() {
+                    "inf" | "+inf" => Ok(Value::Float(f64::INFINITY)),
+                    "-inf" => Ok(Value::Float(f64::NEG_INFINITY)),
+                    "nan" | "+nan" | "-nan" => Ok(Value::Float(f64::NAN)),
+                    _ => Ok(Value::String(s)),
+                },
+                Token::LeftBracket => self.parse_array(),
+                Token::LeftBrace => self.parse_inline_table(),
+                other => Err(ParseError::UnexpectedToken{line:l,col:c,expected:"value",got:format!("{:?}",other)}),
         }
     }
 
-    fn parse_array(&mut self) -> Result<Value, ParseError> {
-        let mut array = Vec::new();
+    /// Re-lex a value by combining the current token, a dot, and the next token
+    /// into a single string, then re-classifying it.
+    fn relex_value(&mut self) -> Result<Value, ParseError> {
+        // Get the string representation of the current token
+        let mut combined = token_to_string(&self.tokens[self.pos].token);
+        let start_pos = self.pos;
 
-        self.skip_newlines_and_whitespace();
+        // Consume: current, dot, next, and any further dot-prefixed continuations
+        self.adv(); // current
+        self.adv(); // dot
 
-        if matches!(self.current(), Token::RightBracket) {
-            self.advance();
-            return Ok(Value::Array(array));
+        // Now get the next part
+        combined.push_str(&token_to_string(&self.cur()));
+        self.adv(); // next
+
+        // Keep consuming if there are more dots followed by values
+        while matches!(self.cur(), Token::Dot) {
+            combined.push('.');
+            self.adv();
+            combined.push_str(&token_to_string(&self.cur()));
+            self.adv();
         }
 
-        loop {
-            self.skip_newlines_and_whitespace();
-            let value = self.parse_value()?;
-            array.push(value);
-            self.skip_newlines_and_whitespace();
+        // Classify the combined string
+        if let Ok(f) = combined.parse::<f64>() {
+            return Ok(Value::Float(f));
+        }
+        if let Ok(n) = parse_int_combined(&combined) {
+            return Ok(Value::Integer(n));
+        }
+        // It's a datetime or version string
+        Ok(Value::String(combined))
+    }
 
-            match self.current() {
-                Token::Comma => {
-                    self.advance();
-                    self.skip_newlines_and_whitespace();
-                }
-                Token::RightBracket => {
-                    self.advance();
-                    return Ok(Value::Array(array));
-                }
-                _ => {
-                    return Err(ParseError::ExpectedToken {
-                        line: self.current_pos().0,
-                        col: self.current_pos().1,
-                        expected: ", or ]",
-                        got: format!("{:?}", self.current()),
-                    });
-                }
+    fn parse_array(&mut self) -> Result<Value, ParseError> {
+        let mut arr = Vec::new();
+        self.skipnl();
+        if matches!(self.cur(), Token::RightBracket) { self.adv(); return Ok(Value::Array(arr)); }
+        loop {
+            self.skipnl();
+            if matches!(self.cur(), Token::RightBracket) { self.adv(); return Ok(Value::Array(arr)); }
+            arr.push(self.parse_value()?);
+            self.skipnl();
+            match self.cur() {
+                Token::Comma => { self.adv(); self.skipnl(); }
+                Token::RightBracket => { self.adv(); return Ok(Value::Array(arr)); }
+                _ => return Err(self.err_expected(", or ]")),
             }
         }
     }
 
     fn parse_inline_table(&mut self) -> Result<Value, ParseError> {
-        let mut table = BTreeMap::new();
-
-        self.skip_whitespace_and_comments();
-
-        if matches!(self.current(), Token::RightBrace) {
-            self.advance();
-            return Ok(Value::Table(table));
-        }
-
+        let mut tbl = BTreeMap::new();
+        self.skipws();
+        if matches!(self.cur(), Token::RightBrace) { self.adv(); return Ok(Value::Table(tbl)); }
         loop {
-            self.skip_whitespace_and_comments();
-
-            // Parse key
-            let mut key_path = Vec::new();
+            self.skipws();
+            let mut kp = Vec::new();
             loop {
-                let key = self.parse_key()?;
-                key_path.push(key);
-                self.skip_whitespace_and_comments();
-
-                if matches!(self.current(), Token::Dot) {
-                    self.advance();
-                    self.skip_whitespace_and_comments();
-                } else {
-                    break;
-                }
+                kp.push(self.parse_key()?);
+                self.skipws();
+                if matches!(self.cur(), Token::Dot) { self.adv(); self.skipws(); } else { break; }
             }
-
-            // Expect =
-            if !matches!(self.current(), Token::Equals) {
-                return Err(ParseError::ExpectedToken {
-                    line: self.current_pos().0,
-                    col: self.current_pos().1,
-                    expected: "=",
-                    got: format!("{:?}", self.current()),
-                });
-            }
-            self.advance();
-            self.skip_whitespace_and_comments();
-
-            let value = self.parse_value()?;
-            insert_dotted(&mut table, &key_path, value);
-
-            self.skip_whitespace_and_comments();
-
-            match self.current() {
-                Token::Comma => {
-                    self.advance();
-                }
-                Token::RightBrace => {
-                    self.advance();
-                    return Ok(Value::Table(table));
-                }
-                _ => {
-                    return Err(ParseError::ExpectedToken {
-                        line: self.current_pos().0,
-                        col: self.current_pos().1,
-                        expected: ", or }",
-                        got: format!("{:?}", self.current()),
-                    });
-                }
+            if !matches!(self.cur(), Token::Equals) { return Err(self.err_expected("=")); }
+            self.adv(); self.skipws();
+            let v = self.parse_value()?;
+            let _ = insert_dotted(&mut tbl, &kp, v);
+            self.skipws();
+            match self.cur() {
+                Token::Comma => { self.adv(); }
+                Token::RightBrace => { self.adv(); return Ok(Value::Table(tbl)); }
+                _ => return Err(self.err_expected(", or }")),
             }
         }
     }
 
-    fn ensure_table_exists(&self, _root: &mut BTreeMap<String, Value>, _path: &[String]) -> Result<(), ParseError> {
-        // TODO: navigate to the table path and create intermediate tables
-        Ok(())
+    fn err_expected(&self, exp: &str) -> ParseError {
+        let (l, c) = self.curpos();
+        ParseError::ExpectedToken{line:l,col:c,expected:"placeholder",got:format!("{:?}", self.cur())}
     }
 }
 
-fn insert_dotted(table: &mut BTreeMap<String, Value>, path: &[String], value: Value) {
-    if path.len() == 1 {
-        table.insert(path[0].clone(), value);
-    } else {
-        let key = &path[0];
-        let remaining = &path[1..];
-        let entry = table.entry(key.clone()).or_insert(Value::Table(BTreeMap::new()));
-        if let Value::Table(t) = entry {
-            insert_dotted(t, remaining, value);
+fn token_to_string(t: &Token) -> String {
+    match t {
+        Token::String(s) => s.clone(),
+        Token::BareKey(s) => s.clone(),
+        Token::Integer(n) => n.to_string(),
+        Token::Float(f) => f.to_string(),
+        Token::Boolean(b) => b.to_string(),
+        Token::Datetime(s) => s.clone(),
+        _ => String::new(),
+    }
+}
+
+fn parse_int_combined(s: &str) -> Result<i64, ()> {
+    let c: String = s.chars().filter(|c| *c != '_').collect();
+    c.parse::<i64>().map_err(|_| ())
+}
+
+fn nav_tbl<'a>(root: &'a mut BTreeMap<String, Value>, path: &[String]) -> Result<&'a mut BTreeMap<String, Value>, ParseError> {
+    let mut cur = root;
+    for key in path {
+        let entry = cur.entry(key.clone()).or_insert(Value::Table(BTreeMap::new()));
+        match entry {
+            Value::Table(t) => { cur = t; }
+            Value::Array(a) => {
+                if let Some(Value::Table(t)) = a.last_mut() { cur = t; }
+                else { return Err(ParseError::DuplicateKey{line:0,col:0,key:key.clone()}); }
+            }
+            _ => return Err(ParseError::DuplicateKey{line:0,col:0,key:key.clone()}),
         }
+    }
+    Ok(cur)
+}
+
+fn ensure_tbl(root: &mut BTreeMap<String, Value>, path: &[String]) -> Result<(), ParseError> {
+    let _ = nav_tbl(root, path)?; Ok(())
+}
+
+fn insert_aot(root: &mut BTreeMap<String, Value>, path: &[String]) -> Result<(), ParseError> {
+    if path.is_empty() { return Err(ParseError::InvalidValue{line:0,col:0,message:"empty path".into()}); }
+    let parent = nav_tbl(root, &path[..path.len()-1])?;
+    let key = &path[path.len()-1];
+    let entry = parent.entry(key.clone()).or_insert(Value::Array(Vec::new()));
+    match entry {
+        Value::Array(a) => { a.push(Value::Table(BTreeMap::new())); }
+        _ => return Err(ParseError::DuplicateKey{line:0,col:0,key:key.clone()}),
+    }
+    Ok(())
+}
+
+fn insert_dotted(tbl: &mut BTreeMap<String, Value>, path: &[String], val: Value) -> Result<(), ParseError> {
+    if path.len()==1 { tbl.insert(path[0].clone(), val); Ok(()) }
+    else {
+        let key=&path[0]; let rem=&path[1..];
+        let entry=tbl.entry(key.clone()).or_insert(Value::Table(BTreeMap::new()));
+        if let Value::Table(t)=entry { insert_dotted(t, rem, val) }
+        else { Err(ParseError::DuplicateKey{line:0,col:0,key:key.clone()}) }
     }
 }
