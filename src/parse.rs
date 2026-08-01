@@ -155,7 +155,16 @@ impl Parser {
             self.skipnl();
             self.skipws();
             match self.cur() {
-                Token::Comma => { self.adv(); }
+                Token::Comma => {
+                    self.adv();
+                    // Handle trailing comma: skip newlines/ws and check for }
+                    self.skipnl();
+                    self.skipws();
+                    if matches!(self.cur(), Token::RightBrace) {
+                        self.adv();
+                        return Ok(Value::Table(tbl));
+                    }
+                }
                 Token::RightBrace => { self.adv(); return Ok(Value::Table(tbl)); }
                 _ => return Err(self.err_expected(", or }")),
             }
@@ -176,13 +185,27 @@ fn format_float_key(f: f64) -> String {
 
 fn nav_tbl<'a>(root: &'a mut BTreeMap<String, Value>, path: &[String]) -> Result<&'a mut BTreeMap<String, Value>, ParseError> {
     let mut cur = root;
-    for key in path {
+    for (i, key) in path.iter().enumerate() {
         let entry = cur.entry(key.clone()).or_insert(Value::Table(BTreeMap::new()));
         match entry {
             Value::Table(t) => { cur = t; }
             Value::Array(a) => {
-                if let Some(Value::Table(t)) = a.last_mut() { cur = t; }
-                else { return Err(ParseError::DuplicateKey{line:0,col:0,key:key.clone()}); }
+                // If this is the last key in the path and the array has elements,
+                // navigate into the last element (for [[arr]] + [arr.subtab])
+                if i == path.len() - 1 {
+                    if let Some(Value::Table(t)) = a.last_mut() {
+                        cur = t;
+                    } else {
+                        return Err(ParseError::DuplicateKey{line:0,col:0,key:key.clone()});
+                    }
+                } else {
+                    // Navigate into the last element of the array
+                    if let Some(Value::Table(t)) = a.last_mut() {
+                        cur = t;
+                    } else {
+                        return Err(ParseError::DuplicateKey{line:0,col:0,key:key.clone()});
+                    }
+                }
             }
             _ => return Err(ParseError::DuplicateKey{line:0,col:0,key:key.clone()}),
         }
