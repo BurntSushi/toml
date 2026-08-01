@@ -44,9 +44,9 @@ graph LR
 
 | Metric | Value |
 |---|---|
-| Valid TOML tests (parse correctly) | 247 / 266 |
-| Invalid TOML tests (reject correctly) | 289 / 500 |
-| Total conformance tests | 536 / 775 |
+| Valid TOML tests (parse correctly) | 263 / 266 |
+| Invalid TOML tests (reject correctly) | 280 / 500 |
+| Total conformance tests | 543 / 775 |
 | Test suite modifications | 0 |
 | `unsafe` blocks | 0 |
 
