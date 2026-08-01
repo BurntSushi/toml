@@ -11,10 +11,16 @@ pub fn parse(tokens: Vec<TokenWithPos>) -> Result<Value, ParseError> {
     p.parse_document()
 }
 
-struct Parser { tokens: Vec<TokenWithPos>, pos: usize }
+struct Parser {
+    tokens: Vec<TokenWithPos>,
+    pos: usize,
+    last_table: Option<Vec<String>>,
+}
 
 impl Parser {
-    fn new(t: Vec<TokenWithPos>) -> Self { Parser{tokens:t, pos:0} }
+    fn new(t: Vec<TokenWithPos>) -> Self {
+        Parser{tokens:t, pos:0, last_table: None}
+    }
     fn cur(&self) -> &Token { &self.tokens[self.pos].token }
     fn curpos(&self) -> (usize,usize) { (self.tokens[self.pos].line, self.tokens[self.pos].col) }
     fn adv(&mut self) -> Token { let t=self.tokens[self.pos].token.clone(); if self.pos<self.tokens.len()-1 {self.pos+=1;} t }
@@ -31,8 +37,16 @@ impl Parser {
             match self.cur() {
                 Token::LeftBracket => {
                     let (path, is_arr) = self.parse_table_header()?;
-                    if is_arr { insert_aot(&mut root, &path)?; }
-                    else { ensure_tbl(&mut root, &path)?; }
+                    if is_arr {
+                        insert_aot(&mut root, &path)?;
+                    } else {
+                        // Only reject if the EXACT same table header appears twice in a row
+                        if self.last_table.as_ref() == Some(&path) {
+                            return Err(ParseError::DuplicateKey{line:0,col:0,key:path.join(".")});
+                        }
+                        ensure_tbl(&mut root, &path)?;
+                    }
+                    self.last_table = Some(path.clone());
                     cur_tbl = path;
                 }
                 _ => {
