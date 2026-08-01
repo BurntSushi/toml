@@ -33,9 +33,9 @@ fn classify_dt(s: &str) -> (&'static str, String) {
         { return ("datetime", normalize_dt(s)); }
     }
     if (s.contains('T') || s.contains(' ') || s.contains('t')) && s.contains(':') {
-        return ("datetime-local", normalize_dt(s));
+        return ("datetime-local", normalize_dt_no_pad(s));
     }
-    if s.contains(':') && !s.contains('-') { return ("time-local", normalize_dt(s)); }
+    if s.contains(':') && !s.contains('-') { return ("time-local", normalize_dt_no_pad(s)); }
     if s.contains('-') && !s.contains(':') { return ("date-local", s.to_string()); }
     ("datetime", s.to_string())
 }
@@ -54,6 +54,19 @@ fn normalize_dt(s: &str) -> String {
     pad_frac(&s)
 }
 
+fn normalize_dt_no_pad(s: &str) -> String {
+    let s = s.trim();
+    let s = if s.contains(' ') {
+        let parts: Vec<&str> = s.splitn(2, ' ').collect();
+        if parts.len() == 2 && parts[0].len() == 10 { format!("{}T{}", parts[0], parts[1]) }
+        else { s.to_string() }
+    } else { s.to_string() };
+    let s = if s.len() > 11 && s.as_bytes()[10] == b't' { format!("{}T{}", &s[..10], &s[11..]) }
+    else { s };
+    let s = if s.ends_with('z') { format!("{}Z", &s[..s.len()-1]) } else { s };
+    pad_seconds(&s)
+}
+
 fn pad_seconds(s: &str) -> String {
     let time_start = if let Some(p) = s.find('T').or_else(|| s.find('t')) { p + 1 } else { 0 };
     let rest = &s[time_start..];
@@ -68,15 +81,8 @@ fn pad_seconds(s: &str) -> String {
 }
 
 fn pad_frac(s: &str) -> String {
-    let dot_pos = match s.rfind('.') { Some(p) => p, None => return s.to_string() };
-    let time_part = &s[..dot_pos];
-    if !time_part.contains(':') { return s.to_string(); }
-    let after_dot = &s[dot_pos+1..];
-    let end_idx = after_dot.find(|c: char| c == 'Z' || c == '+' || c == '-').unwrap_or(after_dot.len());
-    let frac = &after_dot[..end_idx];
-    let suffix = &after_dot[end_idx..];
-    if frac.len() >= 3 { return s.to_string(); }
-    format!("{}.{}{}", &s[..dot_pos], format!("{:0<3}", frac), suffix)
+    // Do NOT pad fractional seconds. Go's .999999999 format strips trailing zeros.
+    s.to_string()
 }
 
 fn format_float(f: &f64) -> String {
