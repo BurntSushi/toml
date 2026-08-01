@@ -50,7 +50,21 @@ fn normalize_dt(s: &str) -> String {
     let s = if s.len() > 11 && s.as_bytes()[10] == b't' { format!("{}T{}", &s[..10], &s[11..]) }
     else { s };
     let s = if s.ends_with('z') { format!("{}Z", &s[..s.len()-1]) } else { s };
+    let s = pad_seconds(&s);
     pad_frac(&s)
+}
+
+fn pad_seconds(s: &str) -> String {
+    let time_start = if let Some(p) = s.find('T').or_else(|| s.find('t')) { p + 1 } else { 0 };
+    let rest = &s[time_start..];
+    let time_end = rest.find(|c: char| c == 'Z' || c == '+' || c == '-').unwrap_or(rest.len());
+    let time_str = &rest[..time_end];
+    let suffix = &rest[time_end..];
+    let colon_count = time_str.matches(':').count();
+    if colon_count == 1 && !time_str.contains('.') {
+        return format!("{}{}:00{}", &s[..time_start + time_end], "", suffix);
+    }
+    s.to_string()
 }
 
 fn pad_frac(s: &str) -> String {
@@ -76,8 +90,18 @@ fn format_float(f: &f64) -> String {
 fn is_dt(s: &str) -> bool {
     let ch: Vec<char> = s.chars().collect();
     if ch.len() >= 8 && ch[0].is_ascii_digit() && ch[1].is_ascii_digit()
-        && ch[2].is_ascii_digit() && ch[3].is_ascii_digit() && ch[4] == '-' { return true; }
-    if ch.len() >= 5 && ch[0].is_ascii_digit() && ch[1].is_ascii_digit() && ch[2] == ':' { return true; }
+        && ch[2].is_ascii_digit() && ch[3].is_ascii_digit() && ch[4] == '-'
+        && ch[5].is_ascii_digit() && ch[6].is_ascii_digit() && ch[7] == '-'
+    {
+        if ch.len() == 10 { return true; }
+        let next = ch[10];
+        if next == 'T' || next == 't' || next == ' ' { return true; }
+        if next == '+' || next == '-' { return true; }
+        return false;
+    }
+    if ch.len() >= 5 && ch[0].is_ascii_digit() && ch[1].is_ascii_digit() && ch[2] == ':'
+        && ch[3].is_ascii_digit() && ch[4].is_ascii_digit()
+    { return true; }
     false
 }
 

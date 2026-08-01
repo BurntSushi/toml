@@ -50,8 +50,23 @@ fn normalize_dt(s: &str) -> String {
     else { s };
     // lowercase z -> Z
     let s = if s.ends_with('z') { format!("{}Z", &s[..s.len()-1]) } else { s };
+    // pad missing seconds: HH:MM -> HH:MM:00
+    let s = pad_seconds(&s);
     // pad fractional seconds: .6 -> .600, .12 -> .120
     pad_frac(&s)
+}
+
+fn pad_seconds(s: &str) -> String {
+    let time_start = if let Some(p) = s.find('T').or_else(|| s.find('t')) { p + 1 } else { 0 };
+    let rest = &s[time_start..];
+    let time_end = rest.find(|c: char| c == 'Z' || c == '+' || c == '-').unwrap_or(rest.len());
+    let time_str = &rest[..time_end];
+    let suffix = &rest[time_end..];
+    let colon_count = time_str.matches(':').count();
+    if colon_count == 1 && !time_str.contains('.') {
+        return format!("{}{}:00{}", &s[..time_start + time_end], "", suffix);
+    }
+    s.to_string()
 }
 
 fn pad_frac(s: &str) -> String {
@@ -105,8 +120,21 @@ fn value_to_json(value: &Value) -> JsonValue {
 
 fn is_dt(s: &str) -> bool {
     let ch: Vec<char> = s.chars().collect();
+    // Date: YYYY-MM-DD followed by T, space, or end
     if ch.len() >= 8 && ch[0].is_ascii_digit() && ch[1].is_ascii_digit()
-        && ch[2].is_ascii_digit() && ch[3].is_ascii_digit() && ch[4] == '-' { return true; }
-    if ch.len() >= 5 && ch[0].is_ascii_digit() && ch[1].is_ascii_digit() && ch[2] == ':' { return true; }
+        && ch[2].is_ascii_digit() && ch[3].is_ascii_digit() && ch[4] == '-'
+        && ch[5].is_ascii_digit() && ch[6].is_ascii_digit() && ch[7] == '-'
+    {
+        // Check the char after the date part is valid (T, space, t, end, or offset)
+        if ch.len() == 10 { return true; } // pure date YYYY-MM-DD
+        let next = ch[10];
+        if next == 'T' || next == 't' || next == ' ' { return true; }
+        if next == '+' || next == '-' { return true; } // offset
+        return false; // 2020-01-01x is NOT a date
+    }
+    // Time: HH:MM
+    if ch.len() >= 5 && ch[0].is_ascii_digit() && ch[1].is_ascii_digit() && ch[2] == ':'
+        && ch[3].is_ascii_digit() && ch[4].is_ascii_digit()
+    { return true; }
     false
 }
