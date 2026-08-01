@@ -101,12 +101,22 @@ fn is_value_position(tokens: &[TokenWithPos]) -> bool {
                 last_significant = &Token::RightBrace;
             }
             Token::RightBrace => { brace_depth -= 1; last_significant = &t.token; }
-            Token::Equals | Token::LeftBracket => { last_significant = &t.token; }
+            Token::Equals => { last_significant = &t.token; }
             Token::Comma => {
                 if brace_depth > 0 {
                     last_significant = &Token::RightBrace;
                 } else {
                     last_significant = &t.token;
+                }
+            }
+            Token::LeftBracket => {
+                // '[' after '=' or ',' or '[' = array value context (value position)
+                // '[' after newline or at document start = table header (key position)
+                let is_array = matches!(last_significant, Token::Equals | Token::Comma | Token::LeftBracket);
+                if is_array {
+                    last_significant = &t.token;
+                } else {
+                    last_significant = &Token::RightBrace; // key position for table header
                 }
             }
             other => { last_significant = other; }
