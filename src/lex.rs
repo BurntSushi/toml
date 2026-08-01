@@ -209,13 +209,98 @@ fn classify_value(buf: &str, pos: usize) -> Result<(Token, usize), ParseError> {
     if buf == "inf" || buf == "+inf" { return Ok((Token::Float(f64::INFINITY, buf.to_string()), pos)); }
     if buf == "-inf" { return Ok((Token::Float(f64::NEG_INFINITY, buf.to_string()), pos)); }
     if buf == "nan" || buf == "+nan" || buf == "-nan" { return Ok((Token::Float(f64::NAN, buf.to_string()), pos)); }
+
+    // Validate number format strictly
+    if is_number_start(buf) {
+        validate_number(buf)?;
+    }
+
     if let Ok(n) = parse_int(buf) { return Ok((Token::Integer(n), pos)); }
-    // Try parsing as float — strip underscores first
     let cleaned: String = buf.chars().filter(|c| *c != '_').collect();
     if let Ok(f) = cleaned.parse::<f64>() { return Ok((Token::Float(f, buf.to_string()), pos)); }
     if looks_like_dt(buf) { return Ok((Token::Datetime(buf.to_string()), pos)); }
-    // Fallback: treat as bare key (shouldn't happen for valid TOML)
     Ok((Token::BareKey(buf.to_string()), pos))
+}
+
+fn is_number_start(buf: &str) -> bool {
+    let b = buf.as_bytes();
+    if b.is_empty() { return false; }
+    // Don't validate datetimes as numbers
+    if looks_like_dt(buf) { return false; }
+    b[0].is_ascii_digit() || (b.len() > 1 && (b[0] == b'+' || b[0] == b'-') && b[1].is_ascii_digit())
+}
+
+fn validate_number(buf: &str) -> Result<(), ParseError> {
+    let b = buf.as_bytes();
+    if b.is_empty() { return Ok(()); }
+
+    // Reject capital Inf/NaN (must be lowercase)
+    if buf == "Inf" || buf == "NaN" || buf == "INF" || buf == "NAN" {
+        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"lowercase inf/nan",got:buf.to_string()});
+    }
+
+    // Reject leading underscores
+    if buf.starts_with('_') {
+        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"no leading underscore",got:buf.to_string()});
+    }
+
+    // Reject trailing underscores
+    if buf.ends_with('_') {
+        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"no trailing underscore",got:buf.to_string()});
+    }
+
+    // Reject double underscores
+    if buf.contains("__") {
+        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"no double underscore",got:buf.to_string()});
+    }
+
+    // Reject leading zeros (03.14, 01, 00) but allow 0.xxx, 0e..., 0x, 0o, 0b, and plain 0
+    let digits: String = buf.chars().filter(|c| *c != '_').collect();
+    let digits = digits.trim_start_matches(|c| c == '+' || c == '-');
+    if digits.len() > 1 && digits.starts_with('0') {
+        let second = digits.chars().nth(1).unwrap_or(' ');
+        // Allow: 0.xxx, 0e..., 0E..., 0x, 0o, 0b
+        if second != '.' && second != 'e' && second != 'E' && second != 'x' && second != 'o' && second != 'b' {
+            return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"no leading zeros",got:buf.to_string()});
+        }
+    }
+
+    // Reject leading dot (-.12345, +.12345, .12345)
+    if digits.starts_with('.') {
+        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"digits before dot",got:buf.to_string()});
+    }
+
+    // Reject trailing dot (1., 1.e2)
+    if digits.ends_with('.') {
+        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"digits after dot",got:buf.to_string()});
+    }
+
+    // Reject underscore adjacent to dot (1._2, 1_.2)
+    if buf.contains("._") || buf.contains("_.") {
+        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"no underscore adjacent to dot",got:buf.to_string()});
+    }
+
+    // Reject underscore adjacent to e/E (1e_23, 1_e2, 1.2_e2)
+    if buf.contains("e_") || buf.contains("E_") || buf.contains("_e") || buf.contains("_E") {
+        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"no underscore adjacent to exponent",got:buf.to_string()});
+    }
+
+    // Reject 0x-1 (invalid hex)
+    if buf.starts_with("0x-") || buf.starts_with("0x+") {
+        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"no sign in hex",got:buf.to_string()});
+    }
+
+    // Reject underscore after base prefix (0x_1, 0b_1, 0o_1)
+    if buf.starts_with("0x_") || buf.starts_with("0b_") || buf.starts_with("0o_") {
+        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"no underscore after prefix",got:buf.to_string()});
+    }
+
+    // Reject underscore in inf/nan (in_f, na_n)
+    if buf.contains('_') && (buf.starts_with("in") || buf.starts_with("na")) {
+        return Err(ParseError::UnexpectedToken{line:0,col:0,expected:"no underscore in inf/nan",got:buf.to_string()});
+    }
+
+    Ok(())
 }
 
 fn parse_int(s: &str) -> Result<i64, ()> {
