@@ -159,6 +159,10 @@ impl Parser {
             if !matches!(self.cur(), Token::Equals) { return Err(self.err_expected("=")); }
             self.adv(); self.skipws();
             let v = self.parse_value()?;
+            // Check for duplicate key in inline table
+            if kp.len() == 1 && tbl.contains_key(&kp[0]) {
+                return Err(ParseError::DuplicateKey{line:0,col:0,key:kp[0].clone()});
+            }
             let _ = insert_dotted(&mut tbl, &kp, v);
             self.skipnl();
             self.skipws();
@@ -237,11 +241,18 @@ fn insert_aot(root: &mut BTreeMap<String, Value>, path: &[String]) -> Result<(),
     Ok(())
 }
 
-fn insert_dotted(tbl: &mut BTreeMap<String, Value>, path: &[String], val: Value) -> Result<(), ParseError> {    if path.len()==1 { tbl.insert(path[0].clone(), val); Ok(()) }
+fn insert_dotted(tbl: &mut BTreeMap<String, Value>, path: &[String], val: Value) -> Result<(), ParseError> {
+    if path.len() == 1 {
+        if tbl.contains_key(&path[0]) {
+            return Err(ParseError::DuplicateKey{line:0,col:0,key:path[0].clone()});
+        }
+        tbl.insert(path[0].clone(), val);
+        Ok(())
+    }
     else {
-        let key=&path[0]; let rem=&path[1..];
-        let entry=tbl.entry(key.clone()).or_insert(Value::Table(BTreeMap::new()));
-        if let Value::Table(t)=entry { insert_dotted(t, rem, val) }
+        let key = &path[0]; let rem = &path[1..];
+        let entry = tbl.entry(key.clone()).or_insert(Value::Table(BTreeMap::new()));
+        if let Value::Table(t) = entry { insert_dotted(t, rem, val) }
         else { Err(ParseError::DuplicateKey{line:0,col:0,key:key.clone()}) }
     }
 }
