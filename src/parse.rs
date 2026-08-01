@@ -105,7 +105,11 @@ impl Parser {
             Token::Integer(n) => Ok(Value::Integer(n)),
             Token::Float(f) => Ok(Value::Float(f)),
             Token::Boolean(b) => Ok(Value::Boolean(b)),
-            Token::Datetime(s) => Ok(Value::String(s)),
+            Token::Datetime(s) => {
+                // Validate datetime components
+                validate_datetime(&s, l, c)?;
+                Ok(Value::String(s))
+            }
             Token::BareKey(s) => match s.as_str() {
                 "inf" | "+inf" => Ok(Value::Float(f64::INFINITY)),
                 "-inf" => Ok(Value::Float(f64::NEG_INFINITY)),
@@ -233,12 +237,80 @@ fn insert_aot(root: &mut BTreeMap<String, Value>, path: &[String]) -> Result<(),
     Ok(())
 }
 
-fn insert_dotted(tbl: &mut BTreeMap<String, Value>, path: &[String], val: Value) -> Result<(), ParseError> {
-    if path.len()==1 { tbl.insert(path[0].clone(), val); Ok(()) }
+fn insert_dotted(tbl: &mut BTreeMap<String, Value>, path: &[String], val: Value) -> Result<(), ParseError> {    if path.len()==1 { tbl.insert(path[0].clone(), val); Ok(()) }
     else {
         let key=&path[0]; let rem=&path[1..];
         let entry=tbl.entry(key.clone()).or_insert(Value::Table(BTreeMap::new()));
         if let Value::Table(t)=entry { insert_dotted(t, rem, val) }
         else { Err(ParseError::DuplicateKey{line:0,col:0,key:key.clone()}) }
     }
+}
+
+/// Validate datetime components (TOML spec ranges).
+fn validate_datetime(s: &str, line: usize, col: usize) -> Result<(), ParseError> {
+    let s = s.trim();
+    // Only validate date part if it looks like a date (YYYY-MM-DD)
+    if s.len() >= 10 && s[4..5] == *"-" && s[7..8] == *"-" {
+        let year: u32 = match s[0..4].parse() { Ok(y) => y, Err(_) => return Err(ParseError::UnexpectedToken{line,col,expected:"valid year",got:s[..4].into()}) };
+        let month: u32 = match s[5..7].parse() { Ok(m) => m, Err(_) => return Err(ParseError::UnexpectedToken{line,col,expected:"valid month",got:s[5..7].into()}) };
+        let day: u32 = match s[8..10].parse() { Ok(d) => d, Err(_) => return Err(ParseError::UnexpectedToken{line,col,expected:"valid day",got:s[8..10].into()}) };
+
+        if year == 0 { return Err(ParseError::UnexpectedToken{line,col,expected:"non-zero year",got:"0".into()}); }
+        if month == 0 || month > 12 { return Err(ParseError::UnexpectedToken{line,col,expected:"month 01-12",got:month.to_string()}); }
+        if day == 0 { return Err(ParseError::UnexpectedToken{line,col,expected:"day 01-31",got:"0".into()}); }
+        let max_day = match month {
+            1|3|5|7|8|10|12 => 31,
+            4|6|9|11 => 30,
+            2 => if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) { 29 } else { 28 },
+            _ => 31,
+        };
+        if day > max_day { return Err(ParseError::UnexpectedToken{line,col,expected:"valid day",got:day.to_string()}); }
+    }
+
+    if let Some(tpos) = s.find('T').or_else(|| s.find('t')) {
+        let time_part = &s[tpos+1..];
+        let time_end = time_part.find(|c: char| c == 'Z' || c == '+' || c == '-').unwrap_or(time_part.len());
+        let time_str = &time_part[..time_end];
+
+        let parts: Vec<&str> = time_str.split(':').collect();
+        if parts.len() >= 2 {
+            if let Ok(hour) = parts[0].parse::<u32>() {
+                if hour > 23 { return Err(ParseError::UnexpectedToken{line,col,expected:"hour 00-23",got:hour.to_string()}); }
+            }
+            if let Ok(minute) = parts[1].parse::<u32>() {
+                if minute > 59 { return Err(ParseError::UnexpectedToken{line,col,expected:"minute 00-59",got:minute.to_string()}); }
+            }
+            if parts.len() >= 3 {
+                let sec_str = parts[2].split('.').next().unwrap_or(parts[2]);
+                if let Ok(second) = sec_str.parse::<u32>() {
+                    if second > 60 { return Err(ParseError::UnexpectedToken{line,col,expected:"second 00-60",got:second.to_string()}); }
+                }
+                if parts[2].ends_with('.') && parts[2][..parts[2].len()-1].chars().all(|c| c.is_ascii_digit()) {
+                    return Err(ParseError::UnexpectedToken{line,col,expected:"digits after dot",got:parts[2].into()});
+                }
+            }
+        }
+
+        if let Some(off_start) = time_part.find(|c: char| c == '+' || (c == '-' && !time_part[..time_part.find(c).unwrap_or(0)].contains('-'))) {
+            let offset = &time_part[off_start..];
+            if offset.len() != 6 || offset.chars().nth(3) != Some(':') {
+                return Err(ParseError::UnexpectedToken{line,col,expected:"offset +/-HH:MM",got:offset.into()});
+            }
+            if let Ok(off_hour) = offset[1..3].parse::<u32>() {
+                if off_hour > 24 { return Err(ParseError::UnexpectedToken{line,col,expected:"offset hour 00-24",got:off_hour.to_string()}); }
+            }
+            if let Ok(off_min) = offset[4..6].parse::<u32>() {
+                if off_min > 59 { return Err(ParseError::UnexpectedToken{line,col,expected:"offset minute 00-59",got:off_min.to_string()}); }
+            }
+        }
+    }
+
+    if s.len() > 10 && !s.contains('T') && !s.contains(' ') && !s.contains(':') {
+        let after_date = &s[10..];
+        if !after_date.is_empty() && after_date != "Z" && !after_date.starts_with('+') && !after_date.starts_with('-') {
+            return Err(ParseError::UnexpectedToken{line,col,expected:"valid date separator",got:after_date.into()});
+        }
+    }
+
+    Ok(())
 }
