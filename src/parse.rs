@@ -171,9 +171,10 @@ impl Parser {
         let mut combined = token_to_string(&self.tokens[self.pos].token);
         let start_pos = self.pos;
 
-        // Consume: current, dot, next, and any further dot-prefixed continuations
+        // Consume current token
         self.adv(); // current
-        self.adv(); // dot
+        self.adv(); // dot — add the dot to combined!
+        combined.push('.');
 
         // Now get the next part
         combined.push_str(&token_to_string(&self.cur()));
