@@ -197,9 +197,11 @@ fn classify_value(buf: &str, pos: usize) -> Result<(Token, usize), ParseError> {
     if buf == "-inf" { return Ok((Token::Float(f64::NEG_INFINITY), pos)); }
     if buf == "nan" || buf == "+nan" || buf == "-nan" { return Ok((Token::Float(f64::NAN), pos)); }
     if let Ok(n) = parse_int(buf) { return Ok((Token::Integer(n), pos)); }
-    if let Ok(f) = buf.parse::<f64>() { return Ok((Token::Float(f), pos)); }
+    // Try parsing as float — strip underscores first
+    let cleaned: String = buf.chars().filter(|c| *c != '_').collect();
+    if let Ok(f) = cleaned.parse::<f64>() { return Ok((Token::Float(f), pos)); }
     if looks_like_dt(buf) { return Ok((Token::Datetime(buf.to_string()), pos)); }
-    // Fallback: treat as string (shouldn't happen for valid TOML)
+    // Fallback: treat as bare key (shouldn't happen for valid TOML)
     Ok((Token::BareKey(buf.to_string()), pos))
 }
 
