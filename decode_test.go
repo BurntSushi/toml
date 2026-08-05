@@ -1272,3 +1272,60 @@ func TestMaxTableNesting(t *testing.T) {
 		})
 	}
 }
+
+func TestDecodeFloat32Range(t *testing.T) {
+	// float32 can hold ±inf, and math.MaxFloat32 is representable. Its shortest
+	// decimal form (which the encoder emits) parses to a float64 fractionally
+	// larger than math.MaxFloat32 but rounds back to a finite float32, so it
+	// must decode without error. Only values that overflow to ±inf are rejected.
+	tests := []struct {
+		doc     string
+		want    float32
+		wantErr string
+	}{
+		{"v = inf", float32(math.Inf(1)), ""},
+		{"v = +inf", float32(math.Inf(1)), ""},
+		{"v = -inf", float32(math.Inf(-1)), ""},
+		{"v = 3.4028235e+38", math.MaxFloat32, ""},
+		{"v = -3.4028235e+38", -math.MaxFloat32, ""},
+		{"v = 3.5e38", 0, "is out of range for float32"},
+		{"v = 1.1e+99", 0, "is out of range for float32"},
+		{"v = -1.1e+99", 0, "is out of range for float32"},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			var s struct{ V float32 }
+			_, err := Decode(tt.doc, &s)
+			if !errorContains(err, tt.wantErr) {
+				t.Fatalf("wrong error for %q\nhave: %q\nwant: %q", tt.doc, err, tt.wantErr)
+			}
+			if tt.wantErr == "" && s.V != tt.want {
+				t.Fatalf("Decode(%q) = %v, want %v", tt.doc, s.V, tt.want)
+			}
+		})
+	}
+}
+
+func TestEncodeDecodeFloat32Inf(t *testing.T) {
+	in := struct {
+		Inf float32 `toml:"inf"`
+		Max float32 `toml:"max"`
+	}{float32(math.Inf(-1)), math.MaxFloat32}
+
+	var buf bytes.Buffer
+	if err := NewEncoder(&buf).Encode(in); err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+
+	var out struct {
+		Inf float32 `toml:"inf"`
+		Max float32 `toml:"max"`
+	}
+	if _, err := Decode(buf.String(), &out); err != nil {
+		t.Fatalf("round-trip decode of %q failed: %v", buf.String(), err)
+	}
+	if out != in {
+		t.Fatalf("round-trip mismatch:\nhave: %+v\nwant: %+v", out, in)
+	}
+}

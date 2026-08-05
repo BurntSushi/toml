@@ -457,7 +457,12 @@ func (md *MetaData) unifyFloat64(data any, rv reflect.Value) error {
 	if num, ok := data.(float64); ok {
 		switch rvk {
 		case reflect.Float32:
-			if num < -math.MaxFloat32 || num > math.MaxFloat32 {
+			// Reject only genuine overflow: a finite value whose magnitude is
+			// too large to round to a finite float32. Comparing against
+			// math.MaxFloat32 directly is too strict, because float64 values in
+			// the half-ULP band just above math.MaxFloat32 round to a finite
+			// float32, and ±inf is representable as a float32 as well.
+			if f := float32(num); math.IsInf(float64(f), 0) && !math.IsInf(num, 0) {
 				return md.parseErr(errParseRange{i: num, size: rvk.String()})
 			}
 			fallthrough
