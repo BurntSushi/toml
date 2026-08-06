@@ -514,6 +514,23 @@ Data = ["Foo", "Bar"]
 	}
 }
 
+// A uint64 that fits in int64 must keep working, and what the encoder writes has to
+// decode back: TOML integers are signed 64 bit, so anything larger has no representation.
+func TestEncodeUint64Roundtrip(t *testing.T) {
+	var buf bytes.Buffer
+	if err := NewEncoder(&buf).Encode(struct{ U uint64 }{math.MaxInt64}); err != nil {
+		t.Fatalf("encode: %s", err)
+	}
+
+	var back struct{ U uint64 }
+	if _, err := Decode(buf.String(), &back); err != nil {
+		t.Fatalf("decoding %q: %s", buf.String(), err)
+	}
+	if back.U != math.MaxInt64 {
+		t.Errorf("have %d, want %d", back.U, uint64(math.MaxInt64))
+	}
+}
+
 func TestEncodeError(t *testing.T) {
 	tests := []struct {
 		in      any
@@ -522,6 +539,8 @@ func TestEncodeError(t *testing.T) {
 		{make(chan int), "unsupported type for key '': chan"},
 		{struct{ C complex128 }{0}, "unsupported type: complex128"},
 		{[]complex128{0}, "unsupported type: complex128"},
+		{struct{ U uint64 }{math.MaxInt64 + 1}, "9223372036854775808 is out of range for int64"},
+		{struct{ U uint64 }{math.MaxUint64}, "18446744073709551615 is out of range for int64"},
 	}
 
 	for _, tt := range tests {

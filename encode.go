@@ -278,7 +278,14 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		enc.write(strconv.FormatInt(rv.Int(), 10))
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		enc.write(strconv.FormatUint(rv.Uint(), 10))
+		u := rv.Uint()
+		// TOML integers are signed 64 bit, so anything above math.MaxInt64 has no
+		// representation. Writing it anyway produces a document this package's own
+		// decoder rejects with "is out of range for int64".
+		if u > math.MaxInt64 {
+			encPanic(fmt.Errorf("%d is out of range for int64", u))
+		}
+		enc.write(strconv.FormatUint(u, 10))
 	case reflect.Float32:
 		f := rv.Float()
 		if math.IsNaN(f) {
