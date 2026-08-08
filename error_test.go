@@ -394,6 +394,26 @@ At line 3, column 7-13:
 	}
 }
 
+// Regression for #498: single-line EOF errors used to set Position.Line to 0,
+// which panicked inside ErrorWithPosition.
+func TestParseErrorEOFSingleLine(t *testing.T) {
+	var v any
+	_, err := toml.Decode(`a = "\`, &v)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var pe toml.ParseError
+	if !errors.As(err, &pe) {
+		t.Fatalf("not a ParseError: %#v", err)
+	}
+	if pe.Position.Line < 1 {
+		t.Fatalf("Position.Line = %d, want >= 1", pe.Position.Line)
+	}
+	// Must not panic.
+	_ = pe.ErrorWithPosition()
+	_ = pe.ErrorWithUsage()
+}
+
 func TestErrorIndent(t *testing.T) {
 	getErr := func(t *testing.T, tml string) toml.ParseError {
 		var m map[string]any
