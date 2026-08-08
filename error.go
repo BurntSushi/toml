@@ -116,7 +116,16 @@ func (pe ParseError) ErrorWithPosition() string {
 	var (
 		lines = strings.Split(pe.input, "\n")
 		b     = new(strings.Builder)
+		line  = pe.Position.Line
 	)
+	// Defensive: some EOF errors historically produced Line 0. Clamp so we
+	// never index lines[-1].
+	if line < 1 {
+		line = 1
+	}
+	if line > len(lines) {
+		line = len(lines)
+	}
 	if pe.Position.Len == 1 {
 		fmt.Fprintf(b, "toml: error: %s\n\nAt line %d, column %d:\n\n",
 			pe.Message, pe.Position.Line, pe.Position.Col)
@@ -124,11 +133,11 @@ func (pe ParseError) ErrorWithPosition() string {
 		fmt.Fprintf(b, "toml: error: %s\n\nAt line %d, column %d-%d:\n\n",
 			pe.Message, pe.Position.Line, pe.Position.Col, pe.Position.Col+pe.Position.Len-1)
 	}
-	if pe.Position.Line > 2 {
-		fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line-2, expandTab(lines[pe.Position.Line-3]))
+	if line > 2 {
+		fmt.Fprintf(b, "% 7d | %s\n", line-2, expandTab(lines[line-3]))
 	}
-	if pe.Position.Line > 1 {
-		fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line-1, expandTab(lines[pe.Position.Line-2]))
+	if line > 1 {
+		fmt.Fprintf(b, "% 7d | %s\n", line-1, expandTab(lines[line-2]))
 	}
 
 	/// Expand tabs, so that the ^^^s are at the correct position, but leave
@@ -136,11 +145,20 @@ func (pe ParseError) ErrorWithPosition() string {
 	/// better, but we don't know the tabsize of the user in their editor, which
 	/// can be 8, 4, 2, or something else. We can't know. So leaving it as the
 	/// character index is probably the "most correct".
-	expanded := expandTab(lines[pe.Position.Line-1])
-	diff := len(expanded) - len(lines[pe.Position.Line-1])
+	expanded := expandTab(lines[line-1])
+	diff := len(expanded) - len(lines[line-1])
 
-	fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line, expanded)
-	fmt.Fprintf(b, "% 10s%s%s\n", "", strings.Repeat(" ", pe.Position.Col-1+diff), strings.Repeat("^", pe.Position.Len))
+	col := pe.Position.Col
+	if col < 1 {
+		col = 1
+	}
+	length := pe.Position.Len
+	if length < 1 {
+		length = 1
+	}
+
+	fmt.Fprintf(b, "% 7d | %s\n", line, expanded)
+	fmt.Fprintf(b, "% 10s%s%s\n", "", strings.Repeat(" ", col-1+diff), strings.Repeat("^", length))
 	return b.String()
 }
 

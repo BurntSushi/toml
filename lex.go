@@ -250,9 +250,14 @@ func (lx *lexer) error(err error) stateFn {
 // the previous line.
 //
 // This is so that unexpected EOF or NL errors don't show on a new blank line.
+// On a single-line input the current line is already 1, so we must not
+// decrement below 1 (that previously produced Line 0 and panics in
+// ParseError.ErrorWithPosition).
 func (lx *lexer) errorPrevLine(err error) stateFn {
 	pos := lx.getPos()
-	pos.Line--
+	if pos.Line > 1 {
+		pos.Line--
+	}
 	pos.Len = 1
 	pos.Start = lx.pos - 1
 	lx.items <- item{typ: itemError, pos: pos, err: err}
