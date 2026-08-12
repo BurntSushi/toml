@@ -124,6 +124,12 @@ func (pe ParseError) ErrorWithPosition() string {
 		fmt.Fprintf(b, "toml: error: %s\n\nAt line %d, column %d-%d:\n\n",
 			pe.Message, pe.Position.Line, pe.Position.Col, pe.Position.Col+pe.Position.Len-1)
 	}
+	// Validate line number is within bounds
+	if pe.Position.Line < 1 || pe.Position.Line > len(lines) {
+		// Fallback to simple error message if line is out of bounds
+		return pe.Error()
+	}
+
 	if pe.Position.Line > 2 {
 		fmt.Fprintf(b, "% 7d | %s\n", pe.Position.Line-2, expandTab(lines[pe.Position.Line-3]))
 	}
