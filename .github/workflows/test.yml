@@ -13,7 +13,11 @@ jobs:
     strategy:
       matrix:
         go-version: ['1.21.x', '1.26.x']
-        os:         ['ubuntu-latest', 'macos-latest', 'windows-latest']
+        # macOS disabled for now because it fails with:
+        #   missing LC_UUID load command in /private/var/../toml.test
+        # Looks like at least Go 1.24 is needed? https://stackoverflow.com/a/79790775
+        #os:         ['ubuntu-latest', 'macos-latest', 'windows-latest']
+        os:         ['ubuntu-latest', 'windows-latest']
     runs-on: ${{ matrix.os }}
     steps:
       - uses: 'actions/checkout@v6'
