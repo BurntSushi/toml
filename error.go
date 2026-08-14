@@ -80,10 +80,7 @@ func (p Position) withCol(tomlFile string) Position {
 	for i := range lines {
 		ll := len(lines[i]) + 1 // +1 for the removed newline
 		if pos+ll >= p.Start {
-			p.Col = p.Start - pos + 1
-			if p.Col < 1 { // Should never happen, but just in case.
-				p.Col = 1
-			}
+			p.Col = max(p.Start-pos+1, 1) // Should never happen, but just in case.
 			break
 		}
 		pos += ll

@@ -53,11 +53,7 @@ func parse(data string, maxNest int) (p *parser, err error) {
 	// Examine first few bytes for NULL bytes; this probably means it's a UTF-16
 	// file (second byte in surrogate pair being NULL). Again, do this here to
 	// avoid having to deal with UTF-8/16 stuff in the lexer.
-	ex := 6
-	if len(data) < 6 {
-		ex = len(data)
-	}
-	if i := strings.IndexRune(data[:ex], 0); i > -1 {
+	if i := strings.IndexRune(data[:min(len(data), 6)], 0); i > -1 {
 		return nil, ParseError{
 			Message:  "files cannot contain NULL bytes; probably using UTF-16; TOML files must be UTF-8",
 			Position: Position{Line: 1, Col: 1, Start: i, Len: 1},
