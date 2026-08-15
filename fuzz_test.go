@@ -2,6 +2,7 @@ package toml
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 )
 
@@ -67,7 +68,12 @@ distros = [
 		var m map[string]any
 		_, err := Decode(file, &m)
 		if err != nil {
-			t.Skip()
+			// Make sure ErrorWithPosition doesn't panic.
+			var pErr ParseError
+			if errors.As(err, &pErr) {
+				pErr.ErrorWithPosition()
+			}
+			return
 		}
 
 		NewEncoder(bytes.NewBuffer(buf)).Encode(m)

@@ -239,9 +239,6 @@ func (lx *lexer) skip(pred func(rune) bool) {
 // Note that any value that is a character is escaped if it's a special
 // character (newlines, tabs, etc.).
 func (lx *lexer) error(err error) stateFn {
-	if lx.atEOF {
-		return lx.errorPrevLine(err)
-	}
 	lx.items <- item{typ: itemError, pos: lx.getPos(), err: err}
 	return nil
 }
