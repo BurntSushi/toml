@@ -105,92 +105,94 @@ func TestParseError(t *testing.T) {
 		{
 			&struct{ Int int8 }{},
 			"Int = 200",
-			`| toml: error: 200 is out of range for int8
-			 |
-			 | At line 1, column 7-9:
-			 |
-			 |       1 | Int = 200
-			 |                 ^^^
-			 | Error help:
-             |
-			 |     This number is too large; this may be an error in the TOML, but it can also be a
-			 |     bug in the program that uses too small of an integer.
-             |
-			 |     The maximum and minimum values are:
-             |
-			 |         size   │ lowest         │ highest
-			 |         ───────┼────────────────┼──────────────
-			 |         int8   │ -128           │ 127
-			 |         int16  │ -32,768        │ 32,767
-			 |         int32  │ -2,147,483,648 │ 2,147,483,647
-			 |         int64  │ -9.2 × 10¹⁷    │ 9.2 × 10¹⁷
-			 |         uint8  │ 0              │ 255
-			 |         uint16 │ 0              │ 65,535
-			 |         uint32 │ 0              │ 4,294,967,295
-			 |         uint64 │ 0              │ 1.8 × 10¹⁸
-             |
-			 |     int refers to int32 on 32-bit systems and int64 on 64-bit systems.
+			`
+			| toml: error: 200 is out of range for int8
+			|
+			| At line 1, column 7-9:
+			|
+			|       1 | Int = 200
+			|                 ^^^
+			| Error help:
+			|
+			|     This number is too large; this may be an error in the TOML, but it can also be a
+			|     bug in the program that uses too small of an integer.
+			|
+			|     The maximum and minimum values are:
+			|
+			|         size   │ lowest         │ highest
+			|         ───────┼────────────────┼──────────────
+			|         int8   │ -128           │ 127
+			|         int16  │ -32,768        │ 32,767
+			|         int32  │ -2,147,483,648 │ 2,147,483,647
+			|         int64  │ -9.2 × 10¹⁷    │ 9.2 × 10¹⁷
+			|         uint8  │ 0              │ 255
+			|         uint16 │ 0              │ 65,535
+			|         uint32 │ 0              │ 4,294,967,295
+			|         uint64 │ 0              │ 1.8 × 10¹⁸
+			|
+			|     int refers to int32 on 32-bit systems and int64 on 64-bit systems.
 			`,
 		},
 		{
 			&struct{ Int int }{},
 			fmt.Sprintf("Int = %d", uint64(math.MaxInt64+1)),
-			`| toml: error: 9223372036854775808 is out of range for int64
-			 |
-			 | At line 1, column 7-25:
-			 |
-			 |       1 | Int = 9223372036854775808
-			 |                 ^^^^^^^^^^^^^^^^^^^
-			 | Error help:
-             |
-			 |     This number is too large; this may be an error in the TOML, but it can also be a
-			 |     bug in the program that uses too small of an integer.
-             |
-			 |     The maximum and minimum values are:
-             |
-			 |         size   │ lowest         │ highest
-			 |         ───────┼────────────────┼──────────────
-			 |         int8   │ -128           │ 127
-			 |         int16  │ -32,768        │ 32,767
-			 |         int32  │ -2,147,483,648 │ 2,147,483,647
-			 |         int64  │ -9.2 × 10¹⁷    │ 9.2 × 10¹⁷
-			 |         uint8  │ 0              │ 255
-			 |         uint16 │ 0              │ 65,535
-			 |         uint32 │ 0              │ 4,294,967,295
-			 |         uint64 │ 0              │ 1.8 × 10¹⁸
-             |
-			 |     int refers to int32 on 32-bit systems and int64 on 64-bit systems.
+			`
+			| toml: error: 9223372036854775808 is out of range for int64
+			|
+			| At line 1, column 7-25:
+			|
+			|       1 | Int = 9223372036854775808
+			|                 ^^^^^^^^^^^^^^^^^^^
+			| Error help:
+			|
+			|     This number is too large; this may be an error in the TOML, but it can also be a
+			|     bug in the program that uses too small of an integer.
+			|
+			|     The maximum and minimum values are:
+			|
+			|         size   │ lowest         │ highest
+			|         ───────┼────────────────┼──────────────
+			|         int8   │ -128           │ 127
+			|         int16  │ -32,768        │ 32,767
+			|         int32  │ -2,147,483,648 │ 2,147,483,647
+			|         int64  │ -9.2 × 10¹⁷    │ 9.2 × 10¹⁷
+			|         uint8  │ 0              │ 255
+			|         uint16 │ 0              │ 65,535
+			|         uint32 │ 0              │ 4,294,967,295
+			|         uint64 │ 0              │ 1.8 × 10¹⁸
+			|
+			|     int refers to int32 on 32-bit systems and int64 on 64-bit systems.
 			`,
 		},
 		{
 			&struct{ Float float32 }{},
 			"Float = 1.1e99",
 			`
-            | toml: error: 1.1e+99 is out of range for float32
-            |
-            | At line 1, column 9-14:
-            |
-            |       1 | Float = 1.1e99
-            |                   ^^^^^^
-            | Error help:
-            |
-            |     This number is too large; this may be an error in the TOML, but it can also be a
-            |     bug in the program that uses too small of an integer.
-            |
-            |     The maximum and minimum values are:
-            |
-            |         size   │ lowest         │ highest
-            |         ───────┼────────────────┼──────────────
-            |         int8   │ -128           │ 127
-            |         int16  │ -32,768        │ 32,767
-            |         int32  │ -2,147,483,648 │ 2,147,483,647
-            |         int64  │ -9.2 × 10¹⁷    │ 9.2 × 10¹⁷
-            |         uint8  │ 0              │ 255
-            |         uint16 │ 0              │ 65,535
-            |         uint32 │ 0              │ 4,294,967,295
-            |         uint64 │ 0              │ 1.8 × 10¹⁸
-            |
-            |     int refers to int32 on 32-bit systems and int64 on 64-bit systems.
+			| toml: error: 1.1e+99 is out of range for float32
+			|
+			| At line 1, column 9-14:
+			|
+			|       1 | Float = 1.1e99
+			|                   ^^^^^^
+			| Error help:
+			|
+			|     This number is too large; this may be an error in the TOML, but it can also be a
+			|     bug in the program that uses too small of an integer.
+			|
+			|     The maximum and minimum values are:
+			|
+			|         size   │ lowest         │ highest
+			|         ───────┼────────────────┼──────────────
+			|         int8   │ -128           │ 127
+			|         int16  │ -32,768        │ 32,767
+			|         int32  │ -2,147,483,648 │ 2,147,483,647
+			|         int64  │ -9.2 × 10¹⁷    │ 9.2 × 10¹⁷
+			|         uint8  │ 0              │ 255
+			|         uint16 │ 0              │ 65,535
+			|         uint32 │ 0              │ 4,294,967,295
+			|         uint64 │ 0              │ 1.8 × 10¹⁸
+			|
+			|     int refers to int32 on 32-bit systems and int64 on 64-bit systems.
 			`,
 		},
 
@@ -224,31 +226,31 @@ func TestParseError(t *testing.T) {
 			&struct{ D time.Time }{},
 			`D = 2006-01-99`,
 			`
-            | toml: error: invalid datetime: "2006-01-99"
-            |
-            | At line 1, column 5-14:
-            |
-            |       1 | D = 2006-01-99
-            |               ^^^^^^^^^^
-            | Error help:
-            |
-            |     A TOML datetime must be in one of the following formats:
-            |
-            |         2006-01-02T15:04:05Z07:00   Date and time, with timezone.
-            |         2006-01-02T15:04:05         Date and time, but without timezone.
-            |         2006-01-02                  Date without a time or timezone.
-            |         15:04:05                    Just a time, without any timezone.
-            |
-            |     Seconds may optionally have a fraction, up to nanosecond precision:
-            |
-            |         15:04:05.123
-            |         15:04:05.856018510
-            |
-            |     The seconds part in times is optional, and may be omitted:
-            |
-            |         2006-01-02T15:04Z07:00
-            |         2006-01-02T15:04
-            |         15:04
+			| toml: error: invalid datetime: "2006-01-99"
+			|
+			| At line 1, column 5-14:
+			|
+			|       1 | D = 2006-01-99
+			|               ^^^^^^^^^^
+			| Error help:
+			|
+			|     A TOML datetime must be in one of the following formats:
+			|
+			|         2006-01-02T15:04:05Z07:00   Date and time, with timezone.
+			|         2006-01-02T15:04:05         Date and time, but without timezone.
+			|         2006-01-02                  Date without a time or timezone.
+			|         15:04:05                    Just a time, without any timezone.
+			|
+			|     Seconds may optionally have a fraction, up to nanosecond precision:
+			|
+			|         15:04:05.123
+			|         15:04:05.856018510
+			|
+			|     The seconds part in times is optional, and may be omitted:
+			|
+			|         2006-01-02T15:04Z07:00
+			|         2006-01-02T15:04
+			|         15:04
 			`,
 		},
 
@@ -256,12 +258,65 @@ func TestParseError(t *testing.T) {
 			&struct{ String string }{},
 			`string = "test`,
 			`
-            | toml: error: unexpected EOF; expected '"'
+			| toml: error: unexpected EOF; expected '"'
 			|
 			| At line 1, column 14:
 			|
 			|       1 | string = "test
 			|                        ^
+			`,
+		},
+		{
+			&map[string]any{},
+			`key = "\`,
+			`
+			| toml: error: unexpected end of line after '\'
+			|
+			| At line 1, column 8:
+			|
+			|       1 | key = "\
+			|                  ^
+			| Error help:
+			|
+			|     A '\' inside a "-delimited string is interpreted as an escape character.
+			|
+			|     The following escape sequences are supported:
+			|     \b, \t, \n, \f, \r, \", \\, \uXXXX, and \UXXXXXXXX
+			|
+			|     To prevent a '\' from being recognized as an escape character, use either:
+			|
+			|     - a ' or '''-delimited string; escape characters aren't processed in them; or
+			|     - write two backslashes to get a single backslash: '\\'.
+			|
+			|     If you're trying to add a Windows path (e.g. "C:\Users\martin") then using '/'
+			|     instead of '\' will usually also work: "C:/Users/martin".
+			`,
+		},
+		{
+			&map[string]any{},
+			"a = 123\n" + `key = "\`,
+			`
+			| toml: error: unexpected end of line after '\'
+			|
+			| At line 2, column 8:
+			|
+			|       1 | a = 123
+			|       2 | key = "\
+			|                  ^
+			| Error help:
+			|
+			|     A '\' inside a "-delimited string is interpreted as an escape character.
+			|
+			|     The following escape sequences are supported:
+			|     \b, \t, \n, \f, \r, \", \\, \uXXXX, and \UXXXXXXXX
+			|
+			|     To prevent a '\' from being recognized as an escape character, use either:
+			|
+			|     - a ' or '''-delimited string; escape characters aren't processed in them; or
+			|     - write two backslashes to get a single backslash: '\\'.
+			|
+			|     If you're trying to add a Windows path (e.g. "C:\Users\martin") then using '/'
+			|     instead of '\' will usually also work: "C:/Users/martin".
 			`,
 		},
 	}
@@ -291,7 +346,6 @@ func TestParseError(t *testing.T) {
 
 			tt.err = prep(tt.err)
 			have := pErr.ErrorWithUsage()
-
 			// have = strings.ReplaceAll(have, " ", "·")
 			// tt.err = strings.ReplaceAll(tt.err, " ", "·")
 			if have != tt.err {

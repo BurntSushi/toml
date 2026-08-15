@@ -208,7 +208,14 @@ func (e errLexControl) Error() string {
 }
 func (e errLexControl) Usage() string { return "" }
 
-func (e errLexEscape) Error() string   { return fmt.Sprintf(`invalid escape in string '\%c'`, e.r) }
+func (e errLexEscape) Error() string {
+	switch e.r {
+	case 0, '\r', '\n':
+		return `unexpected end of line after '\'`
+	default:
+		return fmt.Sprintf(`invalid escape in string '\%c'`, e.r)
+	}
+}
 func (e errLexEscape) Usage() string   { return usageEscape }
 func (e errLexUTF8) Error() string     { return fmt.Sprintf("invalid UTF-8 byte: 0x%02x", e.b) }
 func (e errLexUTF8) Usage() string     { return "" }
