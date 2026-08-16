@@ -1244,24 +1244,35 @@ func TestDecodeCustomStructMarkedDecoded(t *testing.T) {
 	}
 }
 
-func TestMaxTableNesting(t *testing.T) {
+func TestMaxDepth(t *testing.T) {
+	var (
+		tbl = func(n int) string { return strings.Repeat(".a", n)[1:] + "=1" }
+		arr = func(n int) string { return "a=" + strings.Repeat("[", n) + "1" + strings.Repeat("]", n) }
+	)
 	tests := []struct {
 		doc     string
 		maxNest int
 		wantErr string
 	}{
-		{"\n\n" + strings.Repeat(".a", 128)[1:] + " = 1", -99, ""},
-		{"\n\n" + strings.Repeat(".a", 129)[1:] + " = 1", -99, "toml: line 3: too many nested tables: can have up to 128 nested tables"},
-		{"\n\n" + strings.Repeat(".a", 300)[1:] + " = 1", 0, ""},
-		{"\n\n" + strings.Repeat(".a", 5)[1:] + " = 1", 5, ""},
-		{"\n\n" + strings.Repeat(".a", 6)[1:] + " = 1", 5, "toml: line 3: too many nested tables: can have up to 5 nested tables"},
+		{"\n\n" + tbl(128), -99, ""},
+		{"\n\n" + tbl(129), -99, "toml: line 3: exceeds maximum table depth of 128"},
+		{"\n\n" + tbl(300), 0, ""},
+		{"\n\n" + tbl(5), 5, ""},
+		{"\n\n" + tbl(6), 5, "toml: line 3: exceeds maximum table depth of 5"},
+
+		{arr(128), -99, ""},
+		{arr(129), -99, `toml: line 1 (last key "a"): exceeds maximum array depth of 128`},
+		{"x=1\n" + arr(129), -99, `toml: line 2 (last key "a"): exceeds maximum array depth of 128`},
+		{arr(300), 0, ``},
+		{arr(5), 5, ""},
+		{arr(6), 5, `toml: line 1 (last key "a"): exceeds maximum array depth of 5`},
 	}
 
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
 			d := NewDecoder(strings.NewReader(tt.doc))
 			if tt.maxNest != -99 {
-				d.MaxTableNesting(tt.maxNest)
+				d.MaxDepth(tt.maxNest)
 			}
 
 			var m map[string]any
