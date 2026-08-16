@@ -13,7 +13,8 @@ import (
 
 type parser struct {
 	lx         *lexer
-	maxNest    int
+	maxDepth   int
+	arrDepth   int
 	context    Key      // Full key for the current hash in scope.
 	currentKey string   // Base key name for everything except hashes.
 	pos        Position // Current position in the TOML file.
@@ -29,7 +30,7 @@ type keyInfo struct {
 	tomlType tomlType
 }
 
-func parse(data string, maxNest int) (p *parser, err error) {
+func parse(data string, maxDepth int) (p *parser, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if pErr, ok := r.(ParseError); ok {
@@ -64,7 +65,7 @@ func parse(data string, maxNest int) (p *parser, err error) {
 
 	p = &parser{
 		lx:        lex(data),
-		maxNest:   maxNest,
+		maxDepth:  maxDepth,
 		keyInfo:   make(map[string]keyInfo),
 		mapping:   make(map[string]any),
 		ordered:   make([]Key, 0),
@@ -393,6 +394,12 @@ func missingLeadingZero(d, l string) bool {
 }
 
 func (p *parser) valueArray(it item) (any, tomlType) {
+	if p.maxDepth > 0 && p.arrDepth >= p.maxDepth {
+		p.panicf("exceeds maximum array depth of %d", p.maxDepth)
+	}
+	p.arrDepth++
+	defer func() { p.arrDepth-- }()
+
 	p.setType(p.currentKey, tomlArray, it.pos)
 
 	var (
@@ -539,11 +546,11 @@ func numPeriodsOK(s string) bool {
 // Establishing the context also makes sure that the key isn't a duplicate, and
 // will create implicit hashes automatically.
 func (p *parser) addContext(key Key, array bool) {
-	if p.maxNest > 0 && len(key) >= p.maxNest {
+	if p.maxDepth > 0 && len(key) >= p.maxDepth {
 		// Don't use panicf() helper because we don't want to set LastKey here –
 		// it's going to be a very long string and not very useful.
 		panic(ParseError{
-			Message:  fmt.Sprintf("too many nested tables: can have up to %d nested tables", p.maxNest),
+			Message:  fmt.Sprintf("exceeds maximum table depth of %d", p.maxDepth),
 			Position: p.pos.withCol(p.lx.input),
 			Line:     p.pos.Line,
 		})
