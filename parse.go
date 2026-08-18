@@ -657,6 +657,15 @@ func (p *parser) setValue(key string, value any) {
 			return
 		}
 		if p.isImplicit(keyContext) {
+			// An implicit key (e.g. the "a" created by "a.b = ...") may be
+			// defined concretely later, but only as a table. Redefining it as a
+			// non-table value (e.g. "a = 7") clashes with the implicit table and
+			// is always wrong.
+			if _, oldIsHash := hash[key].(map[string]any); oldIsHash {
+				if _, newIsHash := value.(map[string]any); !newIsHash {
+					p.panicf("Key '%s' has already been defined.", keyContext)
+				}
+			}
 			p.removeImplicit(keyContext)
 			return
 		}
