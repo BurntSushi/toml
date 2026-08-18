@@ -325,13 +325,8 @@ func TestToml(t *testing.T) {
 
 			// TODO: fix this; we allow appending to tables, but shouldn't.
 			"invalid/array/extend-defined-aot",
-			"invalid/inline-table/duplicate-key-03",
-			"invalid/inline-table/overwrite-02",
-			"invalid/inline-table/overwrite-08",
-			"invalid/spec-1.0.0/inline-table-2-0",
 			"invalid/spec-1.0.0/table-9-1",
 			"invalid/spec-1.1.0/common-46-1",
-			"invalid/spec-1.1.0/common-49-0",
 			"invalid/table/append-to-array-with-dotted-keys",
 			"invalid/table/append-with-dotted-keys-01",
 			"invalid/table/append-with-dotted-keys-02",
