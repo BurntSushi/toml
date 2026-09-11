@@ -500,3 +500,39 @@ At line 2, column 11-13:
 		t.Errorf("\nwant:\n%s\nhave:\n%s", want, have)
 	}
 }
+
+func TestErrorStringNewline(t *testing.T) {
+	getErr := func(t *testing.T, tml string) toml.ParseError {
+		t.Helper()
+		var m map[string]any
+		_, err := toml.Decode(tml, &m)
+		if err == nil {
+			t.Fatal("err is nil")
+		}
+		var pErr toml.ParseError
+		if !errors.As(err, &pErr) {
+			t.Fatalf("not a ParseError: %#v", err)
+		}
+		return pErr
+	}
+
+	tests := []struct {
+		toml     string
+		wantLine int
+	}{
+		{"k = \"x\ny\"", 1},
+		{"k = \"x\r\ny\"", 1},
+		{"a = 1\nk = \"x\r\ny\"", 2},
+		{"k = 'x\ny'", 1},
+		{"k = 'x\r\ny'", 1},
+	}
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			pErr := getErr(t, tt.toml)
+			if pErr.Position.Line != tt.wantLine {
+				t.Errorf("Position.Line = %d; want %d", pErr.Position.Line, tt.wantLine)
+			}
+			_ = pErr.ErrorWithPosition() // must not panic
+		})
+	}
+}
