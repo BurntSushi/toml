@@ -97,6 +97,43 @@ At line 1, column 7:
 	}
 }
 
+func TestErrorWithPositionQuotedCRNL(t *testing.T) {
+	// Quoted strings with a newline (including Windows \r\n) used to leave
+	// Position.Line at 0 via errorPrevLine, so ErrorWithPosition paniced
+	// with index [-1]. See #517.
+	inputs := []string{
+		"\"\n\"",
+		"\"",
+		"\"\r\n\"",
+		"\"\r\n",
+		"\"\\",
+		"\"\n",
+		"\"\n\"",
+		"'\n'",
+		"'\r\n'",
+	}
+	for _, input := range inputs {
+		t.Run(fmt.Sprintf("%q", input), func(t *testing.T) {
+			var m map[string]any
+			_, err := toml.Decode(input, &m)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			var pErr toml.ParseError
+			if !errors.As(err, &pErr) {
+				t.Fatalf("expected ParseError, got %T", err)
+			}
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("ErrorWithPosition panicked on %q: %v", input, r)
+				}
+			}()
+			_ = pErr.ErrorWithPosition()
+			_ = pErr.ErrorWithUsage()
+		})
+	}
+}
+
 func TestParseError(t *testing.T) {
 	tests := []struct {
 		in        any
