@@ -114,6 +114,12 @@ func (pe ParseError) ErrorWithPosition() string {
 		lines = strings.Split(pe.input, "\n")
 		b     = new(strings.Builder)
 	)
+	if pe.Position.Line < 1 {
+		pe.Position.Line = 1
+	}
+	if pe.Position.Line > len(lines) {
+		pe.Position.Line = len(lines)
+	}
 	if pe.Position.Len == 1 {
 		fmt.Fprintf(b, "toml: error: %s\n\nAt line %d, column %d:\n\n",
 			pe.Message, pe.Position.Line, pe.Position.Col)

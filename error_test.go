@@ -500,3 +500,31 @@ At line 2, column 11-13:
 		t.Errorf("\nwant:\n%s\nhave:\n%s", want, have)
 	}
 }
+
+func TestErrorWindowsNewline(t *testing.T) {
+	for _, input := range []string{
+		"\"\n\"",
+		"\"",
+		"\"\r\n\"",
+		"\"\r\n",
+		"\"\\",
+		"\"\n",
+	} {
+		var m map[string]any
+		_, err := toml.Decode(input, &m)
+		if err == nil {
+			t.Fatalf("expected error for %q, got nil", input)
+		}
+		var pErr toml.ParseError
+		if !errors.As(err, &pErr) {
+			t.Fatalf("expected ParseError for %q, got %T", input, err)
+		}
+		// ErrorWithPosition and ErrorWithUsage must not panic.
+		_ = pErr.ErrorWithPosition()
+		_ = pErr.ErrorWithUsage()
+		if pErr.Position.Line < 1 {
+			t.Errorf("expected Position.Line >= 1 for %q, got %d", input, pErr.Position.Line)
+		}
+	}
+}
+
