@@ -243,15 +243,22 @@ func (lx *lexer) error(err error) stateFn {
 	return nil
 }
 
-// errorfPrevline is like error(), but sets the position to the last column of
-// the previous line.
+// errorPrevLine is like error(), but sets the position to the last column of
+// the previous line when the newline was '\n'.
 //
 // This is so that unexpected EOF or NL errors don't show on a new blank line.
+// next() only increments the line counter for '\n', so a Windows '\r\n'
+// (lexed as '\r' via isNL) must not decrement here or Line becomes 0.
 func (lx *lexer) errorPrevLine(err error) stateFn {
 	pos := lx.getPos()
-	pos.Line--
+	if lx.pos > 0 && lx.input[lx.pos-1] == '\n' {
+		pos.Line--
+	}
 	pos.Len = 1
 	pos.Start = lx.pos - 1
+	if pos.Start < 0 {
+		pos.Start = 0
+	}
 	lx.items <- item{typ: itemError, pos: pos, err: err}
 	return nil
 }
