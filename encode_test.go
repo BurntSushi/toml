@@ -519,6 +519,7 @@ func TestEncodeError(t *testing.T) {
 		in      any
 		wantErr string
 	}{
+		{nil, "cannot encode nil value"},
 		{make(chan int), "unsupported type for key '': chan"},
 		{struct{ C complex128 }{0}, "unsupported type: complex128"},
 		{[]complex128{0}, "unsupported type: complex128"},
@@ -534,6 +535,19 @@ func TestEncodeError(t *testing.T) {
 				t.Errorf("wrong error\nhave: %q\nwant: %q", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestMarshalNil(t *testing.T) {
+	data, err := Marshal(nil)
+	if err == nil {
+		t.Fatal("err is nil")
+	}
+	if !errorContains(err, "cannot encode nil value") {
+		t.Errorf("wrong error\nhave: %q\nwant: cannot encode nil value", err)
+	}
+	if data != nil {
+		t.Errorf("expected no output, got %q", data)
 	}
 }
 

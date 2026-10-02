@@ -142,6 +142,9 @@ func NewEncoder(w io.Writer) *Encoder {
 // An error is returned if the value given cannot be encoded to a valid TOML
 // document.
 func (enc *Encoder) Encode(v any) error {
+	if v == nil {
+		return errors.New("toml: cannot encode nil value")
+	}
 	rv := eindirect(reflect.ValueOf(v))
 	err := enc.safeEncode(Key([]string{}), rv)
 	if err != nil {
