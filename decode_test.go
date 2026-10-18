@@ -190,6 +190,16 @@ func TestDecodeErrors(t *testing.T) {
 			`toml: line 1 (last key "V"): type mismatch for struct { V int }: expected table but found int64`,
 		},
 		{
+			&struct{ V map[string]int }{},
+			`V = 999`,
+			`toml: line 1 (last key "V"): incompatible types: TOML value has type int64; destination has type map`,
+		},
+		{
+			&struct{ V map[string]int }{},
+			`V = [1, 2]`,
+			`toml: line 1 (last key "V"): incompatible types: TOML value has type []any; destination has type map`,
+		},
+		{
 			&struct{ V [1]int }{},
 			`V = [1,2,3]`,
 			`toml: line 1 (last key "V"): expected array length 1; got TOML array of length 3`,
