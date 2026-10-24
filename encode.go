@@ -411,19 +411,21 @@ func (enc *Encoder) eMap(key Key, rv reflect.Value, inline bool) {
 		}
 	}
 
-	writeMapKeys := func(mapKeys []reflect.Value, trailC bool) {
+	first := true
+	writeMapKeys := func(mapKeys []reflect.Value) {
 		sort.Slice(mapKeys, func(i, j int) bool { return mapKeys[i].String() < mapKeys[j].String() })
-		for i, mapKey := range mapKeys {
+		for _, mapKey := range mapKeys {
 			val := eindirect(rv.MapIndex(mapKey))
 			if isNil(val) {
 				continue
 			}
 
 			if inline {
-				enc.writeKeyValue(Key{mapKey.String()}, val, true)
-				if trailC || i != len(mapKeys)-1 {
+				if !first {
 					enc.write(", ")
 				}
+				first = false
+				enc.writeKeyValue(Key{mapKey.String()}, val, true)
 			} else {
 				enc.encode(key.add(mapKey.String()), val)
 			}
@@ -433,8 +435,8 @@ func (enc *Encoder) eMap(key Key, rv reflect.Value, inline bool) {
 	if inline {
 		enc.write("{")
 	}
-	writeMapKeys(mapKeysDirect, len(mapKeysSub) > 0)
-	writeMapKeys(mapKeysSub, false)
+	writeMapKeys(mapKeysDirect)
+	writeMapKeys(mapKeysSub)
 	if inline {
 		enc.write("}")
 	}
@@ -503,7 +505,8 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value, inline bool) {
 	}
 	addFields(rt, rv, nil)
 
-	writeFields := func(fields [][]int, totalFields int) {
+	first := true
+	writeFields := func(fields [][]int) {
 		for _, fieldIndex := range fields {
 			fieldType := rt.FieldByIndex(fieldIndex)
 			fieldVal := rv.FieldByIndex(fieldIndex)
@@ -532,10 +535,11 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value, inline bool) {
 			}
 
 			if inline {
-				enc.writeKeyValue(Key{keyName}, fieldVal, true)
-				if fieldIndex[0] != totalFields-1 {
+				if !first {
 					enc.write(", ")
 				}
+				first = false
+				enc.writeKeyValue(Key{keyName}, fieldVal, true)
 			} else {
 				enc.encode(key.add(keyName), fieldVal)
 			}
@@ -545,10 +549,8 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value, inline bool) {
 	if inline {
 		enc.write("{")
 	}
-
-	l := len(fieldsDirect) + len(fieldsSub)
-	writeFields(fieldsDirect, l)
-	writeFields(fieldsSub, l)
+	writeFields(fieldsDirect)
+	writeFields(fieldsSub)
 	if inline {
 		enc.write("}")
 	}

@@ -896,6 +896,15 @@ func TestEncode(t *testing.T) {
 			I int
 			M map[string]int
 		}
+		IntMapInt struct {
+			I int
+			M map[string]int
+			J int
+		}
+		IntAndNilPtr struct {
+			I int
+			P *int
+		}
 	)
 
 	date := time.Date(2014, 5, 11, 19, 30, 40, 0, time.UTC)
@@ -1289,6 +1298,31 @@ ArrayOfMixedSlices = [[1, 2], ["a", "b"]]
 				M: map[string]int{"c": 2},
 			}}}},
 			wantOutput: `A = [[{I = 1, M = {c = 2}}]]`,
+		},
+
+		"table between values in double array": {
+			input: struct {
+				A [][]IntMapInt
+			}{A: [][]IntMapInt{{{
+				I: 1,
+				M: map[string]int{"c": 2},
+				J: 3,
+			}}}},
+			wantOutput: `A = [[{I = 1, J = 3, M = {c = 2}}]]`,
+		},
+
+		"nil pointer last in double array": {
+			input: struct {
+				A [][]IntAndNilPtr
+			}{A: [][]IntAndNilPtr{{{I: 1}}}},
+			wantOutput: `A = [[{I = 1}]]`,
+		},
+
+		"nil value last in map in double array": {
+			input: struct {
+				A [][]map[string]any
+			}{A: [][]map[string]any{{{"a": 1, "z": (*int)(nil)}}}},
+			wantOutput: `A = [[{a = 1}]]`,
 		},
 	}
 	for label, test := range tests {
