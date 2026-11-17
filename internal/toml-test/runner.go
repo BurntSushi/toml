@@ -154,7 +154,7 @@ type Test struct {
 
 	Skipped          bool          `json:"skipped"`            // Skipped this test?
 	Failure          string        `json:"failure"`            // Failure message.
-	Key              string        `json:"key"`                // TOML key the failure occured on; may be blank.
+	Key              string        `json:"key"`                // TOML key the failure occurred on; may be blank.
 	Input            string        `json:"input"`              // The test case that we sent to the external program.
 	Output           string        `json:"output"`             // Output from the external program.
 	Want             string        `json:"want"`               // The output we want.
